@@ -1,0 +1,466 @@
+name: Step 10 Profile Workspace Identity
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    name: Add Profile Workspace Identity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Add profile workspace identity system
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$APP_DIR/data"
+          mkdir -p "$APP_DIR/viewmodel"
+          mkdir -p "$APP_DIR/ui/screens"
+
+          cat > "$APP_DIR/data/ProfileModels.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.data
+
+          data class WorkspaceProfile(
+              val displayName: String,
+              val title: String,
+              val handle: String,
+              val principle: String,
+              val github: String,
+              val website: String,
+              val xProfile: String,
+              val status: String
+          )
+
+          data class WorkspaceStat(
+              val label: String,
+              val value: String,
+              val description: String
+          )
+
+          data class WorkspaceCapability(
+              val name: String,
+              val description: String,
+              val enabled: Boolean
+          )
+
+          object ProfileDefaults {
+              fun profile(): WorkspaceProfile {
+                  return WorkspaceProfile(
+                      displayName = "Mr. Robot",
+                      title = "AI Workspace Operator",
+                      handle = "devxvoid",
+                      principle = "When we lose our principles, we invite chaos.",
+                      github = "github.com/devxvoid",
+                      website = "aakashpanta.blog",
+                      xProfile = "x.com/i_am_apc",
+                      status = "Workspace Active"
+                  )
+              }
+
+              fun stats(): List<WorkspaceStat> {
+                  return listOf(
+                      WorkspaceStat(
+                          label = "Screens",
+                          value = "10",
+                          description = "Core Android MVP screens"
+                      ),
+                      WorkspaceStat(
+                          label = "Agents",
+                          value = "5",
+                          description = "Specialized execution agents"
+                      ),
+                      WorkspaceStat(
+                          label = "Workflows",
+                          value = "2",
+                          description = "Reusable pipeline templates"
+                      ),
+                      WorkspaceStat(
+                          label = "AI",
+                          value = "OpenRouter",
+                          description = "Multi-model provider gateway"
+                      )
+                  )
+              }
+
+              fun capabilities(): List<WorkspaceCapability> {
+                  return listOf(
+                      WorkspaceCapability(
+                          name = "OpenRouter Chat",
+                          description = "Real AI chat using saved API key and selected model.",
+                          enabled = true
+                      ),
+                      WorkspaceCapability(
+                          name = "Agent Prompt Builder",
+                          description = "Generate role-specific prompts for Android, UI, backend, debugging, and CI/CD.",
+                          enabled = true
+                      ),
+                      WorkspaceCapability(
+                          name = "Workflow Builder",
+                          description = "Create, reorder, simulate, and export multi-agent workflow prompts.",
+                          enabled = true
+                      ),
+                      WorkspaceCapability(
+                          name = "Terminal Logs",
+                          description = "Safe mobile command simulation and build-log copy system.",
+                          enabled = true
+                      ),
+                      WorkspaceCapability(
+                          name = "File Manager",
+                          description = "Browse project files, Stitch ZIP reference, workflows, and source files.",
+                          enabled = true
+                      ),
+                      WorkspaceCapability(
+                          name = "Marketplace",
+                          description = "Enable and disable models, tools, integrations, workflows, and agents.",
+                          enabled = true
+                      )
+                  )
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/viewmodel/ProfileViewModel.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.viewmodel
+
+          import androidx.lifecycle.ViewModel
+          import com.mrrobot.aiworkspace.data.ProfileDefaults
+          import com.mrrobot.aiworkspace.data.WorkspaceCapability
+          import com.mrrobot.aiworkspace.data.WorkspaceProfile
+          import com.mrrobot.aiworkspace.data.WorkspaceStat
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+
+          data class ProfileUiState(
+              val profile: WorkspaceProfile = ProfileDefaults.profile(),
+              val stats: List<WorkspaceStat> = ProfileDefaults.stats(),
+              val capabilities: List<WorkspaceCapability> = ProfileDefaults.capabilities(),
+              val exportText: String = "",
+              val copiedMessage: String = ""
+          )
+
+          class ProfileViewModel : ViewModel() {
+
+              private val _uiState = MutableStateFlow(ProfileUiState())
+              val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+              fun generateExport() {
+                  val state = _uiState.value
+                  val profile = state.profile
+
+                  val statsText = state.stats.joinToString("\n") {
+                      "- ${it.label}: ${it.value} — ${it.description}"
+                  }
+
+                  val capabilitiesText = state.capabilities.joinToString("\n") {
+                      "- ${it.name}: ${if (it.enabled) "Enabled" else "Disabled"} — ${it.description}"
+                  }
+
+                  val export = """
+                  # ${profile.displayName} AI Workspace
+
+                  ## Identity
+                  Name: ${profile.displayName}
+                  Title: ${profile.title}
+                  Handle: ${profile.handle}
+                  Status: ${profile.status}
+
+                  ## Principle
+                  ${profile.principle}
+
+                  ## Links
+                  GitHub: ${profile.github}
+                  Website: ${profile.website}
+                  X: ${profile.xProfile}
+
+                  ## Workspace Stats
+                  $statsText
+
+                  ## Capabilities
+                  $capabilitiesText
+
+                  ## Build Status
+                  Android Compose MVP foundation is active.
+                  OpenRouter chat, agents, workflow builder, terminal logs, file manager, marketplace, settings, and profile systems are integrated.
+                  """.trimIndent()
+
+                  _uiState.value = state.copy(
+                      exportText = export,
+                      copiedMessage = ""
+                  )
+              }
+
+              fun clearExport() {
+                  _uiState.value = _uiState.value.copy(
+                      exportText = "",
+                      copiedMessage = ""
+                  )
+              }
+
+              fun markCopied() {
+                  _uiState.value = _uiState.value.copy(
+                      copiedMessage = "Profile export copied"
+                  )
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/ProfileScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalClipboardManager
+          import androidx.compose.ui.text.AnnotatedString
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import com.mrrobot.aiworkspace.data.WorkspaceCapability
+          import com.mrrobot.aiworkspace.data.WorkspaceStat
+          import com.mrrobot.aiworkspace.ui.components.*
+          import com.mrrobot.aiworkspace.viewmodel.ProfileViewModel
+
+          @Composable
+          fun ProfileScreen(
+              viewModel: ProfileViewModel = viewModel()
+          ) {
+              val state by viewModel.uiState.collectAsState()
+              val clipboard = LocalClipboardManager.current
+              val profile = state.profile
+
+              ScreenShell {
+                  LazyColumn(
+                      modifier = Modifier.fillMaxSize(),
+                      contentPadding = PaddingValues(bottom = 90.dp)
+                  ) {
+                      item {
+                          Title("Profile")
+                          Subtitle("Workspace identity, status, capabilities, and export summary.")
+                          Spacer(Modifier.height(14.dp))
+
+                          GlassCard {
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  horizontalArrangement = Arrangement.SpaceBetween,
+                                  verticalAlignment = Alignment.Top
+                              ) {
+                                  Column(modifier = Modifier.weight(1f)) {
+                                      Text(
+                                          text = profile.displayName,
+                                          color = Color.White,
+                                          fontWeight = FontWeight.Bold
+                                      )
+
+                                      Spacer(Modifier.height(6.dp))
+
+                                      Subtitle(profile.title)
+                                      Subtitle("@${profile.handle}")
+
+                                      Spacer(Modifier.height(10.dp))
+
+                                      AssistChip(
+                                          onClick = {},
+                                          label = { Text(profile.status) }
+                                      )
+                                  }
+
+                                  Text(
+                                      text = "⚡",
+                                      color = NeonCyan,
+                                      fontWeight = FontWeight.Bold
+                                  )
+                              }
+
+                              Spacer(Modifier.height(14.dp))
+
+                              Subtitle(profile.principle)
+                          }
+
+                          Spacer(Modifier.height(12.dp))
+
+                          GlassCard {
+                              Title("Online Presence")
+                              Spacer(Modifier.height(8.dp))
+                              Subtitle("GitHub: ${profile.github}")
+                              Subtitle("Website: ${profile.website}")
+                              Subtitle("X: ${profile.xProfile}")
+                          }
+
+                          Spacer(Modifier.height(12.dp))
+
+                          Title("Workspace Stats")
+                          Spacer(Modifier.height(8.dp))
+                      }
+
+                      items(state.stats) { stat ->
+                          StatCard(stat)
+                      }
+
+                      item {
+                          Spacer(Modifier.height(12.dp))
+                          Title("Capabilities")
+                          Spacer(Modifier.height(8.dp))
+                      }
+
+                      items(state.capabilities) { capability ->
+                          CapabilityCard(capability)
+                      }
+
+                      item {
+                          Spacer(Modifier.height(12.dp))
+
+                          GlassCard {
+                              Title("Export Workspace Profile")
+                              Subtitle("Generate a markdown summary of the current app identity and capabilities.")
+
+                              Spacer(Modifier.height(12.dp))
+
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  horizontalArrangement = Arrangement.spacedBy(10.dp)
+                              ) {
+                                  Button(
+                                      onClick = { viewModel.generateExport() },
+                                      modifier = Modifier.weight(1f),
+                                      colors = ButtonDefaults.buttonColors(
+                                          containerColor = NeonCyan,
+                                          contentColor = Color.Black
+                                      )
+                                  ) {
+                                      Text("Generate")
+                                  }
+
+                                  OutlinedButton(
+                                      onClick = { viewModel.clearExport() },
+                                      modifier = Modifier.weight(1f)
+                                  ) {
+                                      Text("Clear")
+                                  }
+                              }
+
+                              if (state.exportText.isNotBlank()) {
+                                  Spacer(Modifier.height(14.dp))
+
+                                  Text(
+                                      text = state.exportText,
+                                      color = Color.White,
+                                      fontFamily = FontFamily.Monospace
+                                  )
+
+                                  Spacer(Modifier.height(12.dp))
+
+                                  CyberButton("Copy Export") {
+                                      clipboard.setText(AnnotatedString(state.exportText))
+                                      viewModel.markCopied()
+                                  }
+                              }
+
+                              if (state.copiedMessage.isNotBlank()) {
+                                  Spacer(Modifier.height(10.dp))
+                                  Subtitle(state.copiedMessage)
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun StatCard(stat: WorkspaceStat) {
+              GlassCard(modifier = Modifier.padding(bottom = 10.dp)) {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Column(modifier = Modifier.weight(1f)) {
+                          Text(
+                              text = stat.label,
+                              color = Color.White,
+                              fontWeight = FontWeight.Bold
+                          )
+                          Subtitle(stat.description)
+                      }
+
+                      Text(
+                          text = stat.value,
+                          color = NeonCyan,
+                          fontWeight = FontWeight.Bold
+                      )
+                  }
+              }
+          }
+
+          @Composable
+          private fun CapabilityCard(capability: WorkspaceCapability) {
+              GlassCard(modifier = Modifier.padding(bottom = 10.dp)) {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.Top
+                  ) {
+                      Column(modifier = Modifier.weight(1f)) {
+                          Text(
+                              text = capability.name,
+                              color = Color.White,
+                              fontWeight = FontWeight.Bold
+                          )
+
+                          Spacer(Modifier.height(6.dp))
+
+                          Subtitle(capability.description)
+                      }
+
+                      AssistChip(
+                          onClick = {},
+                          label = {
+                              Text(
+                                  text = if (capability.enabled) "Enabled" else "Disabled",
+                                  color = if (capability.enabled) NeonCyan else SoftText
+                              )
+                          }
+                      )
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit Step 10 upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 10 add profile workspace identity"
+
+          git pull --rebase origin main
+
+          git push origin main
