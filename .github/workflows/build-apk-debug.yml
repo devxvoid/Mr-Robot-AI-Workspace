@@ -24,7 +24,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
@@ -34,33 +34,39 @@ jobs:
 
       - name: Show project structure
         run: |
-          echo "==== PROJECT FILES ===="
-          find . -maxdepth 4 -type f | sort
+          echo "==== ROOT ===="
+          ls -la
+
+          echo "==== WORKFLOWS ===="
+          find .github/workflows -maxdepth 1 -type f | sort || true
+
+          echo "==== ANDROID FILES ===="
+          find app/src/main -type f | sort || true
 
       - name: Compile Kotlin
         shell: bash
         run: |
           set +e
-          ./gradlew :app:compileDebugKotlin --stacktrace > kotlin-log.txt 2>&1
+          ./gradlew :app:compileDebugKotlin --stacktrace --info > kotlin-log.txt 2>&1
           code=$?
           cat kotlin-log.txt
           exit $code
 
-      - name: Build APK
+      - name: Build Debug APK
         shell: bash
         run: |
           set +e
-          ./gradlew assembleDebug --stacktrace > build-log.txt 2>&1
+          ./gradlew clean assembleDebug --stacktrace --info > build-log.txt 2>&1
           code=$?
 
           cat build-log.txt
 
           echo "==== APK SEARCH ===="
-          find . -type f -name "*.apk"
+          find . -type f -name "*.apk" | sort
 
           exit $code
 
-      - name: Upload Logs
+      - name: Upload Build Logs
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -69,10 +75,10 @@ jobs:
             kotlin-log.txt
             build-log.txt
 
-      - name: Upload Any APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
-          name: generated-apks
+          name: mr-robot-ai-workspace-debug-apk
           path: |
             **/*.apk
