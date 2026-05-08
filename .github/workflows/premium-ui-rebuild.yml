@@ -1,0 +1,168 @@
+name: Premium UI Rebuild
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  premium-ui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Build premium UI layer
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$ROOT/ui/theme"
+          mkdir -p "$ROOT/ui/components"
+
+          cat > "$ROOT/ui/theme/PremiumColors.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.theme
+
+          import androidx.compose.ui.graphics.Color
+
+          val BgPrimary = Color(0xFF020617)
+          val BgSecondary = Color(0xFF071427)
+
+          val NeonBlue = Color(0xFF00D4FF)
+          val NeonPurple = Color(0xFF8B5CF6)
+          val NeonGreen = Color(0xFF00FFB2)
+
+          val TextPrimary = Color(0xFFF8FAFC)
+          val TextSecondary = Color(0xFF94A3B8)
+          EOF
+
+          cat > "$ROOT/ui/components/PremiumTopBar.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.components
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.mrrobot.aiworkspace.ui.theme.TextPrimary
+          import com.mrrobot.aiworkspace.ui.theme.TextSecondary
+
+          @Composable
+          fun PremiumTopBar(
+              title: String,
+              subtitle: String
+          ) {
+
+              Column(
+                  modifier = Modifier.fillMaxWidth()
+              ) {
+
+                  Text(
+                      text = title,
+                      color = TextPrimary,
+                      fontSize = 34.sp,
+                      fontWeight = FontWeight.ExtraBold
+                  )
+
+                  Spacer(modifier = Modifier.height(6.dp))
+
+                  Text(
+                      text = subtitle,
+                      color = TextSecondary,
+                      fontSize = 15.sp
+                  )
+              }
+          }
+          EOF
+
+          cat > "$ROOT/ui/components/PremiumBottomBar.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.components
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.unit.dp
+          import androidx.navigation.NavController
+          import androidx.navigation.compose.currentBackStackEntryAsState
+          import com.mrrobot.aiworkspace.ui.theme.*
+
+          data class BottomItem(
+              val route: String,
+              val label: String
+          )
+
+          @Composable
+          fun PremiumBottomBar(
+              navController: NavController
+          ) {
+
+              val items = listOf(
+                  BottomItem("welcome", "Home"),
+                  BottomItem("chat", "AI"),
+                  BottomItem("agents", "Agents"),
+                  BottomItem("workflow", "Flow"),
+                  BottomItem("terminal", "Term"),
+                  BottomItem("files", "Files"),
+                  BottomItem("market", "Market"),
+                  BottomItem("settings", "Settings"),
+                  BottomItem("profile", "Profile")
+              )
+
+              NavigationBar(
+                  containerColor = BgSecondary
+              ) {
+
+                  val current =
+                      navController.currentBackStackEntryAsState()
+                          .value
+                          ?.destination
+                          ?.route
+
+                  items.forEach { item ->
+
+                      NavigationBarItem(
+                          selected = current == item.route,
+                          onClick = {
+                              navController.navigate(item.route)
+                          },
+                          label = {
+                              Text(item.label)
+                          },
+                          icon = {},
+                          colors = NavigationBarItemDefaults.colors(
+                              selectedIconColor = NeonBlue,
+                              selectedTextColor = NeonBlue,
+                              indicatorColor = NeonBlue.copy(alpha = .15f),
+                              unselectedTextColor = TextSecondary
+                          )
+                      )
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit premium rebuild
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          git commit -m "Rebuild premium production UI"
+
+          git pull --rebase origin main
+
+          git push origin main
