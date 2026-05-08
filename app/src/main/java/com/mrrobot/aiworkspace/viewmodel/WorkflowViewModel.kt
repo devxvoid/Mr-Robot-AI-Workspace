@@ -63,7 +63,6 @@ class WorkflowViewModel : ViewModel() {
 
     fun addCustomStep() {
         val state = _uiState.value
-
         if (state.customTitle.isBlank()) return
 
         val nextId = (state.steps.maxOfOrNull { it.id } ?: 0L) + 1L
