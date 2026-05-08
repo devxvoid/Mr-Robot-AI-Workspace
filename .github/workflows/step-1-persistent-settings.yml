@@ -1,0 +1,261 @@
+name: Step 1 Persistent Settings
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    name: Add DataStore Settings
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Add persistent settings with DataStore
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$APP_DIR/data"
+          mkdir -p "$APP_DIR/viewmodel"
+          mkdir -p "$APP_DIR/ui/screens"
+
+          cat > "$APP_DIR/data/SettingsStore.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.data
+
+          import android.content.Context
+          import androidx.datastore.preferences.core.edit
+          import androidx.datastore.preferences.core.stringPreferencesKey
+          import androidx.datastore.preferences.preferencesDataStore
+          import kotlinx.coroutines.flow.Flow
+          import kotlinx.coroutines.flow.map
+
+          private val Context.settingsDataStore by preferencesDataStore(name = "mr_robot_settings")
+
+          data class AppSettings(
+              val apiKey: String = "",
+              val model: String = "openai/gpt-4o-mini"
+          )
+
+          class SettingsStore(private val context: Context) {
+
+              private object Keys {
+                  val API_KEY = stringPreferencesKey("openrouter_api_key")
+                  val MODEL = stringPreferencesKey("selected_model")
+              }
+
+              val settingsFlow: Flow<AppSettings> =
+                  context.settingsDataStore.data.map { prefs ->
+                      AppSettings(
+                          apiKey = prefs[Keys.API_KEY] ?: "",
+                          model = prefs[Keys.MODEL] ?: "openai/gpt-4o-mini"
+                      )
+                  }
+
+              suspend fun saveSettings(apiKey: String, model: String) {
+                  context.settingsDataStore.edit { prefs ->
+                      prefs[Keys.API_KEY] = apiKey.trim()
+                      prefs[Keys.MODEL] = model.trim().ifBlank { "openai/gpt-4o-mini" }
+                  }
+              }
+
+              suspend fun clearSettings() {
+                  context.settingsDataStore.edit { prefs ->
+                      prefs.clear()
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/viewmodel/SettingsViewModel.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.viewmodel
+
+          import android.app.Application
+          import androidx.lifecycle.AndroidViewModel
+          import androidx.lifecycle.viewModelScope
+          import com.mrrobot.aiworkspace.data.AppSettings
+          import com.mrrobot.aiworkspace.data.SettingsStore
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          import kotlinx.coroutines.launch
+
+          data class SettingsUiState(
+              val apiKey: String = "",
+              val model: String = "openai/gpt-4o-mini",
+              val savedMessage: String = "",
+              val isLoaded: Boolean = false
+          )
+
+          class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+
+              private val store = SettingsStore(application.applicationContext)
+
+              private val _uiState = MutableStateFlow(SettingsUiState())
+              val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+              init {
+                  viewModelScope.launch {
+                      store.settingsFlow.collect { settings: AppSettings ->
+                          _uiState.value = _uiState.value.copy(
+                              apiKey = settings.apiKey,
+                              model = settings.model,
+                              isLoaded = true
+                          )
+                      }
+                  }
+              }
+
+              fun updateApiKey(value: String) {
+                  _uiState.value = _uiState.value.copy(
+                      apiKey = value,
+                      savedMessage = ""
+                  )
+              }
+
+              fun updateModel(value: String) {
+                  _uiState.value = _uiState.value.copy(
+                      model = value,
+                      savedMessage = ""
+                  )
+              }
+
+              fun save() {
+                  viewModelScope.launch {
+                      val current = _uiState.value
+                      store.saveSettings(
+                          apiKey = current.apiKey,
+                          model = current.model
+                      )
+                      _uiState.value = current.copy(
+                          savedMessage = "Settings saved successfully"
+                      )
+                  }
+              }
+
+              fun clear() {
+                  viewModelScope.launch {
+                      store.clearSettings()
+                      _uiState.value = SettingsUiState(
+                          savedMessage = "Settings cleared",
+                          isLoaded = true
+                      )
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/SettingsScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.input.PasswordVisualTransformation
+          import androidx.compose.ui.unit.dp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import com.mrrobot.aiworkspace.ui.components.*
+          import com.mrrobot.aiworkspace.viewmodel.SettingsViewModel
+
+          @Composable
+          fun SettingsScreen(
+              viewModel: SettingsViewModel = viewModel()
+          ) {
+              val state by viewModel.uiState.collectAsState()
+
+              ScreenShell {
+                  Column(
+                      modifier = Modifier
+                          .fillMaxSize()
+                          .verticalScroll(rememberScrollState())
+                  ) {
+                      Title("Settings")
+                      Subtitle("Configure AI provider and workspace preferences.")
+                      Spacer(Modifier.height(16.dp))
+
+                      GlassCard {
+                          Subtitle("OpenRouter API Key")
+
+                          Spacer(Modifier.height(8.dp))
+
+                          OutlinedTextField(
+                              value = state.apiKey,
+                              onValueChange = viewModel::updateApiKey,
+                              placeholder = { Text("sk-or-v1-...") },
+                              visualTransformation = PasswordVisualTransformation(),
+                              singleLine = true,
+                              modifier = Modifier.fillMaxWidth()
+                          )
+
+                          Spacer(Modifier.height(16.dp))
+
+                          Subtitle("Model")
+
+                          Spacer(Modifier.height(8.dp))
+
+                          OutlinedTextField(
+                              value = state.model,
+                              onValueChange = viewModel::updateModel,
+                              placeholder = { Text("openai/gpt-4o-mini") },
+                              singleLine = true,
+                              modifier = Modifier.fillMaxWidth()
+                          )
+
+                          Spacer(Modifier.height(16.dp))
+
+                          CyberButton("Save Settings") {
+                              viewModel.save()
+                          }
+
+                          Spacer(Modifier.height(10.dp))
+
+                          OutlinedButton(
+                              onClick = { viewModel.clear() },
+                              modifier = Modifier.fillMaxWidth()
+                          ) {
+                              Text("Clear Settings")
+                          }
+
+                          if (state.savedMessage.isNotBlank()) {
+                              Spacer(Modifier.height(12.dp))
+                              Subtitle(state.savedMessage)
+                          }
+                      }
+
+                      Spacer(Modifier.height(16.dp))
+
+                      GlassCard {
+                          Title("Supported Models")
+                          Spacer(Modifier.height(8.dp))
+                          Subtitle("openai/gpt-4o-mini")
+                          Subtitle("google/gemini-2.0-flash-001")
+                          Subtitle("anthropic/claude-3.5-sonnet")
+                          Subtitle("deepseek/deepseek-chat")
+                      }
+
+                      Spacer(Modifier.height(80.dp))
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit Step 1 upgrade
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+          git commit -m "Step 1 add persistent DataStore settings" || echo "No changes to commit"
+          git push
