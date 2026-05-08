@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.mrrobot.aiworkspace.ui.components.*
 import com.mrrobot.aiworkspace.ui.theme.*
 
-data class WorkspaceCard(
+data class WorkspaceModule(
     val title: String,
     val description: String,
     val action: String
@@ -27,44 +27,33 @@ fun DashboardScreen() {
 
     val modules = listOf(
 
-        WorkspaceCard(
+        WorkspaceModule(
             "AI Chat",
-            "Streaming OpenRouter workspace with multi-model support.",
+            "OpenRouter streaming AI workspace.",
             "Launch"
         ),
 
-        WorkspaceCard(
+        WorkspaceModule(
             "Agents",
-            "Multi-agent orchestration and prompt execution.",
+            "Autonomous multi-agent orchestration.",
             "Open"
         ),
 
-        WorkspaceCard(
+        WorkspaceModule(
             "Workflow",
-            "Visual pipeline builder and execution engine.",
+            "Visual automation pipelines.",
             "Manage"
         ),
 
-        WorkspaceCard(
+        WorkspaceModule(
             "Terminal",
-            "Workspace shell, logs, and runtime diagnostics.",
+            "Workspace shell and logs.",
             "Access"
-        ),
-
-        WorkspaceCard(
-            "Marketplace",
-            "Models, plugins, integrations, and tools.",
-            "Explore"
-        ),
-
-        WorkspaceCard(
-            "Files",
-            "Workspace exports and generated assets.",
-            "Browse"
         )
     )
 
-    Column(
+    LazyColumn(
+
         modifier = Modifier
             .fillMaxSize()
             .background(
@@ -76,69 +65,92 @@ fun DashboardScreen() {
                     )
                 )
             )
-            .padding(18.dp)
+            .padding(18.dp),
+
+        verticalArrangement =
+            Arrangement.spacedBy(18.dp)
+
     ) {
 
-        Text(
-            text = "Mr. Robot",
-            color = TextPrimary,
-            fontSize = 38.sp,
-            fontWeight = FontWeight.ExtraBold
-        )
+        item {
 
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-            text = "Elite AI Workspace Command Center",
-            color = TextSecondary,
-            fontSize = 15.sp
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(
-            horizontalArrangement =
-                Arrangement.spacedBy(12.dp)
-        ) {
-
-            PremiumStatCard(
-                title = "Agents",
-                value = "12",
-                modifier = Modifier.weight(1f)
+            Text(
+                text = "Mr. Robot",
+                color = TextPrimary,
+                fontSize = 40.sp,
+                fontWeight = FontWeight.ExtraBold
             )
 
-            PremiumStatCard(
-                title = "Models",
-                value = "8",
-                modifier = Modifier.weight(1f)
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Elite AI Workspace Command Center",
+                color = TextSecondary,
+                fontSize = 15.sp
             )
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        item {
 
-        PremiumStatCard(
-            title = "Workspace Status",
-            value = "ONLINE"
-        )
+            Row(
+                horizontalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
 
-        Spacer(modifier = Modifier.height(24.dp))
+                PremiumStatCard(
+                    title = "Agents",
+                    value = "12",
+                    modifier = Modifier.weight(1f)
+                )
 
-        LazyColumn(
-            verticalArrangement =
-                Arrangement.spacedBy(16.dp)
-        ) {
-
-            items(modules.size) { index ->
-
-                val item = modules[index]
-
-                WorkspaceModuleCard(
-                    title = item.title,
-                    description = item.description,
-                    action = item.action,
-                    onClick = {}
+                PremiumStatCard(
+                    title = "Models",
+                    value = "8",
+                    modifier = Modifier.weight(1f)
                 )
             }
+        }
+
+        item {
+
+            ActivityCard(
+                title = "Workspace Runtime",
+                status = "ONLINE",
+                body =
+                    "Core AI systems operational. Navigation, workflows, OpenRouter integration, and terminal services are active."
+            )
+        }
+
+        item {
+
+            TerminalPreviewCard()
+        }
+
+        item {
+
+            Text(
+                text = "Workspace Modules",
+                color = TextPrimary,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        items(modules.size) { index ->
+
+            val item = modules[index]
+
+            WorkspaceModuleCard(
+                title = item.title,
+                description = item.description,
+                action = item.action,
+                onClick = {}
+            )
+        }
+
+        item {
+
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }
