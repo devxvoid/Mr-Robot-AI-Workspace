@@ -1,0 +1,338 @@
+name: Step 26 Premium Workspace UI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  premium-ui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Build premium workspace UI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$ROOT/ui/theme"
+          mkdir -p "$ROOT/ui/dashboard"
+          mkdir -p "$ROOT/ui/components"
+
+          cat > "$ROOT/ui/theme/WorkspaceTheme.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.theme
+
+          import androidx.compose.ui.graphics.Color
+
+          val WorkspaceBg = Color(0xFF020617)
+          val WorkspaceBgSecondary = Color(0xFF071427)
+
+          val NeonBlue = Color(0xFF00D4FF)
+          val NeonPurple = Color(0xFF8B5CF6)
+          val NeonGreen = Color(0xFF00FFB2)
+
+          val TextPrimary = Color(0xFFF8FAFC)
+          val TextSecondary = Color(0xFF94A3B8)
+
+          val GlassBorder = Color(0x2200D4FF)
+          val GlassSurface = Color(0xAA081120)
+          EOF
+
+          cat > "$ROOT/ui/components/PremiumStatCard.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.components
+
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.Surface
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.mrrobot.aiworkspace.ui.theme.*
+
+          @Composable
+          fun PremiumStatCard(
+              title: String,
+              value: String,
+              modifier: Modifier = Modifier
+          ) {
+
+              Surface(
+                  modifier = modifier.fillMaxWidth(),
+                  shape = RoundedCornerShape(24.dp),
+                  color = GlassSurface,
+                  border = BorderStroke(
+                      1.dp,
+                      GlassBorder
+                  )
+              ) {
+
+                  Column(
+                      modifier = Modifier.padding(18.dp)
+                  ) {
+
+                      Text(
+                          text = value,
+                          color = NeonBlue,
+                          fontSize = 28.sp,
+                          fontWeight = FontWeight.ExtraBold
+                      )
+
+                      Spacer(modifier = Modifier.height(8.dp))
+
+                      Text(
+                          text = title,
+                          color = TextSecondary,
+                          fontSize = 14.sp
+                      )
+                  }
+              }
+          }
+          EOF
+
+          cat > "$ROOT/ui/components/WorkspaceModuleCard.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.components
+
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.Button
+          import androidx.compose.material3.ButtonDefaults
+          import androidx.compose.material3.Surface
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.mrrobot.aiworkspace.ui.theme.*
+
+          @Composable
+          fun WorkspaceModuleCard(
+              title: String,
+              description: String,
+              action: String,
+              onClick: () -> Unit
+          ) {
+
+              Surface(
+                  modifier = Modifier.fillMaxWidth(),
+                  shape = RoundedCornerShape(26.dp),
+                  color = GlassSurface,
+                  border = BorderStroke(
+                      1.dp,
+                      GlassBorder
+                  )
+              ) {
+
+                  Column(
+                      modifier = Modifier.padding(20.dp)
+                  ) {
+
+                      Text(
+                          text = title,
+                          color = TextPrimary,
+                          fontSize = 22.sp,
+                          fontWeight = FontWeight.Bold
+                      )
+
+                      Spacer(modifier = Modifier.height(10.dp))
+
+                      Text(
+                          text = description,
+                          color = TextSecondary,
+                          lineHeight = 22.sp
+                      )
+
+                      Spacer(modifier = Modifier.height(18.dp))
+
+                      Button(
+                          onClick = onClick,
+                          shape = RoundedCornerShape(16.dp),
+                          colors = ButtonDefaults.buttonColors(
+                              containerColor = NeonBlue
+                          )
+                      ) {
+
+                          Text(
+                              text = action,
+                              color = WorkspaceBg,
+                              fontWeight = FontWeight.Bold
+                          )
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$ROOT/ui/dashboard/DashboardScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.dashboard
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.grid.GridCells
+          import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+          import androidx.compose.foundation.lazy.grid.items
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.mrrobot.aiworkspace.ui.components.*
+          import com.mrrobot.aiworkspace.ui.theme.*
+
+          data class WorkspaceCard(
+              val title: String,
+              val description: String,
+              val action: String
+          )
+
+          @Composable
+          fun DashboardScreen() {
+
+              val modules = listOf(
+
+                  WorkspaceCard(
+                      "AI Chat",
+                      "Streaming OpenRouter workspace with multi-model support.",
+                      "Launch"
+                  ),
+
+                  WorkspaceCard(
+                      "Agents",
+                      "Multi-agent orchestration and prompt execution.",
+                      "Open"
+                  ),
+
+                  WorkspaceCard(
+                      "Workflow",
+                      "Visual pipeline builder and execution engine.",
+                      "Manage"
+                  ),
+
+                  WorkspaceCard(
+                      "Terminal",
+                      "Workspace shell, logs, and runtime diagnostics.",
+                      "Access"
+                  ),
+
+                  WorkspaceCard(
+                      "Marketplace",
+                      "Models, plugins, integrations, and tools.",
+                      "Explore"
+                  ),
+
+                  WorkspaceCard(
+                      "Files",
+                      "Workspace exports and generated assets.",
+                      "Browse"
+                  )
+              )
+
+              Column(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(
+                          Brush.verticalGradient(
+                              listOf(
+                                  WorkspaceBg,
+                                  WorkspaceBgSecondary,
+                                  WorkspaceBg
+                              )
+                          )
+                      )
+                      .padding(18.dp)
+              ) {
+
+                  Text(
+                      text = "Mr. Robot",
+                      color = TextPrimary,
+                      fontSize = 38.sp,
+                      fontWeight = FontWeight.ExtraBold
+                  )
+
+                  Spacer(modifier = Modifier.height(4.dp))
+
+                  Text(
+                      text = "Elite AI Workspace Command Center",
+                      color = TextSecondary,
+                      fontSize = 15.sp
+                  )
+
+                  Spacer(modifier = Modifier.height(24.dp))
+
+                  Row(
+                      horizontalArrangement =
+                          Arrangement.spacedBy(12.dp)
+                  ) {
+
+                      PremiumStatCard(
+                          title = "Agents",
+                          value = "12",
+                          modifier = Modifier.weight(1f)
+                      )
+
+                      PremiumStatCard(
+                          title = "Models",
+                          value = "8",
+                          modifier = Modifier.weight(1f)
+                      )
+                  }
+
+                  Spacer(modifier = Modifier.height(14.dp))
+
+                  PremiumStatCard(
+                      title = "Workspace Status",
+                      value = "ONLINE"
+                  )
+
+                  Spacer(modifier = Modifier.height(24.dp))
+
+                  LazyColumn(
+                      verticalArrangement =
+                          Arrangement.spacedBy(16.dp)
+                  ) {
+
+                      items(modules.size) { index ->
+
+                          val item = modules[index]
+
+                          WorkspaceModuleCard(
+                              title = item.title,
+                              description = item.description,
+                              action = item.action,
+                              onClick = {}
+                          )
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit premium UI
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          git commit -m "Build premium AI workspace UI"
+
+          git pull --rebase origin main
+
+          git push origin main
