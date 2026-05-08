@@ -1,0 +1,90 @@
+name: Step 36 Final Compile Fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Fix remaining compile errors
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="app/src/main/java/com/mrrobot/aiworkspace"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          nav = Path(
+              "app/src/main/java/com/mrrobot/aiworkspace/navigation/AppNavGraph.kt"
+          )
+
+          if nav.exists():
+
+              text = nav.read_text()
+
+              text = text.replace(
+                  "import com.mrrobot.aiworkspace.ui.screens.ChatScreen",
+                  "import com.mrrobot.aiworkspace.ui.chat.ChatScreen"
+              )
+
+              text = text.replace(
+                  "import com.mrrobot.aiworkspace.ui.screens.*",
+                  "import com.mrrobot.aiworkspace.ui.screens.*\nimport com.mrrobot.aiworkspace.ui.chat.ChatScreen"
+              )
+
+              nav.write_text(text)
+
+          theme = Path(
+              "app/src/main/java/com/mrrobot/aiworkspace/ui/components/PremiumBottomBar.kt"
+          )
+
+          if theme.exists():
+
+              text = theme.read_text()
+
+              text = text.replace(
+                  "BgSecondary",
+                  "Color(0xFF071427)"
+              )
+
+              if "import androidx.compose.ui.graphics.Color" not in text:
+                  text = text.replace(
+                      "import androidx.compose.ui.unit.dp",
+                      "import androidx.compose.ui.unit.dp\nimport androidx.compose.ui.graphics.Color"
+                  )
+
+              theme.write_text(text)
+
+          PY
+
+      - name: Commit compile fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+
+          git commit -m "Fix final unresolved Compose references"
+
+          git pull --rebase origin main
+
+          git push origin main
