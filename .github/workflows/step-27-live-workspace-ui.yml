@@ -1,0 +1,332 @@
+name: Step 27 Live Workspace UI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  workspace-ui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Build live workspace experience
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$ROOT/ui/components"
+          mkdir -p "$ROOT/ui/dashboard"
+
+          cat > "$ROOT/ui/components/ActivityCard.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.components
+
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.Surface
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.mrrobot.aiworkspace.ui.theme.*
+
+          @Composable
+          fun ActivityCard(
+              title: String,
+              status: String,
+              body: String
+          ) {
+
+              Surface(
+                  modifier = Modifier.fillMaxWidth(),
+                  shape = RoundedCornerShape(24.dp),
+                  color = GlassSurface,
+                  border = BorderStroke(
+                      1.dp,
+                      GlassBorder
+                  )
+              ) {
+
+                  Column(
+                      modifier = Modifier.padding(18.dp)
+                  ) {
+
+                      Row(
+                          horizontalArrangement =
+                              Arrangement.SpaceBetween,
+                          modifier = Modifier.fillMaxWidth()
+                      ) {
+
+                          Text(
+                              text = title,
+                              color = TextPrimary,
+                              fontWeight = FontWeight.Bold,
+                              fontSize = 18.sp
+                          )
+
+                          Text(
+                              text = status,
+                              color = NeonGreen,
+                              fontWeight = FontWeight.Bold
+                          )
+                      }
+
+                      Spacer(modifier = Modifier.height(12.dp))
+
+                      Text(
+                          text = body,
+                          color = TextSecondary,
+                          lineHeight = 21.sp
+                      )
+                  }
+              }
+          }
+          EOF
+
+          cat > "$ROOT/ui/components/TerminalPreviewCard.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.components
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+
+          @Composable
+          fun TerminalPreviewCard() {
+
+              Column(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .background(
+                          Color.Black,
+                          RoundedCornerShape(24.dp)
+                      )
+                      .padding(18.dp)
+              ) {
+
+                  Text(
+                      text = "[01:02] Workspace initialized",
+                      color = Color(0xFF00FFB2),
+                      fontFamily = FontFamily.Monospace,
+                      fontSize = 13.sp
+                  )
+
+                  Spacer(modifier = Modifier.height(10.dp))
+
+                  Text(
+                      text = "[01:05] OpenRouter connection active",
+                      color = Color.White,
+                      fontFamily = FontFamily.Monospace,
+                      fontSize = 13.sp
+                  )
+
+                  Spacer(modifier = Modifier.height(10.dp))
+
+                  Text(
+                      text = "[01:09] Agent runtime online",
+                      color = Color.White,
+                      fontFamily = FontFamily.Monospace,
+                      fontSize = 13.sp
+                  )
+
+                  Spacer(modifier = Modifier.height(10.dp))
+
+                  Text(
+                      text = "[01:14] Workflow engine ready",
+                      color = Color.White,
+                      fontFamily = FontFamily.Monospace,
+                      fontSize = 13.sp
+                  )
+              }
+          }
+          EOF
+
+          cat > "$ROOT/ui/dashboard/DashboardScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.dashboard
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.grid.GridCells
+          import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+          import androidx.compose.foundation.lazy.grid.items
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.mrrobot.aiworkspace.ui.components.*
+          import com.mrrobot.aiworkspace.ui.theme.*
+
+          data class WorkspaceModule(
+              val title: String,
+              val description: String,
+              val action: String
+          )
+
+          @Composable
+          fun DashboardScreen() {
+
+              val modules = listOf(
+
+                  WorkspaceModule(
+                      "AI Chat",
+                      "OpenRouter streaming AI workspace.",
+                      "Launch"
+                  ),
+
+                  WorkspaceModule(
+                      "Agents",
+                      "Autonomous multi-agent orchestration.",
+                      "Open"
+                  ),
+
+                  WorkspaceModule(
+                      "Workflow",
+                      "Visual automation pipelines.",
+                      "Manage"
+                  ),
+
+                  WorkspaceModule(
+                      "Terminal",
+                      "Workspace shell and logs.",
+                      "Access"
+                  )
+              )
+
+              LazyColumn(
+
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(
+                          Brush.verticalGradient(
+                              listOf(
+                                  WorkspaceBg,
+                                  WorkspaceBgSecondary,
+                                  WorkspaceBg
+                              )
+                          )
+                      )
+                      .padding(18.dp),
+
+                  verticalArrangement =
+                      Arrangement.spacedBy(18.dp)
+
+              ) {
+
+                  item {
+
+                      Text(
+                          text = "Mr. Robot",
+                          color = TextPrimary,
+                          fontSize = 40.sp,
+                          fontWeight = FontWeight.ExtraBold
+                      )
+
+                      Spacer(modifier = Modifier.height(6.dp))
+
+                      Text(
+                          text = "Elite AI Workspace Command Center",
+                          color = TextSecondary,
+                          fontSize = 15.sp
+                      )
+                  }
+
+                  item {
+
+                      Row(
+                          horizontalArrangement =
+                              Arrangement.spacedBy(12.dp)
+                      ) {
+
+                          PremiumStatCard(
+                              title = "Agents",
+                              value = "12",
+                              modifier = Modifier.weight(1f)
+                          )
+
+                          PremiumStatCard(
+                              title = "Models",
+                              value = "8",
+                              modifier = Modifier.weight(1f)
+                          )
+                      }
+                  }
+
+                  item {
+
+                      ActivityCard(
+                          title = "Workspace Runtime",
+                          status = "ONLINE",
+                          body =
+                              "Core AI systems operational. Navigation, workflows, OpenRouter integration, and terminal services are active."
+                      )
+                  }
+
+                  item {
+
+                      TerminalPreviewCard()
+                  }
+
+                  item {
+
+                      Text(
+                          text = "Workspace Modules",
+                          color = TextPrimary,
+                          fontSize = 22.sp,
+                          fontWeight = FontWeight.Bold
+                      )
+                  }
+
+                  items(modules.size) { index ->
+
+                      val item = modules[index]
+
+                      WorkspaceModuleCard(
+                          title = item.title,
+                          description = item.description,
+                          action = item.action,
+                          onClick = {}
+                      )
+                  }
+
+                  item {
+
+                      Spacer(modifier = Modifier.height(80.dp))
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit live workspace UI
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          git commit -m "Build live premium workspace experience"
+
+          git pull --rebase origin main
+
+          git push origin main
