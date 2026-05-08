@@ -1,0 +1,253 @@
+name: Step 34 Multi Chat Sessions
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sessions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Build multi-session workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$ROOT/session"
+
+          cat > "$ROOT/session/ChatSession.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.session
+
+          import com.mrrobot.aiworkspace.data.ChatMessage
+          import java.util.UUID
+
+          data class ChatSession(
+
+              val id: String =
+                  UUID.randomUUID().toString(),
+
+              val title: String,
+
+              val messages: List<ChatMessage>
+          )
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path(
+              "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/ChatViewModel.kt"
+          )
+
+          text = p.read_text()
+
+          if "ChatSession" not in text:
+
+              text = text.replace(
+                  "import com.mrrobot.aiworkspace.storage.ChatStorage",
+                  "import com.mrrobot.aiworkspace.storage.ChatStorage\nimport com.mrrobot.aiworkspace.session.ChatSession"
+              )
+
+              inject = '''
+
+              var sessions by mutableStateOf(
+                  listOf(
+                      ChatSession(
+                          title = "New Chat",
+                          messages = messages
+                      )
+                  )
+              )
+
+              var selectedSessionId by mutableStateOf(
+                  sessions.first().id
+              )
+
+              fun createSession() {
+
+                  val newSession =
+                      ChatSession(
+                          title =
+                              "Chat ${sessions.size + 1}",
+                          messages = emptyList()
+                      )
+
+                  sessions =
+                      listOf(newSession) + sessions
+
+                  selectedSessionId =
+                      newSession.id
+
+                  messages = emptyList()
+              }
+
+              fun switchSession(
+                  id: String
+              ) {
+
+                  selectedSessionId = id
+
+                  val session =
+                      sessions.firstOrNull {
+                          it.id == id
+                      }
+
+                  if (session != null) {
+
+                      messages = session.messages
+                  }
+              }
+
+              '''
+
+              text = text.replace(
+                  "var loading by mutableStateOf(false)",
+                  "var loading by mutableStateOf(false)\n" + inject
+              )
+
+              old = '''
+                                  ChatStorage.saveMessages(
+                                      getApplication(),
+                                      messages
+                                  )
+              '''
+
+              new = '''
+                                  sessions =
+                                      sessions.map {
+
+                                          if (
+                                              it.id ==
+                                              selectedSessionId
+                                          ) {
+
+                                              it.copy(
+                                                  messages = messages
+                                              )
+
+                                          } else it
+                                      }
+
+                                  ChatStorage.saveMessages(
+                                      getApplication(),
+                                      messages
+                                  )
+              '''
+
+              text = text.replace(old, new)
+
+              p.write_text(text)
+          PY
+
+          CHAT="app/src/main/java/com/mrrobot/aiworkspace/ui/chat/ChatScreen.kt"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path(
+              "app/src/main/java/com/mrrobot/aiworkspace/ui/chat/ChatScreen.kt"
+          )
+
+          text = p.read_text()
+
+          inject = '''
+
+                  Spacer(modifier = Modifier.height(16.dp))
+
+                  Row(
+                      horizontalArrangement =
+                          Arrangement.spacedBy(10.dp)
+                  ) {
+
+                      Button(
+                          onClick = {
+                              vm.createSession()
+                          }
+                      ) {
+
+                          Text("New Chat")
+                      }
+                  }
+
+                  Spacer(modifier = Modifier.height(14.dp))
+
+                  LazyRow(
+                      horizontalArrangement =
+                          Arrangement.spacedBy(10.dp)
+                  ) {
+
+                      items(vm.sessions.size) { index ->
+
+                          val session =
+                              vm.sessions[index]
+
+                          FilterChip(
+
+                              selected =
+                                  session.id ==
+                                  vm.selectedSessionId,
+
+                              onClick = {
+                                  vm.switchSession(
+                                      session.id
+                                  )
+                              },
+
+                              label = {
+
+                                  Text(session.title)
+                              }
+                          )
+                      }
+                  }
+          '''
+
+          target = '''
+                  Spacer(modifier = Modifier.height(18.dp))
+
+                  LazyColumn(
+          '''
+
+          text = text.replace(
+              target,
+              inject + "\n\n" + target
+          )
+
+          if "LazyRow" not in text:
+
+              text = text.replace(
+                  "import androidx.compose.foundation.lazy.LazyColumn",
+                  "import androidx.compose.foundation.lazy.LazyColumn\nimport androidx.compose.foundation.lazy.LazyRow"
+              )
+
+              text = text.replace(
+                  "import androidx.compose.foundation.lazy.items",
+                  "import androidx.compose.foundation.lazy.items"
+              )
+
+          p.write_text(text)
+          PY
+
+      - name: Commit multi-chat workspace
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          git commit -m "Build multi-session AI workspace"
+
+          git pull --rebase origin main
+
+          git push origin main
