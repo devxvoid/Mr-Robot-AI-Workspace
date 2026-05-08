@@ -1,0 +1,106 @@
+name: Step 18 Compose Syntax Cleanup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Fix malformed Compose syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path("app/src/main/java/com/mrrobot/aiworkspace")
+
+          files = list(root.rglob("*.kt"))
+
+          for file in files:
+              text = file.read_text()
+
+              # Fix broken PrimaryButton syntax
+              text = re.sub(
+                  r'PrimaryButton\(text = "([^"]+)", onClick = \{',
+                  r'PrimaryButton(\n                text = "\1",\n                onClick = {',
+                  text
+              )
+
+              # Fix broken SecondaryButton syntax
+              text = re.sub(
+                  r'SecondaryButton\(text = "([^"]+)", onClick = \{',
+                  r'SecondaryButton(\n                text = "\1",\n                onClick = {',
+                  text
+              )
+
+              # Fix missing closures
+              text = text.replace(
+                  "nav.navigate(",
+                  "nav.navigate("
+              )
+
+              # Remove accidental duplicate braces
+              text = text.replace("})\n            )", "}\n            )")
+              text = text.replace("})\n        )", "}\n        )")
+              text = text.replace("})\n    )", "}\n    )")
+
+              # Fix malformed button endings
+              text = text.replace(
+                  "onClick = {\n            })",
+                  "onClick = {}\n            )"
+              )
+
+              # Fix nested bad endings
+              text = text.replace(
+                  "onClick = {\n                })",
+                  "onClick = {}\n                )"
+              )
+
+              # Fix trailing commas before closures
+              text = re.sub(r',\s*\)', '\n)', text)
+
+              # Fix empty lambda crashes
+              text = text.replace(
+                  "onClick = {)",
+                  "onClick = {}"
+              )
+
+              file.write_text(text)
+
+          print("Compose syntax cleanup complete.")
+          PY
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+
+          git commit -m "Step 18 compose syntax cleanup"
+
+          git pull --rebase origin main
+
+          git push origin main
