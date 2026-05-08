@@ -10,44 +10,57 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mrrobot.aiworkspace.ui.components.GlassCard
+import com.mrrobot.aiworkspace.ui.components.*
+import com.mrrobot.aiworkspace.ui.theme.*
 
-data class WorkspaceModule(
+data class WorkspaceCard(
     val title: String,
-    val description: String
+    val description: String,
+    val action: String
 )
 
 @Composable
 fun DashboardScreen() {
 
     val modules = listOf(
-        WorkspaceModule(
+
+        WorkspaceCard(
             "AI Chat",
-            "OpenRouter streaming workspace"
+            "Streaming OpenRouter workspace with multi-model support.",
+            "Launch"
         ),
-        WorkspaceModule(
+
+        WorkspaceCard(
             "Agents",
-            "Multi-agent orchestration system"
+            "Multi-agent orchestration and prompt execution.",
+            "Open"
         ),
-        WorkspaceModule(
+
+        WorkspaceCard(
             "Workflow",
-            "Visual automation pipeline"
+            "Visual pipeline builder and execution engine.",
+            "Manage"
         ),
-        WorkspaceModule(
+
+        WorkspaceCard(
             "Terminal",
-            "Build logs and shell execution"
+            "Workspace shell, logs, and runtime diagnostics.",
+            "Access"
         ),
-        WorkspaceModule(
+
+        WorkspaceCard(
             "Marketplace",
-            "Models and integrations"
+            "Models, plugins, integrations, and tools.",
+            "Explore"
         ),
-        WorkspaceModule(
+
+        WorkspaceCard(
             "Files",
-            "Workspace assets and exports"
+            "Workspace exports and generated assets.",
+            "Browse"
         )
     )
 
@@ -57,9 +70,9 @@ fun DashboardScreen() {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF020617),
-                        Color(0xFF071427),
-                        Color(0xFF020617)
+                        WorkspaceBg,
+                        WorkspaceBgSecondary,
+                        WorkspaceBg
                     )
                 )
             )
@@ -67,62 +80,64 @@ fun DashboardScreen() {
     ) {
 
         Text(
-            text = "Mr. Robot Workspace",
-            color = Color.White,
-            fontSize = 34.sp,
+            text = "Mr. Robot",
+            color = TextPrimary,
+            fontSize = 38.sp,
             fontWeight = FontWeight.ExtraBold
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Production-grade AI command center.",
-            color = Color(0xFF94A3B8),
+            text = "Elite AI Workspace Command Center",
+            color = TextSecondary,
             fontSize = 15.sp
         )
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        GlassCard {
+        Row(
+            horizontalArrangement =
+                Arrangement.spacedBy(12.dp)
+        ) {
 
-            Text(
-                text = "Workspace Status",
-                color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
+            PremiumStatCard(
+                title = "Agents",
+                value = "12",
+                modifier = Modifier.weight(1f)
             )
 
-            Text(
-                text = "All core systems operational.",
-                color = Color(0xFFCBD5E1)
+            PremiumStatCard(
+                title = "Models",
+                value = "8",
+                modifier = Modifier.weight(1f)
             )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxHeight()
+        PremiumStatCard(
+            title = "Workspace Status",
+            value = "ONLINE"
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        LazyColumn(
+            verticalArrangement =
+                Arrangement.spacedBy(16.dp)
         ) {
 
-            items(modules) { module ->
+            items(modules.size) { index ->
 
-                GlassCard {
+                val item = modules[index]
 
-                    Text(
-                        text = module.title,
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Text(
-                        text = module.description,
-                        color = Color(0xFFCBD5E1)
-                    )
-                }
+                WorkspaceModuleCard(
+                    title = item.title,
+                    description = item.description,
+                    action = item.action,
+                    onClick = {}
+                )
             }
         }
     }
