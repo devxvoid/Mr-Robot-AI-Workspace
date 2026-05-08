@@ -1,6 +1,5 @@
 package com.mrrobot.aiworkspace.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -36,6 +35,7 @@ fun WorkflowScreen(
         GlassCard {
             Subtitle("Workflow Name")
             Spacer(Modifier.height(8.dp))
+
             OutlinedTextField(
                 value = state.workflowName,
                 onValueChange = viewModel::updateWorkflowName,

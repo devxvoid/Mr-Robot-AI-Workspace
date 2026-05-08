@@ -85,6 +85,4 @@ object WorkflowTemplates {
             )
         )
     }
-
-    fun empty(): List<WorkflowStep> = emptyList()
 }
