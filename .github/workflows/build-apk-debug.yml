@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    name: Build With Full Error Logs
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -32,36 +32,47 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      - name: Compile Kotlin only
+      - name: Show project structure
+        run: |
+          echo "==== PROJECT FILES ===="
+          find . -maxdepth 4 -type f | sort
+
+      - name: Compile Kotlin
         shell: bash
         run: |
           set +e
-          ./gradlew :app:compileDebugKotlin --stacktrace --debug > kotlin-debug-log.txt 2>&1
+          ./gradlew :app:compileDebugKotlin --stacktrace > kotlin-log.txt 2>&1
           code=$?
-          cat kotlin-debug-log.txt
+          cat kotlin-log.txt
           exit $code
 
-      - name: Build Debug APK
+      - name: Build APK
         shell: bash
         run: |
           set +e
-          ./gradlew clean assembleDebug --stacktrace --debug > build-debug-log.txt 2>&1
+          ./gradlew assembleDebug --stacktrace > build-log.txt 2>&1
           code=$?
-          cat build-debug-log.txt
+
+          cat build-log.txt
+
+          echo "==== APK SEARCH ===="
+          find . -type f -name "*.apk"
+
           exit $code
 
-      - name: Upload debug logs
+      - name: Upload Logs
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: apk-debug-logs
+          name: build-logs
           path: |
-            kotlin-debug-log.txt
-            build-debug-log.txt
+            kotlin-log.txt
+            build-log.txt
 
-      - name: Upload APK
+      - name: Upload Any APK
         uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
-          name: mr-robot-ai-workspace-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: generated-apks
+          path: |
+            **/*.apk
