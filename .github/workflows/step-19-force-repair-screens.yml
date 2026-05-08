@@ -1,0 +1,231 @@
+name: Step 19 Force Repair Screens
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Force repair broken screens
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SCREEN_DIR="app/src/main/java/com/mrrobot/aiworkspace/ui/screens"
+
+          cat > "$SCREEN_DIR/WelcomeScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import androidx.navigation.NavController
+          import com.mrrobot.aiworkspace.navigation.Route
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun WelcomeScreen(nav: NavController) {
+              ScreenShell {
+
+                  PageTitle("Mr. Robot AI Workspace")
+
+                  Subtitle(
+                      "A premium Android AI workspace with agents, workflows, terminals, tools, and OpenRouter integration."
+                  )
+
+                  Spacer(modifier = Modifier.height(24.dp))
+
+                  Panel(
+                      title = "Command Center",
+                      subtitle = "Professional AI workflow control system."
+                  ) {
+
+                      PrimaryButton(
+                          text = "Launch AI Chat",
+                          onClick = {
+                              nav.navigate(Route.Chat.path)
+                          }
+                      )
+
+                      Spacer(modifier = Modifier.height(12.dp))
+
+                      SecondaryButton(
+                          text = "Open Agent System",
+                          onClick = {
+                              nav.navigate(Route.Agents.path)
+                          }
+                      )
+
+                      Spacer(modifier = Modifier.height(12.dp))
+
+                      SecondaryButton(
+                          text = "Build Workflow",
+                          onClick = {
+                              nav.navigate(Route.Workflow.path)
+                          }
+                      )
+                  }
+              }
+          }
+          EOF
+
+          cat > "$SCREEN_DIR/AgentsScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun AgentsScreen() {
+
+              ScreenShell {
+
+                  PageTitle("Agents")
+
+                  Subtitle(
+                      "Build specialized prompts and execution roles for your AI workspace."
+                  )
+
+                  Spacer(modifier = Modifier.height(20.dp))
+
+                  Panel(
+                      title = "Android Architect",
+                      subtitle = "Production-grade Kotlin + Compose agent."
+                  ) {
+
+                      StatusPill("ACTIVE")
+
+                      SoftText(
+                          "Builds scalable Android architectures, Compose UI systems, repositories, Gradle fixes, and workflow automation."
+                      )
+
+                      Spacer(modifier = Modifier.height(14.dp))
+
+                      PrimaryButton(
+                          text = "Generate Prompt",
+                          onClick = {}
+                      )
+
+                      Spacer(modifier = Modifier.height(10.dp))
+
+                      SecondaryButton(
+                          text = "Clear",
+                          onClick = {}
+                      )
+                  }
+              }
+          }
+          EOF
+
+          cat > "$SCREEN_DIR/TerminalScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun TerminalScreen() {
+
+              ScreenShell {
+
+                  PageTitle("Live Terminal")
+
+                  Subtitle(
+                      "Safe mobile command simulation and build logs."
+                  )
+
+                  Spacer(modifier = Modifier.height(20.dp))
+
+                  Panel(
+                      title = "Terminal Session",
+                      subtitle = "Mr. Robot secure shell"
+                  ) {
+
+                      Box(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .height(280.dp)
+                              .background(
+                                  Color.Black,
+                                  RoundedCornerShape(18.dp)
+                              )
+                              .padding(16.dp)
+                      ) {
+
+                          Text(
+                              text =
+                              "[00:00] Mr. Robot terminal initialized.\n\n" +
+                              "[00:01] Workspace ready.\n\n" +
+                              "[00:02] Awaiting command...",
+                              color = Color(0xFFB388FF),
+                              fontFamily = FontFamily.Monospace,
+                              fontSize = 14.sp,
+                              lineHeight = 22.sp
+                          )
+                      }
+
+                      Spacer(modifier = Modifier.height(16.dp))
+
+                      PrimaryButton(
+                          text = "Run",
+                          onClick = {}
+                      )
+
+                      Spacer(modifier = Modifier.height(10.dp))
+
+                      SecondaryButton(
+                          text = "Copy Logs",
+                          onClick = {}
+                      )
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit repaired screens
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+
+          git commit -m "Step 19 repair broken compose screens"
+
+          git pull --rebase origin main
+
+          git push origin main
