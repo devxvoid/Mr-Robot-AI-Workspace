@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrrobot.aiworkspace.data.AppSettings
+import com.mrrobot.aiworkspace.data.AppThemeMode
 import com.mrrobot.aiworkspace.data.SettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val apiKey: String = "",
     val model: String = "openai/gpt-4o-mini",
+    val themeMode: AppThemeMode = AppThemeMode.Auto,
     val savedMessage: String = "",
     val isLoaded: Boolean = false
 )
@@ -30,6 +32,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.value = _uiState.value.copy(
                     apiKey = settings.apiKey,
                     model = settings.model,
+                    themeMode = settings.themeMode,
                     isLoaded = true
                 )
             }
@@ -37,17 +40,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun updateApiKey(value: String) {
-        _uiState.value = _uiState.value.copy(
-            apiKey = value,
-            savedMessage = ""
-        )
+        _uiState.value = _uiState.value.copy(apiKey = value, savedMessage = "")
     }
 
     fun updateModel(value: String) {
-        _uiState.value = _uiState.value.copy(
-            model = value,
-            savedMessage = ""
-        )
+        _uiState.value = _uiState.value.copy(model = value, savedMessage = "")
+    }
+
+    fun updateThemeMode(value: AppThemeMode) {
+        _uiState.value = _uiState.value.copy(themeMode = value, savedMessage = "")
     }
 
     fun save() {
@@ -55,11 +56,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val current = _uiState.value
             store.saveSettings(
                 apiKey = current.apiKey,
-                model = current.model
+                model = current.model,
+                themeMode = current.themeMode
             )
-            _uiState.value = current.copy(
-                savedMessage = "Settings saved successfully"
-            )
+            _uiState.value = current.copy(savedMessage = "Settings saved successfully")
         }
     }
 

@@ -15,21 +15,21 @@ fun WelcomeScreen(nav: NavController) {
     ScreenShell {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 140.dp)
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             item {
                 PremiumHeader(
                     title = "Mr. Robot AI Workspace",
-                    subtitle = "A premium Android command center for AI chat, agents, workflows, terminal logs, files, marketplace modules, and OpenRouter models.",
+                    subtitle = "Android command center for AI chat, agents, workflows, terminal logs, files, marketplace modules, and OpenRouter models.",
                     badge = "MVP"
                 )
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(16.dp))
 
                 GlassCard {
                     Title("Command Center")
                     Subtitle("Your Stitch design has evolved into a real Kotlin + Jetpack Compose MVP foundation.")
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(14.dp))
 
                     CyberButton("Launch AI Chat") {
                         nav.navigate(Route.Chat.path)
@@ -39,7 +39,9 @@ fun WelcomeScreen(nav: NavController) {
 
                     OutlinedButton(
                         onClick = { nav.navigate(Route.Agents.path) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
                     ) {
                         Text("Open Agent System")
                     }
@@ -48,7 +50,9 @@ fun WelcomeScreen(nav: NavController) {
 
                     OutlinedButton(
                         onClick = { nav.navigate(Route.Workflow.path) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
                     ) {
                         Text("Build Workflow")
                     }
@@ -61,42 +65,26 @@ fun WelcomeScreen(nav: NavController) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric(
-                            label = "Screens",
-                            value = "10",
-                            description = "Full MVP navigation"
-                        )
+                        PremiumMetric("Screens", "10", "Full MVP navigation")
                     }
 
                     Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric(
-                            label = "AI",
-                            value = "OR",
-                            description = "OpenRouter ready"
-                        )
+                        PremiumMetric("AI", "OR", "OpenRouter ready")
                     }
                 }
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(10.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric(
-                            label = "Agents",
-                            value = "5",
-                            description = "Role-based prompts"
-                        )
+                        PremiumMetric("Agents", "5", "Role prompts")
                     }
 
                     Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric(
-                            label = "CI/CD",
-                            value = "APK",
-                            description = "GitHub builds"
-                        )
+                        PremiumMetric("CI/CD", "APK", "GitHub builds")
                     }
                 }
 
@@ -104,8 +92,10 @@ fun WelcomeScreen(nav: NavController) {
 
                 GlassCard {
                     Title("Design Source")
-                    Subtitle("Keep stitch_mr._robot_ai_workspace.zip in the repo root. It remains your official Google Stitch reference asset.")
+                    Subtitle("Keep stitch_mr._robot_ai_workspace.zip in the repo root as your official Google Stitch reference asset.")
                 }
+
+                Spacer(Modifier.height(18.dp))
             }
         }
     }
