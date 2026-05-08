@@ -1,0 +1,454 @@
+name: Step 7 Terminal Logs System
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    name: Add Terminal Logs System
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Add terminal logs system
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$APP_DIR/data"
+          mkdir -p "$APP_DIR/viewmodel"
+          mkdir -p "$APP_DIR/ui/screens"
+
+          cat > "$APP_DIR/data/TerminalModels.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.data
+
+          data class TerminalLine(
+              val id: Long,
+              val type: TerminalLineType,
+              val text: String,
+              val timestamp: String
+          )
+
+          enum class TerminalLineType {
+              Command,
+              Output,
+              Success,
+              Warning,
+              Error,
+              Info
+          }
+
+          object TerminalSamples {
+              fun initialLogs(): List<TerminalLine> {
+                  return listOf(
+                      TerminalLine(
+                          id = 1,
+                          type = TerminalLineType.Info,
+                          text = "Mr. Robot terminal initialized.",
+                          timestamp = "00:00"
+                      ),
+                      TerminalLine(
+                          id = 2,
+                          type = TerminalLineType.Output,
+                          text = "Workspace ready. Type a command or use quick actions.",
+                          timestamp = "00:01"
+                      )
+                  )
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/viewmodel/TerminalViewModel.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.viewmodel
+
+          import androidx.lifecycle.ViewModel
+          import androidx.lifecycle.viewModelScope
+          import com.mrrobot.aiworkspace.data.TerminalLine
+          import com.mrrobot.aiworkspace.data.TerminalLineType
+          import com.mrrobot.aiworkspace.data.TerminalSamples
+          import kotlinx.coroutines.delay
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          import kotlinx.coroutines.launch
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
+
+          data class TerminalUiState(
+              val input: String = "",
+              val logs: List<TerminalLine> = TerminalSamples.initialLogs(),
+              val isRunning: Boolean = false
+          )
+
+          class TerminalViewModel : ViewModel() {
+
+              private val _uiState = MutableStateFlow(TerminalUiState())
+              val uiState: StateFlow<TerminalUiState> = _uiState.asStateFlow()
+
+              fun updateInput(value: String) {
+                  _uiState.value = _uiState.value.copy(input = value)
+              }
+
+              fun clearLogs() {
+                  _uiState.value = TerminalUiState(
+                      logs = listOf(
+                          line(TerminalLineType.Info, "Terminal cleared.")
+                      )
+                  )
+              }
+
+              fun runCurrentCommand() {
+                  val command = _uiState.value.input.trim()
+                  if (command.isBlank() || _uiState.value.isRunning) return
+
+                  _uiState.value = _uiState.value.copy(
+                      input = "",
+                      isRunning = true,
+                      logs = _uiState.value.logs + line(TerminalLineType.Command, "$ $command")
+                  )
+
+                  simulateCommand(command)
+              }
+
+              fun runQuickCommand(command: String) {
+                  if (_uiState.value.isRunning) return
+
+                  _uiState.value = _uiState.value.copy(
+                      isRunning = true,
+                      logs = _uiState.value.logs + line(TerminalLineType.Command, "$ $command")
+                  )
+
+                  simulateCommand(command)
+              }
+
+              private fun simulateCommand(command: String) {
+                  viewModelScope.launch {
+                      when {
+                          command.contains("gradlew", ignoreCase = true) ||
+                              command.contains("build", ignoreCase = true) -> {
+                              append(TerminalLineType.Output, "Starting Gradle build...")
+                              delay(450)
+                              append(TerminalLineType.Output, "Configuring Android project :app")
+                              delay(450)
+                              append(TerminalLineType.Output, "Compiling Kotlin sources")
+                              delay(450)
+                              append(TerminalLineType.Output, "Packaging debug APK")
+                              delay(450)
+                              append(TerminalLineType.Success, "BUILD SUCCESSFUL")
+                              append(TerminalLineType.Success, "APK: app/build/outputs/apk/debug/app-debug.apk")
+                          }
+
+                          command.contains("test", ignoreCase = true) -> {
+                              append(TerminalLineType.Output, "Running unit tests...")
+                              delay(450)
+                              append(TerminalLineType.Success, "All tests passed.")
+                          }
+
+                          command.contains("openrouter", ignoreCase = true) ||
+                              command.contains("ai", ignoreCase = true) -> {
+                              append(TerminalLineType.Output, "Checking AI provider configuration...")
+                              delay(450)
+                              append(TerminalLineType.Info, "OpenRouter key is managed from Settings.")
+                              delay(350)
+                              append(TerminalLineType.Success, "AI workspace configuration loaded.")
+                          }
+
+                          command.contains("clear", ignoreCase = true) -> {
+                              clearLogs()
+                          }
+
+                          command.contains("help", ignoreCase = true) -> {
+                              append(TerminalLineType.Info, "Available commands:")
+                              append(TerminalLineType.Output, "./gradlew assembleDebug")
+                              append(TerminalLineType.Output, "check openrouter")
+                              append(TerminalLineType.Output, "run tests")
+                              append(TerminalLineType.Output, "clear")
+                          }
+
+                          else -> {
+                              append(TerminalLineType.Warning, "Simulated command. Real shell execution is disabled for mobile safety.")
+                              delay(350)
+                              append(TerminalLineType.Output, "Command received: $command")
+                              append(TerminalLineType.Success, "Completed simulation.")
+                          }
+                      }
+
+                      _uiState.value = _uiState.value.copy(isRunning = false)
+                  }
+              }
+
+              private fun append(type: TerminalLineType, text: String) {
+                  _uiState.value = _uiState.value.copy(
+                      logs = _uiState.value.logs + line(type, text)
+                  )
+              }
+
+              private fun line(type: TerminalLineType, text: String): TerminalLine {
+                  return TerminalLine(
+                      id = System.nanoTime(),
+                      type = type,
+                      text = text,
+                      timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                  )
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/TerminalScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.lazy.rememberLazyListState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalClipboardManager
+          import androidx.compose.ui.text.AnnotatedString
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import com.mrrobot.aiworkspace.data.TerminalLine
+          import com.mrrobot.aiworkspace.data.TerminalLineType
+          import com.mrrobot.aiworkspace.ui.components.*
+          import com.mrrobot.aiworkspace.viewmodel.TerminalViewModel
+          import kotlinx.coroutines.launch
+
+          @Composable
+          fun TerminalScreen(
+              viewModel: TerminalViewModel = viewModel()
+          ) {
+              val state by viewModel.uiState.collectAsState()
+              val listState = rememberLazyListState()
+              val scope = rememberCoroutineScope()
+              val clipboard = LocalClipboardManager.current
+
+              LaunchedEffect(state.logs.size) {
+                  if (state.logs.isNotEmpty()) {
+                      scope.launch {
+                          listState.animateScrollToItem(state.logs.lastIndex)
+                      }
+                  }
+              }
+
+              ScreenShell {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Column(modifier = Modifier.weight(1f)) {
+                          Title("Live Terminal")
+                          Subtitle("Simulated safe mobile command console and build logs.")
+                      }
+
+                      TextButton(onClick = { viewModel.clearLogs() }) {
+                          Text("Clear")
+                      }
+                  }
+
+                  Spacer(Modifier.height(12.dp))
+
+                  GlassCard {
+                      Subtitle("Quick Actions")
+                      Spacer(Modifier.height(10.dp))
+
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.spacedBy(8.dp)
+                      ) {
+                          OutlinedButton(
+                              onClick = { viewModel.runQuickCommand("./gradlew assembleDebug") },
+                              modifier = Modifier.weight(1f),
+                              enabled = !state.isRunning
+                          ) {
+                              Text("Build")
+                          }
+
+                          OutlinedButton(
+                              onClick = { viewModel.runQuickCommand("check openrouter") },
+                              modifier = Modifier.weight(1f),
+                              enabled = !state.isRunning
+                          ) {
+                              Text("AI")
+                          }
+
+                          OutlinedButton(
+                              onClick = { viewModel.runQuickCommand("help") },
+                              modifier = Modifier.weight(1f),
+                              enabled = !state.isRunning
+                          ) {
+                              Text("Help")
+                          }
+                      }
+                  }
+
+                  Spacer(Modifier.height(12.dp))
+
+                  Card(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .weight(1f),
+                      shape = RoundedCornerShape(22.dp),
+                      colors = CardDefaults.cardColors(
+                          containerColor = Color(0xFF05070A)
+                      )
+                  ) {
+                      LazyColumn(
+                          state = listState,
+                          modifier = Modifier
+                              .fillMaxSize()
+                              .padding(14.dp)
+                      ) {
+                          items(
+                              items = state.logs,
+                              key = { it.id }
+                          ) { line ->
+                              TerminalLineRow(line = line)
+                          }
+
+                          if (state.isRunning) {
+                              item {
+                                  Row(
+                                      verticalAlignment = Alignment.CenterVertically,
+                                      modifier = Modifier.padding(top = 10.dp)
+                                  ) {
+                                      CircularProgressIndicator(
+                                          modifier = Modifier.size(16.dp),
+                                          strokeWidth = 2.dp
+                                      )
+                                      Spacer(Modifier.width(10.dp))
+                                      Text(
+                                          text = "Running...",
+                                          color = NeonCyan,
+                                          fontFamily = FontFamily.Monospace
+                                      )
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  Spacer(Modifier.height(10.dp))
+
+                  OutlinedTextField(
+                      value = state.input,
+                      onValueChange = viewModel::updateInput,
+                      placeholder = { Text("Type command, e.g. ./gradlew assembleDebug") },
+                      modifier = Modifier.fillMaxWidth(),
+                      singleLine = true
+                  )
+
+                  Spacer(Modifier.height(8.dp))
+
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(10.dp)
+                  ) {
+                      Button(
+                          onClick = { viewModel.runCurrentCommand() },
+                          modifier = Modifier.weight(1f),
+                          enabled = !state.isRunning,
+                          colors = ButtonDefaults.buttonColors(
+                              containerColor = NeonCyan,
+                              contentColor = Color.Black
+                          ),
+                          shape = RoundedCornerShape(18.dp)
+                      ) {
+                          Text("Run", fontWeight = FontWeight.Bold)
+                      }
+
+                      OutlinedButton(
+                          onClick = {
+                              val logs = state.logs.joinToString("\n") {
+                                  "[${it.timestamp}] ${it.type}: ${it.text}"
+                              }
+                              clipboard.setText(AnnotatedString(logs))
+                          },
+                          modifier = Modifier.weight(1f),
+                          shape = RoundedCornerShape(18.dp)
+                      ) {
+                          Text("Copy Logs")
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun TerminalLineRow(line: TerminalLine) {
+              val color = when (line.type) {
+                  TerminalLineType.Command -> NeonCyan
+                  TerminalLineType.Output -> Color(0xFFD1D5DB)
+                  TerminalLineType.Success -> Color(0xFF4ADE80)
+                  TerminalLineType.Warning -> Color(0xFFFACC15)
+                  TerminalLineType.Error -> Color(0xFFFF6B6B)
+                  TerminalLineType.Info -> NeonPurple
+              }
+
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(vertical = 4.dp)
+                      .background(
+                          color = if (line.type == TerminalLineType.Command) {
+                              Color(0xFF101827)
+                          } else {
+                              Color.Transparent
+                          },
+                          shape = RoundedCornerShape(10.dp)
+                      )
+                      .padding(horizontal = 8.dp, vertical = 6.dp)
+              ) {
+                  Text(
+                      text = "[${line.timestamp}] ",
+                      color = SoftText,
+                      fontFamily = FontFamily.Monospace
+                  )
+
+                  Text(
+                      text = line.text,
+                      color = color,
+                      fontFamily = FontFamily.Monospace,
+                      modifier = Modifier.weight(1f)
+                  )
+              }
+          }
+          EOF
+
+      - name: Commit Step 7 upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 7 add terminal logs system"
+
+          git pull --rebase origin main
+
+          git push origin main
