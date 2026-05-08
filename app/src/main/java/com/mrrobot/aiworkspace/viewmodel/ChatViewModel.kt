@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.mrrobot.aiworkspace.ai.OpenRouterRepository
 import com.mrrobot.aiworkspace.data.ChatMessage
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.mrrobot.aiworkspace.storage.ChatStorage
