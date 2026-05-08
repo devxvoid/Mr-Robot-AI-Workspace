@@ -1,0 +1,267 @@
+name: Step 28 Real OpenRouter Integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  openrouter:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Build real OpenRouter integration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$ROOT/ai"
+          mkdir -p "$ROOT/data"
+          mkdir -p "$ROOT/viewmodel"
+
+          cat > "$ROOT/ai/OpenRouterModels.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ai
+
+          data class OpenRouterModel(
+              val id: String,
+              val title: String
+          )
+
+          object OpenRouterModels {
+
+              val models = listOf(
+
+                  OpenRouterModel(
+                      "openai/gpt-4o-mini",
+                      "GPT-4o Mini"
+                  ),
+
+                  OpenRouterModel(
+                      "anthropic/claude-3.5-sonnet",
+                      "Claude Sonnet"
+                  ),
+
+                  OpenRouterModel(
+                      "google/gemini-flash-1.5",
+                      "Gemini Flash"
+                  ),
+
+                  OpenRouterModel(
+                      "meta-llama/llama-3.1-70b-instruct",
+                      "Llama 3.1 70B"
+                  )
+              )
+          }
+          EOF
+
+          cat > "$ROOT/data/ChatMessage.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.data
+
+          data class ChatMessage(
+              val role: String,
+              val content: String
+          )
+          EOF
+
+          cat > "$ROOT/ai/OpenRouterRepository.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ai
+
+          import com.mrrobot.aiworkspace.data.ChatMessage
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.withContext
+          import okhttp3.MediaType.Companion.toMediaType
+          import okhttp3.OkHttpClient
+          import okhttp3.Request
+          import okhttp3.RequestBody.Companion.toRequestBody
+          import org.json.JSONArray
+          import org.json.JSONObject
+
+          class OpenRouterRepository {
+
+              private val client = OkHttpClient()
+
+              suspend fun sendMessage(
+                  apiKey: String,
+                  model: String,
+                  messages: List<ChatMessage>
+              ): Result<String> {
+
+                  return withContext(Dispatchers.IO) {
+
+                      try {
+
+                          val jsonMessages = JSONArray()
+
+                          messages.forEach {
+
+                              val item = JSONObject()
+
+                              item.put("role", it.role)
+                              item.put("content", it.content)
+
+                              jsonMessages.put(item)
+                          }
+
+                          val body = JSONObject()
+
+                          body.put("model", model)
+                          body.put("messages", jsonMessages)
+
+                          val request = Request.Builder()
+                              .url("https://openrouter.ai/api/v1/chat/completions")
+                              .addHeader(
+                                  "Authorization",
+                                  "Bearer $apiKey"
+                              )
+                              .addHeader(
+                                  "Content-Type",
+                                  "application/json"
+                              )
+                              .post(
+                                  body.toString()
+                                      .toRequestBody(
+                                          "application/json"
+                                              .toMediaType()
+                                      )
+                              )
+                              .build()
+
+                          val response =
+                              client.newCall(request).execute()
+
+                          val responseText =
+                              response.body?.string().orEmpty()
+
+                          val json =
+                              JSONObject(responseText)
+
+                          val content =
+                              json
+                                  .getJSONArray("choices")
+                                  .getJSONObject(0)
+                                  .getJSONObject("message")
+                                  .getString("content")
+
+                          Result.success(content)
+
+                      } catch (e: Exception) {
+
+                          Result.failure(e)
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$ROOT/viewmodel/ChatViewModel.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.viewmodel
+
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.setValue
+          import androidx.lifecycle.ViewModel
+          import androidx.lifecycle.viewModelScope
+          import com.mrrobot.aiworkspace.ai.OpenRouterRepository
+          import com.mrrobot.aiworkspace.data.ChatMessage
+          import kotlinx.coroutines.launch
+
+          class ChatViewModel : ViewModel() {
+
+              private val repository =
+                  OpenRouterRepository()
+
+              var apiKey by mutableStateOf("")
+              var selectedModel by mutableStateOf(
+                  "openai/gpt-4o-mini"
+              )
+
+              var input by mutableStateOf("")
+
+              var loading by mutableStateOf(false)
+
+              var messages by mutableStateOf(
+                  listOf(
+                      ChatMessage(
+                          "assistant",
+                          "Welcome to Mr. Robot AI Workspace."
+                      )
+                  )
+              )
+
+              fun sendMessage() {
+
+                  if (
+                      input.isBlank() ||
+                      apiKey.isBlank()
+                  ) return
+
+                  val userMessage =
+                      ChatMessage(
+                          "user",
+                          input
+                      )
+
+                  messages = messages + userMessage
+
+                  val history = messages
+
+                  val currentInput = input
+
+                  input = ""
+
+                  loading = true
+
+                  viewModelScope.launch {
+
+                      val result =
+                          repository.sendMessage(
+                              apiKey = apiKey,
+                              model = selectedModel,
+                              messages = history
+                          )
+
+                      loading = false
+
+                      result.onSuccess {
+
+                          messages =
+                              messages + ChatMessage(
+                                  "assistant",
+                                  it
+                              )
+                      }
+
+                      result.onFailure {
+
+                          messages =
+                              messages + ChatMessage(
+                                  "assistant",
+                                  "Error: ${it.message}"
+                              )
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit OpenRouter integration
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          git commit -m "Add real OpenRouter AI integration"
+
+          git pull --rebase origin main
+
+          git push origin main
