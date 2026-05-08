@@ -1,0 +1,270 @@
+name: Step 29 Production Chat UI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  production-chat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Build production AI chat screen
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$ROOT/ui/chat"
+
+          cat > "$ROOT/ui/chat/ChatScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.chat
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import com.mrrobot.aiworkspace.ai.OpenRouterModels
+          import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
+
+          @Composable
+          fun ChatScreen(
+              vm: ChatViewModel = viewModel()
+          ) {
+
+              Column(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(
+                          Brush.verticalGradient(
+                              listOf(
+                                  Color(0xFF020617),
+                                  Color(0xFF071427),
+                                  Color(0xFF020617)
+                              )
+                          )
+                      )
+                      .padding(18.dp)
+              ) {
+
+                  Text(
+                      text = "AI Workspace",
+                      color = Color.White,
+                      fontSize = 34.sp,
+                      fontWeight = FontWeight.ExtraBold
+                  )
+
+                  Spacer(modifier = Modifier.height(6.dp))
+
+                  Text(
+                      text = "Real OpenRouter AI integration.",
+                      color = Color(0xFF94A3B8)
+                  )
+
+                  Spacer(modifier = Modifier.height(18.dp))
+
+                  OutlinedTextField(
+                      value = vm.apiKey,
+                      onValueChange = {
+                          vm.apiKey = it
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      label = {
+                          Text("OpenRouter API Key")
+                      },
+                      shape = RoundedCornerShape(18.dp)
+                  )
+
+                  Spacer(modifier = Modifier.height(14.dp))
+
+                  var expanded by remember {
+                      mutableStateOf(false)
+                  }
+
+                  ExposedDropdownMenuBox(
+                      expanded = expanded,
+                      onExpandedChange = {
+                          expanded = !expanded
+                      }
+                  ) {
+
+                      OutlinedTextField(
+                          value = vm.selectedModel,
+                          onValueChange = {},
+                          readOnly = true,
+                          modifier = Modifier
+                              .menuAnchor()
+                              .fillMaxWidth(),
+                          label = {
+                              Text("AI Model")
+                          }
+                      )
+
+                      ExposedDropdownMenu(
+                          expanded = expanded,
+                          onDismissRequest = {
+                              expanded = false
+                          }
+                      ) {
+
+                          OpenRouterModels.models.forEach {
+
+                              DropdownMenuItem(
+                                  text = {
+                                      Text(it.title)
+                                  },
+                                  onClick = {
+
+                                      vm.selectedModel = it.id
+                                      expanded = false
+                                  }
+                              )
+                          }
+                      }
+                  }
+
+                  Spacer(modifier = Modifier.height(18.dp))
+
+                  LazyColumn(
+                      modifier = Modifier.weight(1f),
+                      verticalArrangement =
+                          Arrangement.spacedBy(14.dp)
+                  ) {
+
+                      items(vm.messages) { msg ->
+
+                          Surface(
+                              modifier = Modifier.fillMaxWidth(),
+                              shape = RoundedCornerShape(22.dp),
+                              color =
+                                  if (msg.role == "user")
+                                      Color(0x2200D4FF)
+                                  else
+                                      Color(0x2200FFB2)
+                          ) {
+
+                              Column(
+                                  modifier = Modifier.padding(16.dp)
+                              ) {
+
+                                  Text(
+                                      text = msg.role.uppercase(),
+                                      color =
+                                          if (msg.role == "user")
+                                              Color(0xFF00D4FF)
+                                          else
+                                              Color(0xFF00FFB2),
+                                      fontWeight = FontWeight.Bold
+                                  )
+
+                                  Spacer(
+                                      modifier = Modifier.height(10.dp)
+                                  )
+
+                                  Text(
+                                      text = msg.content,
+                                      color = Color.White,
+                                      lineHeight = 22.sp
+                                  )
+                              }
+                          }
+                      }
+                  }
+
+                  if (vm.loading) {
+
+                      Spacer(modifier = Modifier.height(12.dp))
+
+                      LinearProgressIndicator(
+                          modifier = Modifier.fillMaxWidth(),
+                          color = Color(0xFF00D4FF)
+                      )
+                  }
+
+                  Spacer(modifier = Modifier.height(14.dp))
+
+                  OutlinedTextField(
+                      value = vm.input,
+                      onValueChange = {
+                          vm.input = it
+                      },
+                      modifier = Modifier.fillMaxWidth(),
+                      label = {
+                          Text("Message")
+                      },
+                      shape = RoundedCornerShape(18.dp)
+                  )
+
+                  Spacer(modifier = Modifier.height(14.dp))
+
+                  Button(
+                      onClick = {
+                          vm.sendMessage()
+                      },
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .height(56.dp),
+                      shape = RoundedCornerShape(18.dp),
+                      colors = ButtonDefaults.buttonColors(
+                          containerColor = Color(0xFF00D4FF)
+                      )
+                  ) {
+
+                      Text(
+                          text = "Send Message",
+                          color = Color.Black,
+                          fontWeight = FontWeight.Bold
+                      )
+                  }
+              }
+          }
+          EOF
+
+          NAV="app/src/main/java/com/mrrobot/aiworkspace/navigation/AppNavigation.kt"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("app/src/main/java/com/mrrobot/aiworkspace/navigation/AppNavigation.kt")
+
+          text = p.read_text()
+
+          text = text.replace(
+              "import com.mrrobot.aiworkspace.ui.screens.*",
+              "import com.mrrobot.aiworkspace.ui.screens.*\nimport com.mrrobot.aiworkspace.ui.chat.ChatScreen"
+          )
+
+          p.write_text(text)
+          PY
+
+      - name: Commit production chat UI
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          git commit -m "Build production AI chat UI"
+
+          git pull --rebase origin main
+
+          git push origin main
