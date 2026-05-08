@@ -1,7 +1,15 @@
 package com.mrrobot.aiworkspace.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -11,7 +19,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mrrobot.aiworkspace.navigation.Route
-import com.mrrobot.aiworkspace.ui.components.*
+import com.mrrobot.aiworkspace.ui.components.GlassCard
+import com.mrrobot.aiworkspace.ui.components.PageTitle
+import com.mrrobot.aiworkspace.ui.components.ScreenShell
+import com.mrrobot.aiworkspace.ui.components.Subtitle
 
 @Composable
 fun MoreScreen(nav: NavController) {
@@ -22,7 +33,7 @@ fun MoreScreen(nav: NavController) {
         ) {
             item {
                 PageTitle("Command Modules")
-                Subtitle("Access terminal, files, marketplace, settings, and profile without breaking the bottom navigation.")
+                Subtitle("Access secondary modules without breaking the bottom navigation.")
                 Spacer(Modifier.height(16.dp))
 
                 MoreItem(">_", "Live Terminal", "Safe command simulation and logs") {
@@ -74,7 +85,11 @@ private fun MoreItem(
                 Spacer(Modifier.height(6.dp))
                 Subtitle(subtitle)
             }
-            Text("→", color = MaterialTheme.colorScheme.primary)
+
+            Text(
+                text = "→",
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

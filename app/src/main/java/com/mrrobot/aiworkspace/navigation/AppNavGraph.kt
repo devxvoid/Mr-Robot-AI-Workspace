@@ -17,16 +17,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.mrrobot.aiworkspace.ui.screens.AgentsScreen
-import com.mrrobot.aiworkspace.ui.screens.ChatScreen
-import com.mrrobot.aiworkspace.ui.screens.FileManagerScreen
-import com.mrrobot.aiworkspace.ui.screens.MarketplaceScreen
-import com.mrrobot.aiworkspace.ui.screens.MoreScreen
-import com.mrrobot.aiworkspace.ui.screens.ProfileScreen
-import com.mrrobot.aiworkspace.ui.screens.SettingsScreen
-import com.mrrobot.aiworkspace.ui.screens.TerminalScreen
-import com.mrrobot.aiworkspace.ui.screens.WelcomeScreen
-import com.mrrobot.aiworkspace.ui.screens.WorkflowScreen
+import com.mrrobot.aiworkspace.ui.screens.*
 
 sealed class Route(val path: String, val label: String, val icon: String) {
     object Welcome : Route("welcome", "Home", "⌂")
@@ -44,6 +35,7 @@ sealed class Route(val path: String, val label: String, val icon: String) {
 @Composable
 fun AppNavGraph() {
     val nav = rememberNavController()
+    val current = nav.currentBackStackEntryAsState().value?.destination?.route
 
     val bottomItems = listOf(
         Route.Welcome,
@@ -61,8 +53,6 @@ fun AppNavGraph() {
                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
                 tonalElevation = 0.dp
             ) {
-                val current = nav.currentBackStackEntryAsState().value?.destination?.route
-
                 bottomItems.forEach { route ->
                     NavigationBarItem(
                         selected = current == route.path,
@@ -95,11 +85,11 @@ fun AppNavGraph() {
                 }
             }
         }
-    ) { padding ->
+    ) { paddingValues ->
         NavHost(
             navController = nav,
             startDestination = Route.Welcome.path,
-            modifier = Modifier.padding(padding)
+            modifier = Modifier.padding(paddingValues)
         ) {
             composable(Route.Welcome.path) { WelcomeScreen(nav) }
             composable(Route.Chat.path) { ChatScreen() }
