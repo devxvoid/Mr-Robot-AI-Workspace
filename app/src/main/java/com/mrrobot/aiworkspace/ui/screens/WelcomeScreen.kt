@@ -1,55 +1,38 @@
 package com.mrrobot.aiworkspace.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import com.mrrobot.aiworkspace.navigation.Route
 import com.mrrobot.aiworkspace.ui.components.*
 
 @Composable
-fun WelcomeScreen(nav: NavController) {
+fun WelcomeScreen() {
+
     ScreenShell {
 
-        PageTitle("Mr. Robot AI Workspace")
+        PageTitle("Welcome")
 
-        Subtitle(
-            "A premium Android AI workspace with agents, workflows, terminals, tools, and OpenRouter integration."
-        )
+        Subtitle("Professional AI workspace module.")
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         Panel(
-            title = "Command Center",
-            subtitle = "Professional AI workflow control system."
+            title = "Welcome Module",
+            subtitle = "Stable Compose implementation"
         ) {
 
+            StatusPill("READY")
+
+            SoftText(
+                "This module has been stabilized by the self-healing workflow."
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             PrimaryButton(
-                text = "Launch AI Chat",
-                onClick = {
-                    nav.navigate(Route.Chat.path)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SecondaryButton(
-                text = "Open Agent System",
-                onClick = {
-                    nav.navigate(Route.Agents.path)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SecondaryButton(
-                text = "Build Workflow",
-                onClick = {
-                    nav.navigate(Route.Workflow.path)
-                }
+                text = "Continue",
+                onClick = {}
             )
         }
     }

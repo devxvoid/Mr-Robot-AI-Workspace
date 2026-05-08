@@ -1,7 +1,6 @@
 package com.mrrobot.aiworkspace.ui.screens
 
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -14,34 +13,25 @@ fun AgentsScreen() {
 
         PageTitle("Agents")
 
-        Subtitle(
-            "Build specialized prompts and execution roles for your AI workspace."
-        )
+        Subtitle("Professional AI workspace module.")
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         Panel(
-            title = "Android Architect",
-            subtitle = "Production-grade Kotlin + Compose agent."
+            title = "Agents Module",
+            subtitle = "Stable Compose implementation"
         ) {
 
-            StatusPill("ACTIVE")
+            StatusPill("READY")
 
             SoftText(
-                "Builds scalable Android architectures, Compose UI systems, repositories, Gradle fixes, and workflow automation."
+                "This module has been stabilized by the self-healing workflow."
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             PrimaryButton(
-                text = "Generate Prompt",
-                onClick = {}
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            SecondaryButton(
-                text = "Clear",
+                text = "Continue",
                 onClick = {}
             )
         }

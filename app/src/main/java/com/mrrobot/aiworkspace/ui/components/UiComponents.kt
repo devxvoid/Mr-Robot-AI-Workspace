@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.sp
 val NeonCyan = Color(0xFF00D4FF)
 val NeonPurple = Color(0xFF8B5CF6)
 val NeonGreen = Color(0xFF00FF88)
-val SoftTextColor = Color(0xFFCBD5E1)
 
 @Composable
 fun ScreenShell(
@@ -51,11 +50,11 @@ fun GlassCard(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         color = Color(0xAA0B1020),
         border = BorderStroke(
             1.dp,
-            NeonCyan.copy(alpha = .22f)
+            NeonCyan.copy(alpha = .25f)
         )
     ) {
         Column(
@@ -67,80 +66,42 @@ fun GlassCard(
 }
 
 @Composable
-fun Panel(
-    title: String,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit = {}
-) {
-    GlassCard(modifier = modifier) {
-
-        Text(
-            text = title,
-            color = Color.White,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        subtitle?.let {
-            Subtitle(it)
-        }
-
-        content()
-    }
-}
-
-@Composable
 fun PageTitle(text: String) {
     Text(
         text = text,
         color = Color.White,
-        fontSize = 34.sp,
-        lineHeight = 40.sp,
+        fontSize = 32.sp,
         fontWeight = FontWeight.ExtraBold
     )
 }
 
 @Composable
-fun Title(
-    text: String,
-    modifier: Modifier = Modifier
-) {
+fun Title(text: String) {
     Text(
         text = text,
-        modifier = modifier,
         color = Color.White,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
-        fontWeight = FontWeight.Bold
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
     )
 }
 
 @Composable
-fun Subtitle(
-    text: String,
-    modifier: Modifier = Modifier
-) {
+fun Subtitle(text: String) {
     Text(
         text = text,
-        modifier = modifier,
         color = Color(0xFF94A3B8),
-        fontSize = 15.sp,
+        fontSize = 14.sp,
         lineHeight = 22.sp
     )
 }
 
 @Composable
-fun SoftText(
-    text: String,
-    modifier: Modifier = Modifier
-) {
+fun SoftText(text: String) {
     Text(
         text = text,
-        modifier = modifier,
-        color = SoftTextColor,
+        color = Color(0xFFCBD5E1),
         fontSize = 14.sp,
         lineHeight = 21.sp
     )
@@ -149,27 +110,25 @@ fun SoftText(
 @Composable
 fun StatusPill(
     text: String,
-    color: Color = NeonCyan,
-    modifier: Modifier = Modifier
+    color: Color = NeonCyan
 ) {
     Surface(
-        modifier = modifier,
         color = color.copy(alpha = .15f),
         border = BorderStroke(
             1.dp,
-            color.copy(alpha = .45f)
+            color.copy(alpha = .4f)
         ),
         shape = RoundedCornerShape(100)
     ) {
         Text(
             text = text,
             color = color,
-            fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
             modifier = Modifier.padding(
                 horizontal = 12.dp,
                 vertical = 6.dp
-            )
+            ),
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp
         )
     }
 }
@@ -178,12 +137,10 @@ fun StatusPill(
 fun PrimaryButton(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    modifier: Modifier = Modifier
 ) {
     Button(
         onClick = onClick,
-        enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp),
@@ -204,26 +161,42 @@ fun PrimaryButton(
 fun SecondaryButton(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    modifier: Modifier = Modifier
 ) {
     OutlinedButton(
         onClick = onClick,
-        enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
             .height(54.dp),
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             1.dp,
-            Color.White.copy(alpha = .18f)
+            Color.White.copy(alpha = .2f)
         )
     ) {
         Text(
             text = text,
-            color = NeonCyan,
-            fontWeight = FontWeight.Medium
+            color = NeonCyan
         )
+    }
+}
+
+@Composable
+fun Panel(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit = {}
+) {
+    GlassCard(modifier = modifier) {
+
+        Title(title)
+
+        subtitle?.let {
+            Subtitle(it)
+        }
+
+        content()
     }
 }
 
