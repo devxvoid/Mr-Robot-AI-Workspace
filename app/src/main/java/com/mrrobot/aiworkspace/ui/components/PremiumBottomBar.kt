@@ -35,7 +35,7 @@ fun PremiumBottomBar(
     )
 
     NavigationBar(
-        containerColor = BgSecondary
+        containerColor = Color(0xFF071427)
     ) {
 
         val current =
