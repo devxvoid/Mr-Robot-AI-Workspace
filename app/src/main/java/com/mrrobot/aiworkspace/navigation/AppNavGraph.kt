@@ -1,6 +1,6 @@
 package com.mrrobot.aiworkspace.navigation
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,7 +18,8 @@ sealed class Route(val path: String, val label: String, val icon: String) {
     object Chat : Route("chat", "AI", "AI")
     object Agents : Route("agents", "Agents", "◆")
     object Workflow : Route("workflow", "Flow", "↯")
-    object Terminal : Route("terminal", "Term", ">_")
+    object More : Route("more", "More", "☰")
+    object Terminal : Route("terminal", "Terminal", ">_")
     object Files : Route("files", "Files", "▣")
     object Market : Route("market", "Market", "✦")
     object Settings : Route("settings", "Settings", "⚙")
@@ -29,29 +30,25 @@ sealed class Route(val path: String, val label: String, val icon: String) {
 fun AppNavGraph() {
     val nav = rememberNavController()
 
-    val items = listOf(
+    val bottomItems = listOf(
         Route.Welcome,
         Route.Chat,
         Route.Agents,
         Route.Workflow,
-        Route.Terminal,
-        Route.Files,
-        Route.Market,
-        Route.Settings,
-        Route.Profile
+        Route.More
     )
 
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
             NavigationBar(
-                modifier = Modifier.height(74.dp),
+                modifier = Modifier.height(76.dp),
                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
                 tonalElevation = 0.dp
             ) {
                 val current = nav.currentBackStackEntryAsState().value?.destination?.route
 
-                items.forEach { route ->
+                bottomItems.forEach { route ->
                     NavigationBarItem(
                         selected = current == route.path,
                         onClick = {
@@ -63,12 +60,7 @@ fun AppNavGraph() {
                         icon = {
                             Text(
                                 text = route.icon,
-                                fontWeight = FontWeight.Bold,
-                                color = if (current == route.path) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
+                                fontWeight = FontWeight.Bold
                             )
                         },
                         label = {
@@ -78,9 +70,9 @@ fun AppNavGraph() {
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = .16f),
                             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -92,12 +84,15 @@ fun AppNavGraph() {
         NavHost(
             navController = nav,
             startDestination = Route.Welcome.path,
-            modifier = Modifier.padding(padding)
+            modifier = Modifier
+                .then(Modifier)
+                .padding(padding)
         ) {
             composable(Route.Welcome.path) { WelcomeScreen(nav) }
             composable(Route.Chat.path) { ChatScreen() }
             composable(Route.Agents.path) { AgentsScreen() }
             composable(Route.Workflow.path) { WorkflowScreen() }
+            composable(Route.More.path) { MoreScreen(nav) }
             composable(Route.Terminal.path) { TerminalScreen() }
             composable(Route.Files.path) { FileManagerScreen() }
             composable(Route.Market.path) { MarketplaceScreen() }
