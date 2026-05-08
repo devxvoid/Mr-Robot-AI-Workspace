@@ -1,0 +1,218 @@
+name: Step 15 Fix Step 14 Compile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    name: Fix Kotlin Compile Errors
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Patch Step 14 compile issues
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+
+          cat > "$APP_DIR/navigation/AppNavGraph.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.navigation
+
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.NavigationBar
+          import androidx.compose.material3.NavigationBarItem
+          import androidx.compose.material3.NavigationBarItemDefaults
+          import androidx.compose.material3.Scaffold
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.navigation.compose.NavHost
+          import androidx.navigation.compose.composable
+          import androidx.navigation.compose.currentBackStackEntryAsState
+          import androidx.navigation.compose.rememberNavController
+          import com.mrrobot.aiworkspace.ui.screens.AgentsScreen
+          import com.mrrobot.aiworkspace.ui.screens.ChatScreen
+          import com.mrrobot.aiworkspace.ui.screens.FileManagerScreen
+          import com.mrrobot.aiworkspace.ui.screens.MarketplaceScreen
+          import com.mrrobot.aiworkspace.ui.screens.MoreScreen
+          import com.mrrobot.aiworkspace.ui.screens.ProfileScreen
+          import com.mrrobot.aiworkspace.ui.screens.SettingsScreen
+          import com.mrrobot.aiworkspace.ui.screens.TerminalScreen
+          import com.mrrobot.aiworkspace.ui.screens.WelcomeScreen
+          import com.mrrobot.aiworkspace.ui.screens.WorkflowScreen
+
+          sealed class Route(val path: String, val label: String, val icon: String) {
+              object Welcome : Route("welcome", "Home", "⌂")
+              object Chat : Route("chat", "AI", "AI")
+              object Agents : Route("agents", "Agents", "◆")
+              object Workflow : Route("workflow", "Flow", "↯")
+              object More : Route("more", "More", "☰")
+              object Terminal : Route("terminal", "Terminal", ">_")
+              object Files : Route("files", "Files", "▣")
+              object Market : Route("market", "Market", "✦")
+              object Settings : Route("settings", "Settings", "⚙")
+              object Profile : Route("profile", "Profile", "◎")
+          }
+
+          @Composable
+          fun AppNavGraph() {
+              val nav = rememberNavController()
+
+              val bottomItems = listOf(
+                  Route.Welcome,
+                  Route.Chat,
+                  Route.Agents,
+                  Route.Workflow,
+                  Route.More
+              )
+
+              Scaffold(
+                  containerColor = Color.Transparent,
+                  bottomBar = {
+                      NavigationBar(
+                          modifier = Modifier.height(76.dp),
+                          containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                          tonalElevation = 0.dp
+                      ) {
+                          val current = nav.currentBackStackEntryAsState().value?.destination?.route
+
+                          bottomItems.forEach { route ->
+                              NavigationBarItem(
+                                  selected = current == route.path,
+                                  onClick = {
+                                      nav.navigate(route.path) {
+                                          launchSingleTop = true
+                                          restoreState = true
+                                      }
+                                  },
+                                  icon = {
+                                      Text(
+                                          text = route.icon,
+                                          fontWeight = FontWeight.Bold
+                                      )
+                                  },
+                                  label = {
+                                      Text(
+                                          text = route.label,
+                                          maxLines = 1
+                                      )
+                                  },
+                                  colors = NavigationBarItemDefaults.colors(
+                                      selectedIconColor = MaterialTheme.colorScheme.primary,
+                                      selectedTextColor = MaterialTheme.colorScheme.primary,
+                                      indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                      unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                      unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                  )
+                              )
+                          }
+                      }
+                  }
+              ) { padding ->
+                  NavHost(
+                      navController = nav,
+                      startDestination = Route.Welcome.path,
+                      modifier = Modifier.padding(padding)
+                  ) {
+                      composable(Route.Welcome.path) { WelcomeScreen(nav) }
+                      composable(Route.Chat.path) { ChatScreen() }
+                      composable(Route.Agents.path) { AgentsScreen() }
+                      composable(Route.Workflow.path) { WorkflowScreen() }
+                      composable(Route.More.path) { MoreScreen(nav) }
+                      composable(Route.Terminal.path) { TerminalScreen() }
+                      composable(Route.Files.path) { FileManagerScreen() }
+                      composable(Route.Market.path) { MarketplaceScreen() }
+                      composable(Route.Settings.path) { SettingsScreen() }
+                      composable(Route.Profile.path) { ProfileScreen() }
+                  }
+              }
+          }
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt")
+          text = path.read_text()
+
+          text = text.replace(
+              """          @Composable
+          fun StatusPill(
+              text: String,
+              color: Color = MaterialTheme.colorScheme.primary
+          ) {
+              Surface(
+                  color = color.copy(alpha = .12f),
+                  border = BorderStroke(1.dp, color.copy(alpha = .45f)),
+                  shape = RoundedCornerShape(999.dp)
+              ) {
+                  Text(
+                      text = text,
+                      color = color,
+                      fontSize = 12.sp,
+                      fontWeight = FontWeight.Bold,
+                      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                  )
+              }
+          }""",
+              """          @Composable
+          fun StatusPill(
+              text: String,
+              color: Color? = null
+          ) {
+              val resolvedColor = color ?: MaterialTheme.colorScheme.primary
+
+              Surface(
+                  color = resolvedColor.copy(alpha = .12f),
+                  border = BorderStroke(1.dp, resolvedColor.copy(alpha = .45f)),
+                  shape = RoundedCornerShape(999.dp)
+              ) {
+                  Text(
+                      text = text,
+                      color = resolvedColor,
+                      fontSize = 12.sp,
+                      fontWeight = FontWeight.Bold,
+                      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                  )
+              }
+          }"""
+          )
+
+          path.write_text(text)
+          PY
+
+      - name: Commit compile fix
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 15 fix Step 14 Kotlin compile errors"
+
+          git pull --rebase origin main
+
+          git push origin main
