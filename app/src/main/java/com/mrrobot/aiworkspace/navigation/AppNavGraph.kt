@@ -1,7 +1,13 @@
 package com.mrrobot.aiworkspace.navigation
 
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -11,7 +17,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.mrrobot.aiworkspace.ui.screens.*
+import com.mrrobot.aiworkspace.ui.screens.AgentsScreen
+import com.mrrobot.aiworkspace.ui.screens.ChatScreen
+import com.mrrobot.aiworkspace.ui.screens.FileManagerScreen
+import com.mrrobot.aiworkspace.ui.screens.MarketplaceScreen
+import com.mrrobot.aiworkspace.ui.screens.MoreScreen
+import com.mrrobot.aiworkspace.ui.screens.ProfileScreen
+import com.mrrobot.aiworkspace.ui.screens.SettingsScreen
+import com.mrrobot.aiworkspace.ui.screens.TerminalScreen
+import com.mrrobot.aiworkspace.ui.screens.WelcomeScreen
+import com.mrrobot.aiworkspace.ui.screens.WorkflowScreen
 
 sealed class Route(val path: String, val label: String, val icon: String) {
     object Welcome : Route("welcome", "Home", "⌂")
@@ -72,7 +87,7 @@ fun AppNavGraph() {
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = .16f),
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
                             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -84,9 +99,7 @@ fun AppNavGraph() {
         NavHost(
             navController = nav,
             startDestination = Route.Welcome.path,
-            modifier = Modifier
-                .then(Modifier)
-                .padding(padding)
+            modifier = Modifier.padding(padding)
         ) {
             composable(Route.Welcome.path) { WelcomeScreen(nav) }
             composable(Route.Chat.path) { ChatScreen() }
