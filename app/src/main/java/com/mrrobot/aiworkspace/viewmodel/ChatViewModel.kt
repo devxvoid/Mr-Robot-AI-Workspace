@@ -8,8 +8,11 @@ import androidx.lifecycle.viewModelScope
 import com.mrrobot.aiworkspace.ai.OpenRouterRepository
 import com.mrrobot.aiworkspace.data.ChatMessage
 import kotlinx.coroutines.launch
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import com.mrrobot.aiworkspace.storage.ChatStorage
 
-class ChatViewModel : ViewModel() {
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository =
         OpenRouterRepository()
@@ -32,7 +35,26 @@ class ChatViewModel : ViewModel() {
         )
     )
 
-    fun sendMessage() {
+    
+
+    init {
+
+        viewModelScope.launch {
+
+            val saved =
+                ChatStorage.loadMessages(
+                    getApplication()
+                )
+
+            if (saved.isNotEmpty()) {
+
+                messages = saved
+            }
+        }
+    }
+
+    
+fun sendMessage() {
 
         if (
             input.isBlank() ||
