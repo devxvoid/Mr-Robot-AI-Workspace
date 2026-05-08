@@ -21,63 +21,56 @@ import com.mrrobot.aiworkspace.ui.components.*
 import com.mrrobot.aiworkspace.viewmodel.WorkflowViewModel
 
 @Composable
-fun WorkflowScreen(
-    viewModel: WorkflowViewModel = viewModel()
-) {
+fun WorkflowScreen(viewModel: WorkflowViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
     val clipboard = LocalClipboardManager.current
 
     ScreenShell {
         Title("Workflow Builder")
         Subtitle("Create, reorder, simulate, and export multi-agent workflows.")
-        Spacer(Modifier.height(14.dp))
-
-        GlassCard {
-            Subtitle("Workflow Name")
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = state.workflowName,
-                onValueChange = viewModel::updateWorkflowName,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { viewModel.loadAndroidTemplate() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Android")
-                }
-
-                OutlinedButton(
-                    onClick = { viewModel.loadAiWorkspaceTemplate() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("AI Upgrade")
-                }
-
-                OutlinedButton(
-                    onClick = { viewModel.clearSteps() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Clear")
-                }
-            }
-        }
-
         Spacer(Modifier.height(12.dp))
 
         LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = 12.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 18.dp)
         ) {
+            item {
+                GlassCard {
+                    Subtitle("Workflow Name")
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = state.workflowName,
+                        onValueChange = viewModel::updateWorkflowName,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { viewModel.loadAndroidTemplate() },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Android") }
+
+                            OutlinedButton(
+                                onClick = { viewModel.loadAiWorkspaceTemplate() },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("AI Upgrade") }
+                        }
+
+                        OutlinedButton(
+                            onClick = { viewModel.clearSteps() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Clear Steps") }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+            }
+
             itemsIndexed(
                 items = state.steps,
                 key = { _, step -> step.id }
@@ -104,10 +97,10 @@ fun WorkflowScreen(
                     onAgentChange = viewModel::updateCustomAgent,
                     onAdd = { viewModel.addCustomStep() }
                 )
-            }
 
-            item {
-                GlassCard(modifier = Modifier.padding(top = 12.dp)) {
+                Spacer(Modifier.height(12.dp))
+
+                GlassCard {
                     CyberButton("Generate Workflow Prompt") {
                         viewModel.generatePrompt()
                     }
@@ -119,7 +112,7 @@ fun WorkflowScreen(
 
                         Text(
                             text = state.generatedPrompt,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontFamily = FontFamily.Monospace
                         )
 
@@ -130,8 +123,6 @@ fun WorkflowScreen(
                         }
                     }
                 }
-
-                Spacer(Modifier.height(80.dp))
             }
         }
     }
@@ -174,40 +165,19 @@ private fun WorkflowStepCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            OutlinedButton(
-                onClick = onUp,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("↑")
-            }
+            OutlinedButton(onClick = onUp, modifier = Modifier.weight(1f)) { Text("Up") }
+            OutlinedButton(onClick = onDown, modifier = Modifier.weight(1f)) { Text("Down") }
+        }
 
-            OutlinedButton(
-                onClick = onDown,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("↓")
-            }
+        Spacer(Modifier.height(6.dp))
 
-            OutlinedButton(
-                onClick = onRun,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Run")
-            }
-
-            OutlinedButton(
-                onClick = onDone,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Done")
-            }
-
-            OutlinedButton(
-                onClick = onFail,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Fail")
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            OutlinedButton(onClick = onRun, modifier = Modifier.weight(1f)) { Text("Run") }
+            OutlinedButton(onClick = onDone, modifier = Modifier.weight(1f)) { Text("Done") }
+            OutlinedButton(onClick = onFail, modifier = Modifier.weight(1f)) { Text("Fail") }
         }
     }
 }
@@ -215,9 +185,9 @@ private fun WorkflowStepCard(
 @Composable
 private fun StatusChip(status: WorkflowStatus) {
     val color = when (status) {
-        WorkflowStatus.Pending -> SoftText
-        WorkflowStatus.Running -> NeonCyan
-        WorkflowStatus.Completed -> Color(0xFF4ADE80)
+        WorkflowStatus.Pending -> MaterialTheme.colorScheme.onSurfaceVariant
+        WorkflowStatus.Running -> MaterialTheme.colorScheme.primary
+        WorkflowStatus.Completed -> Color(0xFF22C55E)
         WorkflowStatus.Failed -> Color(0xFFFF6B6B)
     }
 

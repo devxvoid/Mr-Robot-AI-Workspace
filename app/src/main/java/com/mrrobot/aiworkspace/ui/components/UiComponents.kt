@@ -20,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-val NeonCyan = Color(0xFF00E5FF)
+val NeonCyan = Color(0xFF00DFF7)
 val NeonPurple = Color(0xFF8B5CF6)
 val NeonGreen = Color(0xFF22C55E)
 val DeepBg = Color(0xFF030712)
@@ -31,15 +31,17 @@ val Danger = Color(0xFFFF6B6B)
 
 @Composable
 fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF030712),
-                        Color(0xFF07111F),
-                        Color(0xFF111827)
+                        scheme.background,
+                        scheme.surface,
+                        scheme.surfaceVariant.copy(alpha = 0.8f)
                     )
                 )
             )
@@ -49,7 +51,7 @@ fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 18.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             content = content
         )
     }
@@ -59,10 +61,10 @@ fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
 fun AmbientGlow() {
     val infinite = rememberInfiniteTransition(label = "ambient_glow")
     val alpha by infinite.animateFloat(
-        initialValue = 0.22f,
-        targetValue = 0.55f,
+        initialValue = 0.12f,
+        targetValue = 0.32f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2200, easing = FastOutSlowInEasing),
+            animation = tween(2400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "ambient_alpha"
@@ -71,33 +73,27 @@ fun AmbientGlow() {
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
-                .size(260.dp)
-                .offset(x = (-80).dp, y = 20.dp)
+                .size(220.dp)
+                .offset(x = (-90).dp, y = 30.dp)
                 .alpha(alpha)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
-                        listOf(
-                            NeonCyan.copy(alpha = 0.28f),
-                            Color.Transparent
-                        )
+                        listOf(NeonCyan.copy(alpha = 0.26f), Color.Transparent)
                     )
                 )
         )
 
         Box(
             modifier = Modifier
-                .size(300.dp)
+                .size(280.dp)
                 .align(Alignment.BottomEnd)
-                .offset(x = 120.dp, y = 60.dp)
+                .offset(x = 120.dp, y = 90.dp)
                 .alpha(alpha)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
-                        listOf(
-                            NeonPurple.copy(alpha = 0.25f),
-                            Color.Transparent
-                        )
+                        listOf(NeonPurple.copy(alpha = 0.22f), Color.Transparent)
                     )
                 )
         )
@@ -116,23 +112,20 @@ fun GlassCard(
                 width = 1.dp,
                 brush = Brush.horizontalGradient(
                     listOf(
-                        NeonCyan.copy(.45f),
-                        NeonPurple.copy(.38f),
-                        NeonGreen.copy(.25f)
+                        NeonCyan.copy(.38f),
+                        NeonPurple.copy(.28f),
+                        NeonGreen.copy(.18f)
                     )
                 ),
-                shape = RoundedCornerShape(26.dp)
+                shape = RoundedCornerShape(24.dp)
             ),
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Panel.copy(alpha = .88f)
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = .88f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         content = {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                content = content
-            )
+            Column(modifier = Modifier.padding(16.dp), content = content)
         }
     )
 }
@@ -152,17 +145,17 @@ fun PremiumHeader(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    color = Color.White,
-                    fontSize = 30.sp,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    lineHeight = 34.sp
+                    lineHeight = 32.sp
                 )
 
                 Spacer(Modifier.height(6.dp))
 
                 Text(
                     text = subtitle,
-                    color = SoftText,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
                 )
@@ -170,13 +163,13 @@ fun PremiumHeader(
 
             if (badge != null) {
                 Surface(
-                    color = NeonCyan.copy(alpha = 0.14f),
-                    border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.45f)),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
                     shape = RoundedCornerShape(999.dp)
                 ) {
                     Text(
                         text = badge,
-                        color = NeonCyan,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
@@ -191,10 +184,10 @@ fun PremiumHeader(
 fun Title(text: String) {
     Text(
         text = text,
-        color = Color.White,
-        fontSize = 24.sp,
+        color = MaterialTheme.colorScheme.onSurface,
+        fontSize = 23.sp,
         fontWeight = FontWeight.Bold,
-        lineHeight = 28.sp
+        lineHeight = 27.sp
     )
 }
 
@@ -202,7 +195,7 @@ fun Title(text: String) {
 fun Subtitle(text: String) {
     Text(
         text = text,
-        color = SoftText,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontSize = 14.sp,
         lineHeight = 20.sp
     )
@@ -213,11 +206,13 @@ fun CyberButton(text: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = NeonCyan,
-            contentColor = Color.Black
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
         ),
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
     ) {
         Text(text, fontWeight = FontWeight.Bold)
     }
@@ -232,18 +227,31 @@ fun PremiumMetric(
     GlassCard {
         Text(
             text = value,
-            color = NeonCyan,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.ExtraBold
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1
         )
+
         Spacer(Modifier.height(4.dp))
+
         Text(
             text = label,
-            color = Color.White,
-            fontWeight = FontWeight.Bold
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            maxLines = 1
         )
+
         Spacer(Modifier.height(4.dp))
-        Subtitle(description)
+
+        Text(
+            text = description,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            maxLines = 2
+        )
     }
 }
 
