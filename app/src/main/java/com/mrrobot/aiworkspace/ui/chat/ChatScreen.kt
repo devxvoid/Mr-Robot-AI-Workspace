@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrrobot.aiworkspace.ai.OpenRouterModels
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
+import com.mrrobot.aiworkspace.ui.markdown.MarkdownRenderer
 
 @Composable
 fun ChatScreen(
@@ -151,10 +152,8 @@ fun ChatScreen(
                             modifier = Modifier.height(10.dp)
                         )
 
-                        Text(
-                            text = msg.content,
-                            color = Color.White,
-                            lineHeight = 22.sp
+                        MarkdownRenderer(
+                            markdown = msg.content
                         )
                     }
                 }
