@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
 
       - name: Add workflow builder logic
         shell: bash
@@ -116,8 +117,6 @@ jobs:
                       )
                   )
               }
-
-              fun empty(): List<WorkflowStep> = emptyList()
           }
           EOF
 
@@ -187,7 +186,6 @@ jobs:
 
               fun addCustomStep() {
                   val state = _uiState.value
-
                   if (state.customTitle.isBlank()) return
 
                   val nextId = (state.steps.maxOfOrNull { it.id } ?: 0L) + 1L
@@ -310,7 +308,6 @@ jobs:
           cat > "$APP_DIR/ui/screens/WorkflowScreen.kt" <<'EOF'
           package com.mrrobot.aiworkspace.ui.screens
 
-          import androidx.compose.foundation.clickable
           import androidx.compose.foundation.layout.*
           import androidx.compose.foundation.lazy.LazyColumn
           import androidx.compose.foundation.lazy.itemsIndexed
@@ -346,6 +343,7 @@ jobs:
                   GlassCard {
                       Subtitle("Workflow Name")
                       Spacer(Modifier.height(8.dp))
+
                       OutlinedTextField(
                           value = state.workflowName,
                           onValueChange = viewModel::updateWorkflowName,
@@ -598,9 +596,20 @@ jobs:
       - name: Commit Step 6 upgrade
         shell: bash
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
           git add .
-          git commit -m "Step 6 add workflow builder logic" || echo "No changes to commit"
-          git push
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 6 add workflow builder logic"
+
+          git pull --rebase origin main
+
+          git push origin main
