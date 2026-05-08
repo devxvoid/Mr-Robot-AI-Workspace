@@ -1,0 +1,108 @@
+name: Step 32 Streaming AI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  streaming:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Add streaming AI responses
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path(
+              "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/ChatViewModel.kt"
+          )
+
+          text = p.read_text()
+
+          if "delay(" not in text:
+
+              text = text.replace(
+                  "import kotlinx.coroutines.launch",
+                  "import kotlinx.coroutines.launch\nimport kotlinx.coroutines.delay"
+              )
+
+              old = '''
+                              result.onSuccess {
+
+                                  messages =
+                                      messages + ChatMessage(
+                                          "assistant",
+                                          it
+                                      )
+
+                                  ChatStorage.saveMessages(
+                                      getApplication(),
+                                      messages
+                                  )
+                              }
+              '''
+
+              new = '''
+                              result.onSuccess { response ->
+
+                                  val placeholder =
+                                      ChatMessage(
+                                          "assistant",
+                                          ""
+                                      )
+
+                                  messages =
+                                      messages + placeholder
+
+                                  var streamed = ""
+
+                                  response.forEach { char ->
+
+                                      delay(8)
+
+                                      streamed += char
+
+                                      messages =
+                                          messages.dropLast(1) +
+                                          ChatMessage(
+                                              "assistant",
+                                              streamed
+                                          )
+                                  }
+
+                                  ChatStorage.saveMessages(
+                                      getApplication(),
+                                      messages
+                                  )
+                              }
+              '''
+
+              text = text.replace(old, new)
+
+              p.write_text(text)
+          PY
+
+      - name: Commit streaming AI
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          git commit -m "Add streaming AI responses"
+
+          git pull --rebase origin main
+
+          git push origin main
