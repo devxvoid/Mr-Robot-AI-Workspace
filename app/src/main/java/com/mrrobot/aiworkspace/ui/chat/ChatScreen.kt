@@ -1,9 +1,11 @@
 package com.mrrobot.aiworkspace.ui.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,14 +17,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrrobot.aiworkspace.ai.OpenRouterModels
-import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
 import com.mrrobot.aiworkspace.ui.markdown.MarkdownRenderer
+import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     vm: ChatViewModel = viewModel()
 ) {
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -37,7 +39,6 @@ fun ChatScreen(
             )
             .padding(18.dp)
     ) {
-
         Text(
             text = "AI Workspace",
             color = Color.White,
@@ -48,37 +49,79 @@ fun ChatScreen(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Real OpenRouter AI integration.",
+            text = "Multi-session OpenRouter AI chat.",
             color = Color(0xFF94A3B8)
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        OutlinedTextField(
-            value = vm.apiKey,
-            onValueChange = {
-                vm.apiKey = it
-            },
-            modifier = Modifier.fillMaxWidth(),
-            label = {
-                Text("OpenRouter API Key")
-            },
-            shape = RoundedCornerShape(18.dp)
         )
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        var expanded by remember {
-            mutableStateOf(false)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Button(
+                onClick = { vm.createSession() },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("New Chat")
+            }
+
+            OutlinedButton(
+                onClick = { vm.clearCurrentChat() },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("Clear")
+            }
+
+            OutlinedButton(
+                onClick = { vm.deleteCurrentSession() },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("Delete")
+            }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+        ) {
+            vm.sessions.forEach { session ->
+                FilterChip(
+                    selected = session.id == vm.selectedSessionId,
+                    onClick = { vm.switchSession(session.id) },
+                    label = {
+                        Text(session.title)
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        OutlinedTextField(
+            value = vm.apiKey,
+            onValueChange = { vm.apiKey = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("OpenRouter API Key") },
+            singleLine = true,
+            shape = RoundedCornerShape(18.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        var expanded by remember { mutableStateOf(false) }
 
         ExposedDropdownMenuBox(
             expanded = expanded,
-            onExpandedChange = {
-                expanded = !expanded
-            }
+            onExpandedChange = { expanded = !expanded }
         ) {
-
             OutlinedTextField(
                 value = vm.selectedModel,
                 onValueChange = {},
@@ -86,27 +129,19 @@ fun ChatScreen(
                 modifier = Modifier
                     .menuAnchor()
                     .fillMaxWidth(),
-                label = {
-                    Text("AI Model")
-                }
+                label = { Text("AI Model") },
+                shape = RoundedCornerShape(18.dp)
             )
 
             ExposedDropdownMenu(
                 expanded = expanded,
-                onDismissRequest = {
-                    expanded = false
-                }
+                onDismissRequest = { expanded = false }
             ) {
-
-                OpenRouterModels.models.forEach {
-
+                OpenRouterModels.models.forEach { model ->
                     DropdownMenuItem(
-                        text = {
-                            Text(it.title)
-                        },
+                        text = { Text(model.title) },
                         onClick = {
-
-                            vm.selectedModel = it.id
+                            vm.selectedModel = model.id
                             expanded = false
                         }
                     )
@@ -114,16 +149,13 @@ fun ChatScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         LazyColumn(
             modifier = Modifier.weight(1f),
-            verticalArrangement =
-                Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-
-            items(vm.messages) { msg ->
-
+            items(vm.currentMessages) { msg ->
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(22.dp),
@@ -133,11 +165,9 @@ fun ChatScreen(
                         else
                             Color(0x2200FFB2)
                 ) {
-
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
-
                         Text(
                             text = msg.role.uppercase(),
                             color =
@@ -148,9 +178,7 @@ fun ChatScreen(
                             fontWeight = FontWeight.Bold
                         )
 
-                        Spacer(
-                            modifier = Modifier.height(10.dp)
-                        )
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         MarkdownRenderer(
                             markdown = msg.content
@@ -161,47 +189,41 @@ fun ChatScreen(
         }
 
         if (vm.loading) {
-
-            Spacer(modifier = Modifier.height(12.dp))
-
+            Spacer(modifier = Modifier.height(10.dp))
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color(0xFF00D4FF)
             )
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = vm.input,
-            onValueChange = {
-                vm.input = it
-            },
+            onValueChange = { vm.input = it },
             modifier = Modifier.fillMaxWidth(),
-            label = {
-                Text("Message")
-            },
+            label = { Text("Message") },
+            minLines = 1,
+            maxLines = 5,
             shape = RoundedCornerShape(18.dp)
         )
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Button(
-            onClick = {
-                vm.sendMessage()
-            },
+            onClick = { vm.sendMessage() },
+            enabled = !vm.loading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF00D4FF)
+                containerColor = Color(0xFF00D4FF),
+                contentColor = Color.Black
             )
         ) {
-
             Text(
-                text = "Send Message",
-                color = Color.Black,
+                text = if (vm.loading) "Generating..." else "Send Message",
                 fontWeight = FontWeight.Bold
             )
         }
