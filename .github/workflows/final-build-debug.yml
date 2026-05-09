@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Debug APK With Full Logs
+    name: Build Debug APK With Readable Logs
     runs-on: ubuntu-latest
 
     steps:
@@ -31,18 +31,11 @@ jobs:
 
       - name: Make Gradle executable
         shell: bash
-        run: |
-          chmod +x ./gradlew
+        run: chmod +x ./gradlew
 
-      - name: Show repository structure
+      - name: Show project structure
         shell: bash
         run: |
-          echo "===== ROOT FILES ====="
-          ls -la
-
-          echo "===== WORKFLOWS ====="
-          find .github/workflows -maxdepth 1 -type f | sort || true
-
           echo "===== KOTLIN FILES ====="
           find app/src/main/java -type f -name "*.kt" | sort || true
 
@@ -56,57 +49,60 @@ jobs:
 
           ./gradlew projects \
             --stacktrace \
-            --info \
             --no-daemon \
             > gradle-projects-log.txt 2>&1
 
           code=$?
+
           cat gradle-projects-log.txt
+
           exit $code
 
-      - name: Compile Kotlin with full diagnostics
+      - name: Compile Kotlin with readable errors
         shell: bash
         run: |
           set +e
 
           ./gradlew :app:compileDebugKotlin \
             --stacktrace \
-            --info \
-            --debug \
             --no-daemon \
-            --warning-mode all \
             > kotlin-compile-log.txt 2>&1
 
           code=$?
 
-          echo "===== FULL KOTLIN COMPILE LOG ====="
-          cat kotlin-compile-log.txt
+          echo "===== REAL KOTLIN ERRORS ====="
 
-          echo "===== EXTRACTED KOTLIN ERRORS ====="
-          grep -nEi "e: |error:|unresolved reference|type mismatch|overload resolution|conflicting overloads|redeclaration|expecting|no value passed|too many arguments|cannot find|failed|exception" kotlin-compile-log.txt || true
+          grep -nE \
+            "e: file:|e: |error:|Unresolved reference|Type mismatch|No value passed|Conflicting overloads|Composable|expecting|FAILED" \
+            kotlin-compile-log.txt || true
+
+          echo "===== LAST 300 KOTLIN LOG LINES ====="
+
+          tail -300 kotlin-compile-log.txt || true
 
           exit $code
 
-      - name: Build Debug APK with full diagnostics
+      - name: Build APK with readable errors
         shell: bash
         run: |
           set +e
 
           ./gradlew clean assembleDebug \
             --stacktrace \
-            --info \
-            --debug \
             --no-daemon \
-            --warning-mode all \
             > build-log.txt 2>&1
 
           code=$?
 
-          echo "===== FULL BUILD LOG ====="
-          cat build-log.txt
+          echo "===== REAL BUILD ERRORS ====="
 
-          echo "===== EXTRACTED BUILD ERRORS ====="
-          grep -nEi "e: |error:|unresolved reference|type mismatch|overload resolution|conflicting overloads|redeclaration|expecting|no value passed|too many arguments|cannot find|failed|exception" build-log.txt || true
+          grep -nE \
+            "e: file:|e: |error:|Unresolved reference|Type mismatch|No value passed|Conflicting overloads|Composable|expecting|FAILED" \
+            build-log.txt || true
+
+          echo "===== LAST 300 BUILD LOG LINES ====="
+
+          tail -300 build-log.txt || true
 
           echo "===== APK SEARCH ====="
           find . -type f -name "*.apk" | sort || true
@@ -125,14 +121,14 @@ jobs:
             find . -type f -name "*.apk" | sort || true
             echo '```'
             echo
-            echo "## Kotlin Error Extract"
+            echo "## Kotlin Errors"
             echo '```text'
-            grep -nEi "e: |error:|unresolved reference|type mismatch|overload resolution|conflicting overloads|redeclaration|expecting|no value passed|too many arguments|cannot find|failed|exception" kotlin-compile-log.txt 2>/dev/null || true
+            grep -nE "e: file:|e: |error:|Unresolved reference|Type mismatch|No value passed|Conflicting overloads|Composable|expecting|FAILED" kotlin-compile-log.txt 2>/dev/null || true
             echo '```'
             echo
-            echo "## Build Error Extract"
+            echo "## Build Errors"
             echo '```text'
-            grep -nEi "e: |error:|unresolved reference|type mismatch|overload resolution|conflicting overloads|redeclaration|expecting|no value passed|too many arguments|cannot find|failed|exception" build-log.txt 2>/dev/null || true
+            grep -nE "e: file:|e: |error:|Unresolved reference|Type mismatch|No value passed|Conflicting overloads|Composable|expecting|FAILED" build-log.txt 2>/dev/null || true
             echo '```'
           } > BUILD_SUMMARY.md
 
