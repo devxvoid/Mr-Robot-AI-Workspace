@@ -1,21 +1,10 @@
-name: Build Mr Robot AI Workspace APK
+name: Build APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "app/**"
-      - "gradle/**"
-      - "build.gradle*"
-      - "settings.gradle*"
-      - "gradle.properties"
-      - ".github/workflows/build-apk.yml"
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   build:
@@ -35,31 +24,31 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
 
       - name: Make Gradle executable
+        shell: bash
         run: chmod +x ./gradlew
 
-      - name: Show project files
+      - name: Build Debug APK
+        shell: bash
         run: |
-          pwd
-          find . -maxdepth 3 -type f | sort
+          ./gradlew clean assembleDebug \
+            --stacktrace \
+            --no-daemon
 
-      - name: Build APK with logs
+      - name: Locate APK
+        shell: bash
         run: |
-          ./gradlew clean assembleDebug --stacktrace --info | tee build-log.txt
-
-      - name: Upload build logs
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: build-logs
-          path: build-log.txt
+          echo "===== APK FILES ====="
+          find . -type f -name "*.apk" | sort
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
-        if: success()
         with:
           name: mr-robot-ai-workspace-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            **/*.apk
