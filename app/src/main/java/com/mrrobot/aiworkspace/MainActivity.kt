@@ -5,8 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.mrrobot.aiworkspace.data.AppSettings
 import com.mrrobot.aiworkspace.data.SettingsStore
-import com.mrrobot.aiworkspace.navigation.AppNavGraph
+import com.mrrobot.aiworkspace.ui.layout.MainWorkspaceShell
 import com.mrrobot.aiworkspace.ui.theme.MrRobotTheme
 
 class MainActivity : ComponentActivity() {
@@ -17,11 +18,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settings by settingsStore.settingsFlow.collectAsState(
-                initial = com.mrrobot.aiworkspace.data.AppSettings()
+                initial = AppSettings()
             )
 
             MrRobotTheme(themeMode = settings.themeMode) {
-                AppNavGraph()
+                MainWorkspaceShell()
             }
         }
     }
