@@ -1,0 +1,297 @@
+name: Step 15 Stabilize Navigation And Screens
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Stabilize app structure
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$ROOT/ui/dashboard"
+          mkdir -p "$ROOT/ui/chat"
+          mkdir -p "$ROOT/ui/screens"
+
+          # Remove old conflicting files
+          rm -f "$ROOT/navigation/AppNavGraph.kt"
+          rm -f "$ROOT/ui/screens/ChatScreen.kt"
+
+          # DashboardScreen
+          cat > "$ROOT/ui/dashboard/DashboardScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.dashboard
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun DashboardScreen() {
+
+              ScreenShell {
+
+                  LazyColumn(
+                      verticalArrangement =
+                          Arrangement.spacedBy(14.dp)
+                  ) {
+
+                      item {
+
+                          PageTitle("Mr. Robot AI")
+
+                          Subtitle(
+                              "Premium AI workspace dashboard."
+                          )
+                      }
+
+                      item {
+
+                          Panel(
+                              title = "Workspace Status",
+                              subtitle = "Core systems online."
+                          ) {
+
+                              StatusPill(
+                                  text = "ONLINE"
+                              )
+
+                              SoftText(
+                                  text =
+                                      "AI, memory, marketplace, and workspace modules are operational."
+                              )
+                          }
+                      }
+
+                      item {
+
+                          Panel(
+                              title = "Quick Actions"
+                          ) {
+
+                              PrimaryButton(
+                                  text = "Launch AI Workspace",
+                                  onClick = {}
+                              )
+
+                              Spacer(
+                                  modifier = Modifier.height(8.dp)
+                              )
+
+                              SecondaryButton(
+                                  text = "Open Marketplace",
+                                  onClick = {}
+                              )
+                          }
+                      }
+
+                      item {
+
+                          Panel(
+                              title = "System Overview"
+                          ) {
+
+                              Text(
+                                  text = "Multi-session AI platform with persistent memory, markdown rendering, streaming responses, and premium UI.",
+                                  color = MaterialTheme.colorScheme.onSurface,
+                                  fontSize = 15.sp,
+                                  lineHeight = 22.sp,
+                                  fontWeight = FontWeight.Medium
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # Minimal stable AgentsScreen
+          cat > "$ROOT/ui/screens/AgentsScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun AgentsScreen() {
+
+              ScreenShell {
+
+                  LazyColumn(
+                      verticalArrangement =
+                          Arrangement.spacedBy(14.dp)
+                  ) {
+
+                      item {
+
+                          PageTitle("Agents")
+
+                          Subtitle(
+                              "Manage AI agents and workflows."
+                          )
+                      }
+
+                      item {
+
+                          Panel(
+                              title = "Sherlock",
+                              subtitle = "Android engineering agent."
+                          ) {
+
+                              StatusPill(
+                                  text = "ACTIVE"
+                              )
+
+                              Spacer(
+                                  modifier = Modifier.height(8.dp)
+                              )
+
+                              Text(
+                                  text =
+                                      "Production Android development agent for Compose, architecture, debugging, and optimization."
+                              )
+                          }
+                      }
+
+                      item {
+
+                          Panel(
+                              title = "Future Runtime"
+                          ) {
+
+                              SoftText(
+                                  text =
+                                      "Multi-agent orchestration engine coming next."
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # Stable MarketplaceScreen
+          cat > "$ROOT/ui/screens/MarketplaceScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.unit.dp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun MarketplaceScreen() {
+
+              ScreenShell {
+
+                  LazyColumn(
+                      verticalArrangement =
+                          Arrangement.spacedBy(14.dp)
+                  ) {
+
+                      item {
+
+                          PageTitle("Marketplace")
+
+                          Subtitle(
+                              "Plugins, models, workflows, and AI tools."
+                          )
+                      }
+
+                      item {
+
+                          Panel(
+                              title = "OpenRouter Models"
+                          ) {
+
+                              StatusPill(
+                                  text = "CONNECTED"
+                              )
+
+                              SoftText(
+                                  text =
+                                      "Dynamic AI model marketplace integration ready."
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # Minimal screens to avoid unresolved references
+          for screen in Workflow Terminal FileManager Profile; do
+
+          cat > "$ROOT/ui/screens/${screen}Screen.kt" <<EOF
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.runtime.Composable
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun ${screen}Screen() {
+
+              ScreenShell {
+
+                  Panel(
+                      title = "${screen}",
+                      subtitle = "${screen} module."
+                  ) {
+
+                      SoftText(
+                          text = "${screen} system initialized."
+                      )
+                  }
+              }
+          }
+          EOF
+
+          done
+
+      - name: Commit stabilization
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+
+          git commit -m "Stabilize navigation and Compose screens"
+
+          git pull --rebase origin main
+
+          git push origin main
