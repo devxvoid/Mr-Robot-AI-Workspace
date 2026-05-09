@@ -1,0 +1,404 @@
+name: Fix Bottom Navigation V3
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-navigation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Create fixed navigation shell
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$ROOT/ui/layout"
+          mkdir -p "$ROOT/navigation"
+          mkdir -p "$ROOT/ui/screens"
+
+          cat > "$ROOT/navigation/AppRoutes.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.navigation
+
+          sealed class AppRoutes(val route: String) {
+              data object Dashboard : AppRoutes("dashboard")
+              data object Chat : AppRoutes("chat")
+              data object Marketplace : AppRoutes("marketplace")
+              data object Settings : AppRoutes("settings")
+
+              data object Agents : AppRoutes("agents")
+              data object Workflow : AppRoutes("workflow")
+              data object Terminal : AppRoutes("terminal")
+              data object Files : AppRoutes("files")
+              data object Profile : AppRoutes("profile")
+          }
+          EOF
+
+          cat > "$ROOT/navigation/AppNavigation.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.navigation
+
+          import androidx.compose.runtime.Composable
+          import androidx.navigation.NavHostController
+          import androidx.navigation.compose.NavHost
+          import androidx.navigation.compose.composable
+          import com.mrrobot.aiworkspace.ui.chat.ChatScreen
+          import com.mrrobot.aiworkspace.ui.dashboard.DashboardScreen
+          import com.mrrobot.aiworkspace.ui.screens.AgentsScreen
+          import com.mrrobot.aiworkspace.ui.screens.FileManagerScreen
+          import com.mrrobot.aiworkspace.ui.screens.MarketplaceScreen
+          import com.mrrobot.aiworkspace.ui.screens.ProfileScreen
+          import com.mrrobot.aiworkspace.ui.screens.SettingsScreen
+          import com.mrrobot.aiworkspace.ui.screens.TerminalScreen
+          import com.mrrobot.aiworkspace.ui.screens.WorkflowScreen
+
+          @Composable
+          fun AppNavigation(navController: NavHostController) {
+              NavHost(
+                  navController = navController,
+                  startDestination = AppRoutes.Dashboard.route
+              ) {
+                  composable(AppRoutes.Dashboard.route) {
+                      DashboardScreen()
+                  }
+
+                  composable(AppRoutes.Chat.route) {
+                      ChatScreen()
+                  }
+
+                  composable(AppRoutes.Marketplace.route) {
+                      MarketplaceScreen()
+                  }
+
+                  composable(AppRoutes.Settings.route) {
+                      SettingsScreen(navController = navController)
+                  }
+
+                  composable(AppRoutes.Agents.route) {
+                      AgentsScreen()
+                  }
+
+                  composable(AppRoutes.Workflow.route) {
+                      WorkflowScreen()
+                  }
+
+                  composable(AppRoutes.Terminal.route) {
+                      TerminalScreen()
+                  }
+
+                  composable(AppRoutes.Files.route) {
+                      FileManagerScreen()
+                  }
+
+                  composable(AppRoutes.Profile.route) {
+                      ProfileScreen()
+                  }
+              }
+          }
+          EOF
+
+          cat > "$ROOT/ui/layout/MainWorkspaceShell.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.layout
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.material3.NavigationBar
+          import androidx.compose.material3.NavigationBarItem
+          import androidx.compose.material3.NavigationBarItemDefaults
+          import androidx.compose.material3.Scaffold
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.getValue
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.navigation.compose.currentBackStackEntryAsState
+          import androidx.navigation.compose.rememberNavController
+          import com.mrrobot.aiworkspace.navigation.AppNavigation
+          import com.mrrobot.aiworkspace.navigation.AppRoutes
+
+          @Composable
+          fun MainWorkspaceShell() {
+              val navController = rememberNavController()
+
+              val bottomItems = listOf(
+                  AppRoutes.Dashboard,
+                  AppRoutes.Chat,
+                  AppRoutes.Marketplace,
+                  AppRoutes.Settings
+              )
+
+              val backStack by navController.currentBackStackEntryAsState()
+              val currentRoute = backStack?.destination?.route
+
+              Scaffold(
+                  containerColor = Color.Transparent,
+                  bottomBar = {
+                      NavigationBar(
+                          containerColor = Color(0xFF071427)
+                      ) {
+                          bottomItems.forEach { screen ->
+                              NavigationBarItem(
+                                  selected = currentRoute == screen.route,
+                                  onClick = {
+                                      navController.navigate(screen.route) {
+                                          launchSingleTop = true
+                                          popUpTo(AppRoutes.Dashboard.route) {
+                                              saveState = true
+                                          }
+                                          restoreState = true
+                                      }
+                                  },
+                                  icon = {},
+                                  label = {
+                                      Text(
+                                          text = when (screen) {
+                                              AppRoutes.Dashboard -> "Home"
+                                              AppRoutes.Chat -> "AI"
+                                              AppRoutes.Marketplace -> "Marketplace"
+                                              AppRoutes.Settings -> "Settings"
+                                              else -> screen.route
+                                          },
+                                          fontWeight = FontWeight.SemiBold
+                                      )
+                                  },
+                                  colors = NavigationBarItemDefaults.colors(
+                                      selectedTextColor = Color(0xFF00D4FF),
+                                      indicatorColor = Color(0x2200D4FF),
+                                      unselectedTextColor = Color(0xFF94A3B8)
+                                  )
+                              )
+                          }
+                      }
+                  }
+              ) { padding ->
+                  Box(
+                      modifier = Modifier
+                          .padding(padding)
+                          .background(Color(0xFF020617))
+                  ) {
+                      AppNavigation(navController)
+                  }
+              }
+          }
+          EOF
+
+          cat > "$ROOT/MainActivity.kt" <<'EOF'
+          package com.mrrobot.aiworkspace
+
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.runtime.collectAsState
+          import androidx.compose.runtime.getValue
+          import com.mrrobot.aiworkspace.data.AppSettings
+          import com.mrrobot.aiworkspace.data.SettingsStore
+          import com.mrrobot.aiworkspace.ui.layout.MainWorkspaceShell
+          import com.mrrobot.aiworkspace.ui.theme.MrRobotTheme
+
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  val settingsStore = SettingsStore(applicationContext)
+
+                  setContent {
+                      val settings by settingsStore.settingsFlow.collectAsState(
+                          initial = AppSettings()
+                      )
+
+                      MrRobotTheme(themeMode = settings.themeMode) {
+                          MainWorkspaceShell()
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$ROOT/ui/screens/SettingsScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.material3.FilterChip
+          import androidx.compose.material3.OutlinedTextField
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.collectAsState
+          import androidx.compose.runtime.getValue
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import androidx.navigation.NavController
+          import com.mrrobot.aiworkspace.data.AppThemeMode
+          import com.mrrobot.aiworkspace.navigation.AppRoutes
+          import com.mrrobot.aiworkspace.ui.components.*
+          import com.mrrobot.aiworkspace.viewmodel.SettingsViewModel
+
+          @Composable
+          fun SettingsScreen(
+              navController: NavController,
+              viewModel: SettingsViewModel = viewModel()
+          ) {
+              val state by viewModel.uiState.collectAsState()
+
+              ScreenShell {
+                  LazyColumn(
+                      modifier = Modifier.fillMaxSize(),
+                      contentPadding = PaddingValues(bottom = 24.dp),
+                      verticalArrangement = Arrangement.spacedBy(14.dp)
+                  ) {
+                      item {
+                          PageTitle("Settings")
+                          Subtitle("Theme, AI configuration, and extra workspace modules.")
+                      }
+
+                      item {
+                          Panel(
+                              title = "Theme",
+                              subtitle = "Auto, Dark, or Light mode."
+                          ) {
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  horizontalArrangement = Arrangement.spacedBy(8.dp)
+                              ) {
+                                  AppThemeMode.values().forEach { mode ->
+                                      FilterChip(
+                                          selected = state.themeMode == mode,
+                                          onClick = {
+                                              viewModel.updateThemeMode(mode)
+                                          },
+                                          label = {
+                                              Text(mode.name)
+                                          },
+                                          modifier = Modifier.weight(1f)
+                                      )
+                                  }
+                              }
+
+                              Spacer(modifier = Modifier.height(10.dp))
+
+                              PrimaryButton(
+                                  text = "Save Settings",
+                                  onClick = {
+                                      viewModel.save()
+                                  }
+                              )
+                          }
+                      }
+
+                      item {
+                          Panel(
+                              title = "OpenRouter",
+                              subtitle = "API key and selected model."
+                          ) {
+                              OutlinedTextField(
+                                  value = state.apiKey,
+                                  onValueChange = viewModel::updateApiKey,
+                                  modifier = Modifier.fillMaxWidth(),
+                                  label = { Text("API Key") },
+                                  singleLine = true
+                              )
+
+                              Spacer(modifier = Modifier.height(10.dp))
+
+                              OutlinedTextField(
+                                  value = state.model,
+                                  onValueChange = viewModel::updateModel,
+                                  modifier = Modifier.fillMaxWidth(),
+                                  label = { Text("Model") },
+                                  singleLine = true
+                              )
+
+                              if (state.savedMessage.isNotBlank()) {
+                                  Spacer(modifier = Modifier.height(10.dp))
+                                  Subtitle(state.savedMessage)
+                              }
+                          }
+                      }
+
+                      item {
+                          Panel(
+                              title = "Workspace Modules",
+                              subtitle = "Moved from bottom navigation."
+                          ) {
+                              SecondaryButton(
+                                  text = "Agents",
+                                  onClick = {
+                                      navController.navigate(AppRoutes.Agents.route)
+                                  }
+                              )
+
+                              Spacer(modifier = Modifier.height(8.dp))
+
+                              SecondaryButton(
+                                  text = "Workflow Builder",
+                                  onClick = {
+                                      navController.navigate(AppRoutes.Workflow.route)
+                                  }
+                              )
+
+                              Spacer(modifier = Modifier.height(8.dp))
+
+                              SecondaryButton(
+                                  text = "Terminal",
+                                  onClick = {
+                                      navController.navigate(AppRoutes.Terminal.route)
+                                  }
+                              )
+
+                              Spacer(modifier = Modifier.height(8.dp))
+
+                              SecondaryButton(
+                                  text = "File Manager",
+                                  onClick = {
+                                      navController.navigate(AppRoutes.Files.route)
+                                  }
+                              )
+
+                              Spacer(modifier = Modifier.height(8.dp))
+
+                              SecondaryButton(
+                                  text = "Profile",
+                                  onClick = {
+                                      navController.navigate(AppRoutes.Profile.route)
+                                  }
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit navigation fix
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+
+          git commit -m "Fix bottom navigation with four main tabs"
+
+          git pull --rebase origin main
+
+          git push origin main
