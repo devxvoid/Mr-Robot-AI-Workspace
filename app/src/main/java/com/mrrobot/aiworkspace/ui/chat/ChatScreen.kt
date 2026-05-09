@@ -1,13 +1,14 @@
-package com.mrrobot.aiworkspace.ui.screens
+package com.mrrobot.aiworkspace.ui.chat
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import com.mrrobot.aiworkspace.ui.components.*
 
 @Composable
-fun WelcomeScreen() {
+fun ChatScreen() {
 
     ScreenShell {
 
@@ -18,31 +19,27 @@ fun WelcomeScreen() {
 
             item {
 
-                PageTitle("Mr. Robot AI Workspace")
+                PageTitle("AI Workspace")
 
                 Subtitle(
-                    "Premium AI operating environment."
+                    "OpenRouter AI chat system."
                 )
             }
 
             item {
 
                 Panel(
-                    title = "Workspace",
-                    subtitle = "System initialized successfully."
+                    title = "AI Status",
+                    subtitle = "Core AI systems online."
                 ) {
 
                     StatusPill(
-                        text = "ONLINE"
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(8.dp)
+                        text = "CONNECTED"
                     )
 
                     SoftText(
                         text =
-                            "AI systems, navigation, marketplace, and theme engine are operational."
+                            "Streaming, markdown rendering, memory, and multi-session architecture are enabled."
                     )
                 }
             }
@@ -50,12 +47,12 @@ fun WelcomeScreen() {
             item {
 
                 Panel(
-                    title = "Features"
+                    title = "Workspace Ready"
                 ) {
 
-                    SoftText(
+                    Text(
                         text =
-                            "• OpenRouter AI\n• Marketplace\n• Multi-session workspace\n• Streaming architecture\n• Persistent memory\n• Premium UI"
+                            "The AI runtime is initialized successfully."
                     )
                 }
             }
