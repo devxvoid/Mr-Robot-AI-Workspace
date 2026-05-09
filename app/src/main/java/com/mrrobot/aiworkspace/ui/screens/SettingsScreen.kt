@@ -2,19 +2,24 @@ package com.mrrobot.aiworkspace.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.*
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.mrrobot.aiworkspace.data.AppThemeMode
+import com.mrrobot.aiworkspace.navigation.AppRoutes
 import com.mrrobot.aiworkspace.ui.components.*
 import com.mrrobot.aiworkspace.viewmodel.SettingsViewModel
 
 @Composable
 fun SettingsScreen(
+    navController: NavController,
     viewModel: SettingsViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -27,13 +32,13 @@ fun SettingsScreen(
         ) {
             item {
                 PageTitle("Settings")
-                Subtitle("Configure OpenRouter, model, and workspace appearance.")
+                Subtitle("Theme, AI configuration, and extra workspace modules.")
             }
 
             item {
                 Panel(
-                    title = "Theme Engine",
-                    subtitle = "Auto follows your device theme. Dark and Light override it."
+                    title = "Theme",
+                    subtitle = "Auto, Dark, or Light mode."
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -53,10 +58,13 @@ fun SettingsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    StatusPill(
-                        text = "CURRENT: ${state.themeMode.name}"
+                    PrimaryButton(
+                        text = "Save Settings",
+                        onClick = {
+                            viewModel.save()
+                        }
                     )
                 }
             }
@@ -64,7 +72,7 @@ fun SettingsScreen(
             item {
                 Panel(
                     title = "OpenRouter",
-                    subtitle = "API key and model are saved with DataStore."
+                    subtitle = "API key and selected model."
                 ) {
                     OutlinedTextField(
                         value = state.apiKey,
@@ -84,28 +92,60 @@ fun SettingsScreen(
                         singleLine = true
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    if (state.savedMessage.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Subtitle(state.savedMessage)
+                    }
+                }
+            }
 
-                    PrimaryButton(
-                        text = "Save Settings",
+            item {
+                Panel(
+                    title = "Workspace Modules",
+                    subtitle = "Moved from bottom navigation."
+                ) {
+                    SecondaryButton(
+                        text = "Agents",
                         onClick = {
-                            viewModel.save()
+                            navController.navigate(AppRoutes.Agents.route)
                         }
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     SecondaryButton(
-                        text = "Clear Settings",
+                        text = "Workflow Builder",
                         onClick = {
-                            viewModel.clear()
+                            navController.navigate(AppRoutes.Workflow.route)
                         }
                     )
 
-                    if (state.savedMessage.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Subtitle(state.savedMessage)
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    SecondaryButton(
+                        text = "Terminal",
+                        onClick = {
+                            navController.navigate(AppRoutes.Terminal.route)
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    SecondaryButton(
+                        text = "File Manager",
+                        onClick = {
+                            navController.navigate(AppRoutes.Files.route)
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    SecondaryButton(
+                        text = "Profile",
+                        onClick = {
+                            navController.navigate(AppRoutes.Profile.route)
+                        }
+                    )
                 }
             }
         }
