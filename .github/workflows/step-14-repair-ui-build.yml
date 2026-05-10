@@ -1,0 +1,1688 @@
+name: Step 14 Repair UI And Build Validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    name: Repair UI Theme And Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Repair UI, theme modes, navigation, and final validation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$APP_DIR/data"
+          mkdir -p "$APP_DIR/viewmodel"
+          mkdir -p "$APP_DIR/ui/theme"
+          mkdir -p "$APP_DIR/ui/components"
+          mkdir -p "$APP_DIR/ui/screens"
+          mkdir -p "$APP_DIR/navigation"
+          mkdir -p ".github/workflows"
+
+          cat > "$APP_DIR/data/SettingsStore.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.data
+
+          import android.content.Context
+          import androidx.datastore.preferences.core.edit
+          import androidx.datastore.preferences.core.stringPreferencesKey
+          import androidx.datastore.preferences.preferencesDataStore
+          import kotlinx.coroutines.flow.Flow
+          import kotlinx.coroutines.flow.map
+
+          private val Context.settingsDataStore by preferencesDataStore(name = "mr_robot_settings")
+
+          enum class AppThemeMode {
+              Auto,
+              Dark,
+              Light
+          }
+
+          data class AppSettings(
+              val apiKey: String = "",
+              val model: String = "openai/gpt-4o-mini",
+              val themeMode: AppThemeMode = AppThemeMode.Auto
+          )
+
+          class SettingsStore(private val context: Context) {
+
+              private object Keys {
+                  val API_KEY = stringPreferencesKey("openrouter_api_key")
+                  val MODEL = stringPreferencesKey("selected_model")
+                  val THEME_MODE = stringPreferencesKey("theme_mode")
+              }
+
+              val settingsFlow: Flow<AppSettings> =
+                  context.settingsDataStore.data.map { prefs ->
+                      AppSettings(
+                          apiKey = prefs[Keys.API_KEY] ?: "",
+                          model = prefs[Keys.MODEL] ?: "openai/gpt-4o-mini",
+                          themeMode = runCatching {
+                              AppThemeMode.valueOf(
+                                  prefs[Keys.THEME_MODE] ?: AppThemeMode.Auto.name
+                              )
+                          }.getOrDefault(AppThemeMode.Auto)
+                      )
+                  }
+
+              suspend fun saveSettings(
+                  apiKey: String,
+                  model: String,
+                  themeMode: AppThemeMode
+              ) {
+                  context.settingsDataStore.edit { prefs ->
+                      prefs[Keys.API_KEY] = apiKey.trim()
+                      prefs[Keys.MODEL] = model.trim().ifBlank { "openai/gpt-4o-mini" }
+                      prefs[Keys.THEME_MODE] = themeMode.name
+                  }
+              }
+
+              suspend fun clearSettings() {
+                  context.settingsDataStore.edit { prefs ->
+                      prefs.clear()
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/viewmodel/SettingsViewModel.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.viewmodel
+
+          import android.app.Application
+          import androidx.lifecycle.AndroidViewModel
+          import androidx.lifecycle.viewModelScope
+          import com.mrrobot.aiworkspace.data.AppSettings
+          import com.mrrobot.aiworkspace.data.AppThemeMode
+          import com.mrrobot.aiworkspace.data.SettingsStore
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          import kotlinx.coroutines.launch
+
+          data class SettingsUiState(
+              val apiKey: String = "",
+              val model: String = "openai/gpt-4o-mini",
+              val themeMode: AppThemeMode = AppThemeMode.Auto,
+              val savedMessage: String = "",
+              val isLoaded: Boolean = false
+          )
+
+          class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+
+              private val store = SettingsStore(application.applicationContext)
+
+              private val _uiState = MutableStateFlow(SettingsUiState())
+              val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+              init {
+                  viewModelScope.launch {
+                      store.settingsFlow.collect { settings: AppSettings ->
+                          _uiState.value = _uiState.value.copy(
+                              apiKey = settings.apiKey,
+                              model = settings.model,
+                              themeMode = settings.themeMode,
+                              isLoaded = true
+                          )
+                      }
+                  }
+              }
+
+              fun updateApiKey(value: String) {
+                  _uiState.value = _uiState.value.copy(
+                      apiKey = value,
+                      savedMessage = ""
+                  )
+              }
+
+              fun updateModel(value: String) {
+                  _uiState.value = _uiState.value.copy(
+                      model = value,
+                      savedMessage = ""
+                  )
+              }
+
+              fun updateThemeMode(value: AppThemeMode) {
+                  _uiState.value = _uiState.value.copy(
+                      themeMode = value,
+                      savedMessage = ""
+                  )
+              }
+
+              fun save() {
+                  viewModelScope.launch {
+                      val current = _uiState.value
+
+                      store.saveSettings(
+                          apiKey = current.apiKey,
+                          model = current.model,
+                          themeMode = current.themeMode
+                      )
+
+                      _uiState.value = current.copy(
+                          savedMessage = "Settings saved successfully"
+                      )
+                  }
+              }
+
+              fun clear() {
+                  viewModelScope.launch {
+                      store.clearSettings()
+
+                      _uiState.value = SettingsUiState(
+                          savedMessage = "Settings cleared",
+                          isLoaded = true
+                      )
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/theme/Theme.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.theme
+
+          import androidx.compose.foundation.isSystemInDarkTheme
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.darkColorScheme
+          import androidx.compose.material3.lightColorScheme
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.graphics.Color
+          import com.mrrobot.aiworkspace.data.AppThemeMode
+
+          private val DarkScheme = darkColorScheme(
+              primary = Color(0xFF00DFF7),
+              secondary = Color(0xFF8B5CF6),
+              tertiary = Color(0xFF22C55E),
+              background = Color(0xFF030712),
+              surface = Color(0xFF0B1020),
+              surfaceVariant = Color(0xFF111827),
+              onPrimary = Color.Black,
+              onSecondary = Color.White,
+              onTertiary = Color.Black,
+              onBackground = Color(0xFFE5E7EB),
+              onSurface = Color(0xFFE5E7EB),
+              onSurfaceVariant = Color(0xFFB8C0CC)
+          )
+
+          private val LightScheme = lightColorScheme(
+              primary = Color(0xFF007A8A),
+              secondary = Color(0xFF6D28D9),
+              tertiary = Color(0xFF15803D),
+              background = Color(0xFFF8FAFC),
+              surface = Color(0xFFFFFFFF),
+              surfaceVariant = Color(0xFFEFF6FF),
+              onPrimary = Color.White,
+              onSecondary = Color.White,
+              onTertiary = Color.White,
+              onBackground = Color(0xFF0F172A),
+              onSurface = Color(0xFF0F172A),
+              onSurfaceVariant = Color(0xFF475569)
+          )
+
+          @Composable
+          fun MrRobotTheme(
+              themeMode: AppThemeMode = AppThemeMode.Auto,
+              content: @Composable () -> Unit
+          ) {
+              val darkTheme = when (themeMode) {
+                  AppThemeMode.Auto -> isSystemInDarkTheme()
+                  AppThemeMode.Dark -> true
+                  AppThemeMode.Light -> false
+              }
+
+              MaterialTheme(
+                  colorScheme = if (darkTheme) DarkScheme else LightScheme,
+                  content = content
+              )
+          }
+          EOF
+
+          cat > "$APP_DIR/MainActivity.kt" <<'EOF'
+          package com.mrrobot.aiworkspace
+
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.runtime.collectAsState
+          import androidx.compose.runtime.getValue
+          import com.mrrobot.aiworkspace.data.AppSettings
+          import com.mrrobot.aiworkspace.data.SettingsStore
+          import com.mrrobot.aiworkspace.navigation.AppNavGraph
+          import com.mrrobot.aiworkspace.ui.theme.MrRobotTheme
+
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  val settingsStore = SettingsStore(applicationContext)
+
+                  setContent {
+                      val settings by settingsStore.settingsFlow.collectAsState(
+                          initial = AppSettings()
+                      )
+
+                      MrRobotTheme(themeMode = settings.themeMode) {
+                          AppNavGraph()
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/components/UiComponents.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.components
+
+          import androidx.compose.animation.core.FastOutSlowInEasing
+          import androidx.compose.animation.core.RepeatMode
+          import androidx.compose.animation.core.animateFloat
+          import androidx.compose.animation.core.infiniteRepeatable
+          import androidx.compose.animation.core.rememberInfiniteTransition
+          import androidx.compose.animation.core.tween
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.border
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.ColumnScope
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.offset
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.foundation.shape.CircleShape
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.Button
+          import androidx.compose.material3.ButtonDefaults
+          import androidx.compose.material3.Card
+          import androidx.compose.material3.CardDefaults
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.Surface
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.getValue
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.alpha
+          import androidx.compose.ui.draw.clip
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+
+          val NeonCyan = Color(0xFF00DFF7)
+          val NeonPurple = Color(0xFF8B5CF6)
+          val NeonGreen = Color(0xFF22C55E)
+          val DeepBg = Color(0xFF030712)
+          val Panel = Color(0xFF111827)
+          val PanelSoft = Color(0xFF0B1020)
+          val SoftText = Color(0xFFB8C0CC)
+          val Danger = Color(0xFFFF6B6B)
+
+          @Composable
+          fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
+              val scheme = MaterialTheme.colorScheme
+
+              Box(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(
+                          Brush.verticalGradient(
+                              listOf(
+                                  scheme.background,
+                                  scheme.surface,
+                                  scheme.surfaceVariant.copy(alpha = 0.82f)
+                              )
+                          )
+                      )
+              ) {
+                  AmbientGlow()
+
+                  Column(
+                      modifier = Modifier
+                          .fillMaxSize()
+                          .padding(horizontal = 16.dp, vertical = 14.dp),
+                      content = content
+                  )
+              }
+          }
+
+          @Composable
+          fun AmbientGlow() {
+              val infinite = rememberInfiniteTransition(label = "ambient_glow")
+
+              val alpha by infinite.animateFloat(
+                  initialValue = 0.10f,
+                  targetValue = 0.28f,
+                  animationSpec = infiniteRepeatable(
+                      animation = tween(
+                          durationMillis = 2400,
+                          easing = FastOutSlowInEasing
+                      ),
+                      repeatMode = RepeatMode.Reverse
+                  ),
+                  label = "ambient_alpha"
+              )
+
+              Box(modifier = Modifier.fillMaxSize()) {
+                  Box(
+                      modifier = Modifier
+                          .size(220.dp)
+                          .offset(x = (-90).dp, y = 30.dp)
+                          .alpha(alpha)
+                          .clip(CircleShape)
+                          .background(
+                              Brush.radialGradient(
+                                  listOf(
+                                      NeonCyan.copy(alpha = 0.28f),
+                                      Color.Transparent
+                                  )
+                              )
+                          )
+                  )
+
+                  Box(
+                      modifier = Modifier
+                          .size(280.dp)
+                          .align(Alignment.BottomEnd)
+                          .offset(x = 120.dp, y = 90.dp)
+                          .alpha(alpha)
+                          .clip(CircleShape)
+                          .background(
+                              Brush.radialGradient(
+                                  listOf(
+                                      NeonPurple.copy(alpha = 0.24f),
+                                      Color.Transparent
+                                  )
+                              )
+                          )
+                  )
+              }
+          }
+
+          @Composable
+          fun GlassCard(
+              modifier: Modifier = Modifier,
+              content: @Composable ColumnScope.() -> Unit
+          ) {
+              Card(
+                  modifier = modifier
+                      .fillMaxWidth()
+                      .border(
+                          width = 1.dp,
+                          brush = Brush.horizontalGradient(
+                              listOf(
+                                  MaterialTheme.colorScheme.primary.copy(alpha = 0.40f),
+                                  MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f),
+                                  MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)
+                              )
+                          ),
+                          shape = RoundedCornerShape(24.dp)
+                      ),
+                  shape = RoundedCornerShape(24.dp),
+                  colors = CardDefaults.cardColors(
+                      containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)
+                  ),
+                  elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+              ) {
+                  Column(
+                      modifier = Modifier.padding(16.dp),
+                      content = content
+                  )
+              }
+          }
+
+          @Composable
+          fun PremiumHeader(
+              title: String,
+              subtitle: String,
+              badge: String? = null
+          ) {
+              Column(modifier = Modifier.fillMaxWidth()) {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      verticalAlignment = Alignment.Top
+                  ) {
+                      Column(modifier = Modifier.weight(1f)) {
+                          Text(
+                              text = title,
+                              color = MaterialTheme.colorScheme.onBackground,
+                              fontSize = 28.sp,
+                              fontWeight = FontWeight.ExtraBold,
+                              lineHeight = 32.sp
+                          )
+
+                          Spacer(Modifier.height(6.dp))
+
+                          Text(
+                              text = subtitle,
+                              color = MaterialTheme.colorScheme.onSurfaceVariant,
+                              fontSize = 14.sp,
+                              lineHeight = 20.sp
+                          )
+                      }
+
+                      if (badge != null) {
+                          Surface(
+                              color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                              border = BorderStroke(
+                                  width = 1.dp,
+                                  color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                              ),
+                              shape = RoundedCornerShape(999.dp)
+                          ) {
+                              Text(
+                                  text = badge,
+                                  color = MaterialTheme.colorScheme.primary,
+                                  fontSize = 12.sp,
+                                  fontWeight = FontWeight.Bold,
+                                  modifier = Modifier.padding(
+                                      horizontal = 12.dp,
+                                      vertical = 7.dp
+                                  )
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun Title(text: String) {
+              Text(
+                  text = text,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  fontSize = 23.sp,
+                  fontWeight = FontWeight.Bold,
+                  lineHeight = 27.sp
+              )
+          }
+
+          @Composable
+          fun Subtitle(text: String) {
+              Text(
+                  text = text,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  fontSize = 14.sp,
+                  lineHeight = 20.sp
+              )
+          }
+
+          @Composable
+          fun CyberButton(text: String, onClick: () -> Unit) {
+              Button(
+                  onClick = onClick,
+                  colors = ButtonDefaults.buttonColors(
+                      containerColor = MaterialTheme.colorScheme.primary,
+                      contentColor = MaterialTheme.colorScheme.onPrimary
+                  ),
+                  shape = RoundedCornerShape(16.dp),
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .height(52.dp)
+              ) {
+                  Text(
+                      text = text,
+                      fontWeight = FontWeight.Bold
+                  )
+              }
+          }
+
+          @Composable
+          fun PremiumMetric(
+              label: String,
+              value: String,
+              description: String
+          ) {
+              GlassCard {
+                  Text(
+                      text = value,
+                      color = MaterialTheme.colorScheme.primary,
+                      fontSize = 20.sp,
+                      fontWeight = FontWeight.ExtraBold,
+                      maxLines = 1
+                  )
+
+                  Spacer(Modifier.height(4.dp))
+
+                  Text(
+                      text = label,
+                      color = MaterialTheme.colorScheme.onSurface,
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 14.sp,
+                      maxLines = 1
+                  )
+
+                  Spacer(Modifier.height(4.dp))
+
+                  Text(
+                      text = description,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      fontSize = 12.sp,
+                      lineHeight = 16.sp,
+                      maxLines = 2
+                  )
+              }
+          }
+
+          @Composable
+          fun StatusPill(
+              text: String,
+              color: Color = NeonCyan
+          ) {
+              Surface(
+                  color = color.copy(alpha = 0.12f),
+                  border = BorderStroke(
+                      width = 1.dp,
+                      color = color.copy(alpha = 0.45f)
+                  ),
+                  shape = RoundedCornerShape(999.dp)
+              ) {
+                  Text(
+                      text = text,
+                      color = color,
+                      fontSize = 12.sp,
+                      fontWeight = FontWeight.Bold,
+                      modifier = Modifier.padding(
+                          horizontal = 10.dp,
+                          vertical = 6.dp
+                      )
+                  )
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/navigation/AppNavGraph.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.navigation
+
+          import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.horizontalScroll
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.width
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.Scaffold
+          import androidx.compose.material3.Surface
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.navigation.compose.NavHost
+          import androidx.navigation.compose.composable
+          import androidx.navigation.compose.currentBackStackEntryAsState
+          import androidx.navigation.compose.rememberNavController
+          import com.mrrobot.aiworkspace.ui.screens.AgentsScreen
+          import com.mrrobot.aiworkspace.ui.screens.ChatScreen
+          import com.mrrobot.aiworkspace.ui.screens.FileManagerScreen
+          import com.mrrobot.aiworkspace.ui.screens.MarketplaceScreen
+          import com.mrrobot.aiworkspace.ui.screens.ProfileScreen
+          import com.mrrobot.aiworkspace.ui.screens.SettingsScreen
+          import com.mrrobot.aiworkspace.ui.screens.TerminalScreen
+          import com.mrrobot.aiworkspace.ui.screens.WelcomeScreen
+          import com.mrrobot.aiworkspace.ui.screens.WorkflowScreen
+
+          sealed class Route(
+              val path: String,
+              val label: String,
+              val icon: String
+          ) {
+              object Welcome : Route("welcome", "Home", "⌂")
+              object Chat : Route("chat", "Chat", "AI")
+              object Agents : Route("agents", "Agents", "◆")
+              object Workflow : Route("workflow", "Flow", "↯")
+              object Terminal : Route("terminal", "Term", ">_")
+              object Files : Route("files", "Files", "▣")
+              object Market : Route("market", "Market", "✦")
+              object Settings : Route("settings", "Settings", "⚙")
+              object Profile : Route("profile", "Profile", "◎")
+          }
+
+          @Composable
+          fun AppNavGraph() {
+              val nav = rememberNavController()
+
+              val items = listOf(
+                  Route.Welcome,
+                  Route.Chat,
+                  Route.Agents,
+                  Route.Workflow,
+                  Route.Terminal,
+                  Route.Files,
+                  Route.Market,
+                  Route.Settings,
+                  Route.Profile
+              )
+
+              Scaffold(
+                  containerColor = Color.Transparent,
+                  bottomBar = {
+                      val current =
+                          nav.currentBackStackEntryAsState().value?.destination?.route
+
+                      Surface(
+                          modifier = Modifier.fillMaxWidth(),
+                          color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
+                          tonalElevation = 0.dp
+                      ) {
+                          Row(
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .horizontalScroll(rememberScrollState())
+                                  .padding(horizontal = 10.dp, vertical = 8.dp),
+                              horizontalArrangement = Arrangement.spacedBy(8.dp),
+                              verticalAlignment = Alignment.CenterVertically
+                          ) {
+                              items.forEach { route ->
+                                  BottomNavChip(
+                                      route = route,
+                                      selected = current == route.path,
+                                      onClick = {
+                                          nav.navigate(route.path) {
+                                              launchSingleTop = true
+                                              restoreState = true
+                                          }
+                                      }
+                                  )
+                              }
+                          }
+                      }
+                  }
+              ) { padding ->
+                  NavHost(
+                      navController = nav,
+                      startDestination = Route.Welcome.path,
+                      modifier = Modifier.padding(padding)
+                  ) {
+                      composable(Route.Welcome.path) { WelcomeScreen(nav) }
+                      composable(Route.Chat.path) { ChatScreen() }
+                      composable(Route.Agents.path) { AgentsScreen() }
+                      composable(Route.Workflow.path) { WorkflowScreen() }
+                      composable(Route.Terminal.path) { TerminalScreen() }
+                      composable(Route.Files.path) { FileManagerScreen() }
+                      composable(Route.Market.path) { MarketplaceScreen() }
+                      composable(Route.Settings.path) { SettingsScreen() }
+                      composable(Route.Profile.path) { ProfileScreen() }
+                  }
+              }
+          }
+
+          @Composable
+          private fun BottomNavChip(
+              route: Route,
+              selected: Boolean,
+              onClick: () -> Unit
+          ) {
+              Surface(
+                  modifier = Modifier
+                      .width(86.dp)
+                      .height(54.dp)
+                      .clickable { onClick() },
+                  color = if (selected) {
+                      MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                  } else {
+                      Color.Transparent
+                  },
+                  shape = RoundedCornerShape(18.dp)
+              ) {
+                  Box(
+                      contentAlignment = Alignment.Center
+                  ) {
+                      Column(
+                          horizontalAlignment = Alignment.CenterHorizontally
+                      ) {
+                          Text(
+                              text = route.icon,
+                              color = if (selected) {
+                                  MaterialTheme.colorScheme.primary
+                              } else {
+                                  MaterialTheme.colorScheme.onSurfaceVariant
+                              },
+                              fontWeight = FontWeight.Bold
+                          )
+
+                          Spacer(Modifier.height(2.dp))
+
+                          Text(
+                              text = route.label,
+                              color = if (selected) {
+                                  MaterialTheme.colorScheme.primary
+                              } else {
+                                  MaterialTheme.colorScheme.onSurfaceVariant
+                              },
+                              fontWeight = if (selected) {
+                                  FontWeight.Bold
+                              } else {
+                                  FontWeight.Normal
+                              }
+                          )
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/WelcomeScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.PaddingValues
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import androidx.navigation.NavController
+          import com.mrrobot.aiworkspace.navigation.Route
+          import com.mrrobot.aiworkspace.ui.components.CyberButton
+          import com.mrrobot.aiworkspace.ui.components.GlassCard
+          import com.mrrobot.aiworkspace.ui.components.PremiumHeader
+          import com.mrrobot.aiworkspace.ui.components.PremiumMetric
+          import com.mrrobot.aiworkspace.ui.components.ScreenShell
+          import com.mrrobot.aiworkspace.ui.components.Subtitle
+          import com.mrrobot.aiworkspace.ui.components.Title
+
+          @Composable
+          fun WelcomeScreen(nav: NavController) {
+              ScreenShell {
+                  LazyColumn(
+                      modifier = Modifier.fillMaxSize(),
+                      contentPadding = PaddingValues(bottom = 18.dp)
+                  ) {
+                      item {
+                          PremiumHeader(
+                              title = "Mr. Robot AI Workspace",
+                              subtitle = "Android command center for AI chat, agents, workflows, terminal logs, files, marketplace modules, and OpenRouter models.",
+                              badge = "MVP"
+                          )
+
+                          Spacer(Modifier.height(16.dp))
+
+                          GlassCard {
+                              Title("Command Center")
+                              Subtitle("Your Stitch design has evolved into a real Kotlin + Jetpack Compose MVP foundation.")
+
+                              Spacer(Modifier.height(14.dp))
+
+                              CyberButton("Launch AI Chat") {
+                                  nav.navigate(Route.Chat.path)
+                              }
+
+                              Spacer(Modifier.height(10.dp))
+
+                              OutlinedButton(
+                                  onClick = { nav.navigate(Route.Agents.path) },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .height(50.dp)
+                              ) {
+                                  Text("Open Agent System")
+                              }
+
+                              Spacer(Modifier.height(10.dp))
+
+                              OutlinedButton(
+                                  onClick = { nav.navigate(Route.Workflow.path) },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .height(50.dp)
+                              ) {
+                                  Text("Build Workflow")
+                              }
+                          }
+
+                          Spacer(Modifier.height(14.dp))
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "Screens",
+                                      value = "10",
+                                      description = "Full MVP"
+                                  )
+                              }
+
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "AI",
+                                      value = "OR",
+                                      description = "OpenRouter"
+                                  )
+                              }
+                          }
+
+                          Spacer(Modifier.height(10.dp))
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "Agents",
+                                      value = "5",
+                                      description = "Role prompts"
+                                  )
+                              }
+
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "CI/CD",
+                                      value = "APK",
+                                      description = "GitHub"
+                                  )
+                              }
+                          }
+
+                          Spacer(Modifier.height(14.dp))
+
+                          GlassCard {
+                              Title("Design Source")
+                              Subtitle("Keep stitch_mr._robot_ai_workspace.zip in the repo root as your official Google Stitch reference asset.")
+                          }
+
+                          Spacer(Modifier.height(16.dp))
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/WorkflowScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.PaddingValues
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.itemsIndexed
+          import androidx.compose.material3.AssistChip
+          import androidx.compose.material3.HorizontalDivider
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.OutlinedTextField
+          import androidx.compose.material3.Text
+          import androidx.compose.material3.TextButton
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.collectAsState
+          import androidx.compose.runtime.getValue
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalClipboardManager
+          import androidx.compose.ui.text.AnnotatedString
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import com.mrrobot.aiworkspace.data.WorkflowStatus
+          import com.mrrobot.aiworkspace.data.WorkflowStep
+          import com.mrrobot.aiworkspace.ui.components.CyberButton
+          import com.mrrobot.aiworkspace.ui.components.GlassCard
+          import com.mrrobot.aiworkspace.ui.components.ScreenShell
+          import com.mrrobot.aiworkspace.ui.components.Subtitle
+          import com.mrrobot.aiworkspace.ui.components.Title
+          import com.mrrobot.aiworkspace.viewmodel.WorkflowViewModel
+
+          @Composable
+          fun WorkflowScreen(
+              viewModel: WorkflowViewModel = viewModel()
+          ) {
+              val state by viewModel.uiState.collectAsState()
+              val clipboard = LocalClipboardManager.current
+
+              ScreenShell {
+                  Title("Workflow Builder")
+                  Subtitle("Create, reorder, simulate, and export multi-agent workflows.")
+
+                  Spacer(Modifier.height(12.dp))
+
+                  LazyColumn(
+                      modifier = Modifier.fillMaxSize(),
+                      contentPadding = PaddingValues(bottom = 18.dp)
+                  ) {
+                      item {
+                          GlassCard {
+                              Subtitle("Workflow Name")
+
+                              Spacer(Modifier.height(8.dp))
+
+                              OutlinedTextField(
+                                  value = state.workflowName,
+                                  onValueChange = viewModel::updateWorkflowName,
+                                  modifier = Modifier.fillMaxWidth(),
+                                  singleLine = true
+                              )
+
+                              Spacer(Modifier.height(12.dp))
+
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  horizontalArrangement = Arrangement.spacedBy(8.dp)
+                              ) {
+                                  OutlinedButton(
+                                      onClick = { viewModel.loadAndroidTemplate() },
+                                      modifier = Modifier.weight(1f)
+                                  ) {
+                                      Text("Android")
+                                  }
+
+                                  OutlinedButton(
+                                      onClick = { viewModel.loadAiWorkspaceTemplate() },
+                                      modifier = Modifier.weight(1f)
+                                  ) {
+                                      Text("AI Upgrade")
+                                  }
+                              }
+
+                              Spacer(Modifier.height(8.dp))
+
+                              OutlinedButton(
+                                  onClick = { viewModel.clearSteps() },
+                                  modifier = Modifier.fillMaxWidth()
+                              ) {
+                                  Text("Clear Steps")
+                              }
+                          }
+
+                          Spacer(Modifier.height(12.dp))
+                      }
+
+                      itemsIndexed(
+                          items = state.steps,
+                          key = { _, step -> step.id }
+                      ) { index, step ->
+                          WorkflowStepCard(
+                              index = index,
+                              step = step,
+                              onUp = { viewModel.moveStepUp(step.id) },
+                              onDown = { viewModel.moveStepDown(step.id) },
+                              onRun = { viewModel.markStepRunning(step.id) },
+                              onDone = { viewModel.markStepCompleted(step.id) },
+                              onFail = { viewModel.markStepFailed(step.id) },
+                              onRemove = { viewModel.removeStep(step.id) }
+                          )
+                      }
+
+                      item {
+                          AddStepCard(
+                              title = state.customTitle,
+                              description = state.customDescription,
+                              agent = state.customAgent,
+                              onTitleChange = viewModel::updateCustomTitle,
+                              onDescriptionChange = viewModel::updateCustomDescription,
+                              onAgentChange = viewModel::updateCustomAgent,
+                              onAdd = { viewModel.addCustomStep() }
+                          )
+
+                          Spacer(Modifier.height(12.dp))
+
+                          GlassCard {
+                              CyberButton("Generate Workflow Prompt") {
+                                  viewModel.generatePrompt()
+                              }
+
+                              if (state.generatedPrompt.isNotBlank()) {
+                                  Spacer(Modifier.height(14.dp))
+                                  Subtitle("Generated Prompt")
+                                  Spacer(Modifier.height(8.dp))
+
+                                  Text(
+                                      text = state.generatedPrompt,
+                                      color = MaterialTheme.colorScheme.onSurface,
+                                      fontFamily = FontFamily.Monospace
+                                  )
+
+                                  Spacer(Modifier.height(12.dp))
+
+                                  CyberButton("Copy Workflow Prompt") {
+                                      clipboard.setText(
+                                          AnnotatedString(state.generatedPrompt)
+                                      )
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun WorkflowStepCard(
+              index: Int,
+              step: WorkflowStep,
+              onUp: () -> Unit,
+              onDown: () -> Unit,
+              onRun: () -> Unit,
+              onDone: () -> Unit,
+              onFail: () -> Unit,
+              onRemove: () -> Unit
+          ) {
+              GlassCard(modifier = Modifier.padding(bottom = 12.dp)) {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.Top
+                  ) {
+                      Column(modifier = Modifier.weight(1f)) {
+                          Title("${index + 1}. ${step.title}")
+                          Subtitle(step.agent)
+
+                          Spacer(Modifier.height(8.dp))
+
+                          Subtitle(step.description)
+
+                          Spacer(Modifier.height(8.dp))
+
+                          StatusChip(step.status)
+                      }
+
+                      TextButton(onClick = onRemove) {
+                          Text("Remove")
+                      }
+                  }
+
+                  Spacer(Modifier.height(10.dp))
+
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(6.dp)
+                  ) {
+                      OutlinedButton(
+                          onClick = onUp,
+                          modifier = Modifier.weight(1f)
+                      ) {
+                          Text("Up")
+                      }
+
+                      OutlinedButton(
+                          onClick = onDown,
+                          modifier = Modifier.weight(1f)
+                      ) {
+                          Text("Down")
+                      }
+                  }
+
+                  Spacer(Modifier.height(6.dp))
+
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(6.dp)
+                  ) {
+                      OutlinedButton(
+                          onClick = onRun,
+                          modifier = Modifier.weight(1f)
+                      ) {
+                          Text("Run")
+                      }
+
+                      OutlinedButton(
+                          onClick = onDone,
+                          modifier = Modifier.weight(1f)
+                      ) {
+                          Text("Done")
+                      }
+
+                      OutlinedButton(
+                          onClick = onFail,
+                          modifier = Modifier.weight(1f)
+                      ) {
+                          Text("Fail")
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun StatusChip(status: WorkflowStatus) {
+              val color = when (status) {
+                  WorkflowStatus.Pending -> MaterialTheme.colorScheme.onSurfaceVariant
+                  WorkflowStatus.Running -> MaterialTheme.colorScheme.primary
+                  WorkflowStatus.Completed -> Color(0xFF22C55E)
+                  WorkflowStatus.Failed -> Color(0xFFFF6B6B)
+              }
+
+              AssistChip(
+                  onClick = {},
+                  label = {
+                      Text(
+                          text = status.name,
+                          color = color,
+                          fontWeight = FontWeight.Bold
+                      )
+                  }
+              )
+          }
+
+          @Composable
+          private fun AddStepCard(
+              title: String,
+              description: String,
+              agent: String,
+              onTitleChange: (String) -> Unit,
+              onDescriptionChange: (String) -> Unit,
+              onAgentChange: (String) -> Unit,
+              onAdd: () -> Unit
+          ) {
+              GlassCard {
+                  Title("Add Custom Step")
+
+                  Spacer(Modifier.height(10.dp))
+
+                  OutlinedTextField(
+                      value = title,
+                      onValueChange = onTitleChange,
+                      placeholder = { Text("Step title") },
+                      modifier = Modifier.fillMaxWidth(),
+                      singleLine = true
+                  )
+
+                  Spacer(Modifier.height(8.dp))
+
+                  OutlinedTextField(
+                      value = description,
+                      onValueChange = onDescriptionChange,
+                      placeholder = { Text("Step description") },
+                      modifier = Modifier.fillMaxWidth(),
+                      minLines = 2,
+                      maxLines = 4
+                  )
+
+                  Spacer(Modifier.height(8.dp))
+
+                  OutlinedTextField(
+                      value = agent,
+                      onValueChange = onAgentChange,
+                      placeholder = { Text("Assigned agent") },
+                      modifier = Modifier.fillMaxWidth(),
+                      singleLine = true
+                  )
+
+                  Spacer(Modifier.height(12.dp))
+
+                  CyberButton("Add Step") {
+                      onAdd()
+                  }
+
+                  Spacer(Modifier.height(8.dp))
+
+                  HorizontalDivider()
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/SettingsScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.PaddingValues
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.material3.DropdownMenuItem
+          import androidx.compose.material3.ExperimentalMaterial3Api
+          import androidx.compose.material3.ExposedDropdownMenuBox
+          import androidx.compose.material3.ExposedDropdownMenuDefaults
+          import androidx.compose.material3.FilterChip
+          import androidx.compose.material3.HorizontalDivider
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.OutlinedTextField
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.collectAsState
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.setValue
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.input.PasswordVisualTransformation
+          import androidx.compose.ui.unit.dp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import com.mrrobot.aiworkspace.data.AiModels
+          import com.mrrobot.aiworkspace.data.AppThemeMode
+          import com.mrrobot.aiworkspace.ui.components.CyberButton
+          import com.mrrobot.aiworkspace.ui.components.GlassCard
+          import com.mrrobot.aiworkspace.ui.components.ScreenShell
+          import com.mrrobot.aiworkspace.ui.components.Subtitle
+          import com.mrrobot.aiworkspace.ui.components.Title
+          import com.mrrobot.aiworkspace.viewmodel.SettingsViewModel
+
+          @Composable
+          fun SettingsScreen(
+              viewModel: SettingsViewModel = viewModel()
+          ) {
+              val state by viewModel.uiState.collectAsState()
+              val selectedModel = AiModels.findById(state.model)
+
+              ScreenShell {
+                  LazyColumn(
+                      modifier = Modifier.fillMaxSize(),
+                      contentPadding = PaddingValues(bottom = 18.dp)
+                  ) {
+                      item {
+                          Title("Settings")
+                          Subtitle("Configure OpenRouter, model selection, theme, and workspace preferences.")
+
+                          Spacer(Modifier.height(14.dp))
+
+                          GlassCard {
+                              Subtitle("OpenRouter API Key")
+
+                              Spacer(Modifier.height(8.dp))
+
+                              OutlinedTextField(
+                                  value = state.apiKey,
+                                  onValueChange = viewModel::updateApiKey,
+                                  placeholder = { Text("sk-or-v1-...") },
+                                  visualTransformation = PasswordVisualTransformation(),
+                                  singleLine = true,
+                                  modifier = Modifier.fillMaxWidth()
+                              )
+
+                              Spacer(Modifier.height(18.dp))
+
+                              Subtitle("Theme")
+
+                              Spacer(Modifier.height(8.dp))
+
+                              ThemeModeSelector(
+                                  selected = state.themeMode,
+                                  onSelected = viewModel::updateThemeMode
+                              )
+
+                              Spacer(Modifier.height(18.dp))
+
+                              Subtitle("Selected Model")
+
+                              Spacer(Modifier.height(8.dp))
+
+                              ModelSelector(
+                                  selectedModelId = state.model,
+                                  onModelSelected = viewModel::updateModel
+                              )
+
+                              Spacer(Modifier.height(14.dp))
+
+                              GlassCard {
+                                  Title(selectedModel.name)
+                                  Subtitle("${selectedModel.provider} • ${selectedModel.id}")
+
+                                  Spacer(Modifier.height(6.dp))
+
+                                  Subtitle(selectedModel.description)
+                              }
+
+                              Spacer(Modifier.height(16.dp))
+
+                              CyberButton("Save Settings") {
+                                  viewModel.save()
+                              }
+
+                              Spacer(Modifier.height(10.dp))
+
+                              OutlinedButton(
+                                  onClick = { viewModel.clear() },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .height(50.dp)
+                              ) {
+                                  Text("Clear Settings")
+                              }
+
+                              if (state.savedMessage.isNotBlank()) {
+                                  Spacer(Modifier.height(12.dp))
+                                  Subtitle(state.savedMessage)
+                              }
+                          }
+
+                          Spacer(Modifier.height(16.dp))
+
+                          GlassCard {
+                              Title("Model Catalog")
+
+                              Spacer(Modifier.height(8.dp))
+
+                              AiModels.supported.forEach { model ->
+                                  Column(
+                                      modifier = Modifier
+                                          .fillMaxWidth()
+                                          .clickable {
+                                              viewModel.updateModel(model.id)
+                                          }
+                                          .padding(vertical = 10.dp)
+                                  ) {
+                                      Subtitle("${model.name} — ${model.provider}")
+                                      Subtitle(model.id)
+                                  }
+
+                                  HorizontalDivider()
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun ThemeModeSelector(
+              selected: AppThemeMode,
+              onSelected: (AppThemeMode) -> Unit
+          ) {
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                  AppThemeMode.values().forEach { mode ->
+                      FilterChip(
+                          selected = selected == mode,
+                          onClick = { onSelected(mode) },
+                          label = { Text(mode.name) },
+                          modifier = Modifier.weight(1f)
+                      )
+                  }
+              }
+          }
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          private fun ModelSelector(
+              selectedModelId: String,
+              onModelSelected: (String) -> Unit
+          ) {
+              var expanded by remember { mutableStateOf(false) }
+              val selected = AiModels.findById(selectedModelId)
+
+              ExposedDropdownMenuBox(
+                  expanded = expanded,
+                  onExpandedChange = { expanded = !expanded }
+              ) {
+                  OutlinedTextField(
+                      value = "${selected.name} • ${selected.provider}",
+                      onValueChange = {},
+                      readOnly = true,
+                      label = { Text("AI Model") },
+                      trailingIcon = {
+                          ExposedDropdownMenuDefaults.TrailingIcon(
+                              expanded = expanded
+                          )
+                      },
+                      modifier = Modifier
+                          .menuAnchor()
+                          .fillMaxWidth()
+                  )
+
+                  ExposedDropdownMenu(
+                      expanded = expanded,
+                      onDismissRequest = { expanded = false }
+                  ) {
+                      AiModels.supported.forEach { model ->
+                          DropdownMenuItem(
+                              text = {
+                                  Column {
+                                      Text(model.name)
+                                      Text(model.provider)
+                                  }
+                              },
+                              onClick = {
+                                  onModelSelected(model.id)
+                                  expanded = false
+                              }
+                          )
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > ".github/workflows/step-12-final-build-validation.yml" <<'EOF'
+          name: Step 12 Final Build Validation
+
+          on:
+            workflow_dispatch:
+
+          permissions:
+            contents: read
+            actions: read
+
+          jobs:
+            validate:
+              name: Validate And Build APK
+              runs-on: ubuntu-latest
+
+              steps:
+                - name: Checkout repository
+                  uses: actions/checkout@v4
+                  with:
+                    fetch-depth: 0
+
+                - name: Setup Java 17
+                  uses: actions/setup-java@v4
+                  with:
+                    distribution: temurin
+                    java-version: "17"
+
+                - name: Setup Android SDK
+                  uses: android-actions/setup-android@v3
+
+                - name: Setup Gradle
+                  uses: gradle/actions/setup-gradle@v4
+
+                - name: Make Gradle executable
+                  run: chmod +x ./gradlew
+
+                - name: Show project structure
+                  run: |
+                    echo "===== ROOT FILES ====="
+                    ls -la
+
+                    echo "===== WORKFLOWS ====="
+                    find .github/workflows -maxdepth 1 -type f | sort || true
+
+                    echo "===== ANDROID SOURCE ====="
+                    find app/src/main/java/com/mrrobot/aiworkspace -type f | sort
+
+                - name: Validate required files
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+
+                    REQUIRED_FILES=(
+                      "settings.gradle.kts"
+                      "build.gradle.kts"
+                      "gradle.properties"
+                      "gradlew"
+                      "app/build.gradle.kts"
+                      "app/src/main/AndroidManifest.xml"
+                      "app/src/main/java/com/mrrobot/aiworkspace/MainActivity.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/navigation/AppNavGraph.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/theme/Theme.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/WelcomeScreen.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/AgentsScreen.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/WorkflowScreen.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/TerminalScreen.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/FileManagerScreen.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/MarketplaceScreen.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ProfileScreen.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/data/SettingsStore.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/data/ChatRepository.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/data/Agent.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/data/WorkflowModels.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/data/TerminalModels.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/data/FileModels.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/data/MarketplaceModels.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/data/ProfileModels.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/SettingsViewModel.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/ChatViewModel.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/AgentsViewModel.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/WorkflowViewModel.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/TerminalViewModel.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/FileManagerViewModel.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/MarketplaceViewModel.kt"
+                      "app/src/main/java/com/mrrobot/aiworkspace/viewmodel/ProfileViewModel.kt"
+                    )
+
+                    missing=0
+
+                    for file in "${REQUIRED_FILES[@]}"; do
+                      if [ ! -f "$file" ]; then
+                        echo "MISSING: $file"
+                        missing=1
+                      else
+                        echo "OK: $file"
+                      fi
+                    done
+
+                    if [ "$missing" -eq 1 ]; then
+                      echo "Validation failed: missing required files."
+                      exit 1
+                    fi
+
+                    echo "All required files exist."
+
+                - name: Run Gradle validation
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    ./gradlew projects --stacktrace | tee gradle-projects-log.txt
+
+                - name: Build Debug APK
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    ./gradlew clean assembleDebug --stacktrace --info 2>&1 | tee build-log.txt
+
+                - name: Verify APK exists
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+
+                    APK_COUNT=$(find app/build/outputs/apk/debug -name "*.apk" 2>/dev/null | wc -l)
+
+                    if [ "$APK_COUNT" -eq 0 ]; then
+                      echo "No APK was produced."
+                      exit 1
+                    fi
+
+                    find app/build/outputs/apk/debug -name "*.apk" -print
+
+                - name: Create validation summary
+                  if: always()
+                  shell: bash
+                  run: |
+                    {
+                      echo "# Mr. Robot AI Workspace Final Validation"
+                      echo
+                      echo "## Project"
+                      echo "- Package: com.mrrobot.aiworkspace"
+                      echo "- Stack: Kotlin, Jetpack Compose, Material 3, MVVM, DataStore, OpenRouter, GitHub Actions"
+                      echo
+                      echo "## Included Systems"
+                      echo "- Welcome dashboard"
+                      echo "- OpenRouter chat"
+                      echo "- Persistent settings"
+                      echo "- Auto/Dark/Light theme modes"
+                      echo "- Model selector"
+                      echo "- Agent system"
+                      echo "- Workflow builder"
+                      echo "- Terminal logs"
+                      echo "- File manager"
+                      echo "- Marketplace"
+                      echo "- Profile workspace identity"
+                      echo "- Premium cyberpunk UI"
+                      echo
+                      echo "## APK Output"
+                      echo "\`\`\`text"
+                      find app/build/outputs/apk -type f -name "*.apk" 2>/dev/null || true
+                      echo "\`\`\`"
+                    } > VALIDATION_SUMMARY.md
+
+                - name: Upload validation logs
+                  uses: actions/upload-artifact@v4
+                  if: always()
+                  with:
+                    name: final-validation-logs
+                    path: |
+                      build-log.txt
+                      gradle-projects-log.txt
+                      VALIDATION_SUMMARY.md
+
+                - name: Upload final APK
+                  uses: actions/upload-artifact@v4
+                  if: success()
+                  with:
+                    name: mr-robot-ai-workspace-final-debug-apk
+                    path: app/build/outputs/apk/debug/*.apk
+          EOF
+
+      - name: Commit repair
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 14 repair UI theme and build validation"
+
+          git pull --rebase origin main
+
+          git push origin main
