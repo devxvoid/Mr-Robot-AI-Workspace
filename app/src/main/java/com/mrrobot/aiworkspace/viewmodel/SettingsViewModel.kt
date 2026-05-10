@@ -40,32 +40,46 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun updateApiKey(value: String) {
-        _uiState.value = _uiState.value.copy(apiKey = value, savedMessage = "")
+        _uiState.value = _uiState.value.copy(
+            apiKey = value,
+            savedMessage = ""
+        )
     }
 
     fun updateModel(value: String) {
-        _uiState.value = _uiState.value.copy(model = value, savedMessage = "")
+        _uiState.value = _uiState.value.copy(
+            model = value,
+            savedMessage = ""
+        )
     }
 
     fun updateThemeMode(value: AppThemeMode) {
-        _uiState.value = _uiState.value.copy(themeMode = value, savedMessage = "")
+        _uiState.value = _uiState.value.copy(
+            themeMode = value,
+            savedMessage = ""
+        )
     }
 
     fun save() {
         viewModelScope.launch {
             val current = _uiState.value
+
             store.saveSettings(
                 apiKey = current.apiKey,
                 model = current.model,
                 themeMode = current.themeMode
             )
-            _uiState.value = current.copy(savedMessage = "Settings saved successfully")
+
+            _uiState.value = current.copy(
+                savedMessage = "Settings saved successfully"
+            )
         }
     }
 
     fun clear() {
         viewModelScope.launch {
             store.clearSettings()
+
             _uiState.value = SettingsUiState(
                 savedMessage = "Settings cleared",
                 isLoaded = true

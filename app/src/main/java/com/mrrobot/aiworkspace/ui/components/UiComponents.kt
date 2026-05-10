@@ -1,13 +1,34 @@
 package com.mrrobot.aiworkspace.ui.components
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -38,10 +59,10 @@ fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(
+                    listOf(
                         scheme.background,
                         scheme.surface,
-                        scheme.surfaceVariant.copy(alpha = 0.8f)
+                        scheme.surfaceVariant.copy(alpha = 0.82f)
                     )
                 )
             )
@@ -60,11 +81,15 @@ fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 fun AmbientGlow() {
     val infinite = rememberInfiniteTransition(label = "ambient_glow")
+
     val alpha by infinite.animateFloat(
-        initialValue = 0.12f,
-        targetValue = 0.32f,
+        initialValue = 0.10f,
+        targetValue = 0.28f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = FastOutSlowInEasing),
+            animation = tween(
+                durationMillis = 2400,
+                easing = FastOutSlowInEasing
+            ),
             repeatMode = RepeatMode.Reverse
         ),
         label = "ambient_alpha"
@@ -79,7 +104,10 @@ fun AmbientGlow() {
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
-                        listOf(NeonCyan.copy(alpha = 0.26f), Color.Transparent)
+                        listOf(
+                            NeonCyan.copy(alpha = 0.28f),
+                            Color.Transparent
+                        )
                     )
                 )
         )
@@ -93,7 +121,10 @@ fun AmbientGlow() {
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
-                        listOf(NeonPurple.copy(alpha = 0.22f), Color.Transparent)
+                        listOf(
+                            NeonPurple.copy(alpha = 0.24f),
+                            Color.Transparent
+                        )
                     )
                 )
         )
@@ -112,22 +143,24 @@ fun GlassCard(
                 width = 1.dp,
                 brush = Brush.horizontalGradient(
                     listOf(
-                        NeonCyan.copy(.38f),
-                        NeonPurple.copy(.28f),
-                        NeonGreen.copy(.18f)
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.40f),
+                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f),
+                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)
                     )
                 ),
                 shape = RoundedCornerShape(24.dp)
             ),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = .88f)
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        content = {
-            Column(modifier = Modifier.padding(16.dp), content = content)
-        }
-    )
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            content = content
+        )
+    }
 }
 
 @Composable
@@ -139,7 +172,6 @@ fun PremiumHeader(
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -164,7 +196,10 @@ fun PremiumHeader(
             if (badge != null) {
                 Surface(
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                    ),
                     shape = RoundedCornerShape(999.dp)
                 ) {
                     Text(
@@ -172,7 +207,10 @@ fun PremiumHeader(
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                        modifier = Modifier.padding(
+                            horizontal = 12.dp,
+                            vertical = 7.dp
+                        )
                     )
                 }
             }
@@ -214,7 +252,10 @@ fun CyberButton(text: String, onClick: () -> Unit) {
             .fillMaxWidth()
             .height(52.dp)
     ) {
-        Text(text, fontWeight = FontWeight.Bold)
+        Text(
+            text = text,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -228,7 +269,7 @@ fun PremiumMetric(
         Text(
             text = value,
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 22.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.ExtraBold,
             maxLines = 1
         )
@@ -262,7 +303,10 @@ fun StatusPill(
 ) {
     Surface(
         color = color.copy(alpha = 0.12f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.45f)),
+        border = BorderStroke(
+            width = 1.dp,
+            color = color.copy(alpha = 0.45f)
+        ),
         shape = RoundedCornerShape(999.dp)
     ) {
         Text(
@@ -270,7 +314,10 @@ fun StatusPill(
             color = color,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+            modifier = Modifier.padding(
+                horizontal = 10.dp,
+                vertical = 6.dp
+            )
         )
     }
 }

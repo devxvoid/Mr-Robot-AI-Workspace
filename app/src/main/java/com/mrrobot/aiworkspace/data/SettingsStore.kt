@@ -35,7 +35,9 @@ class SettingsStore(private val context: Context) {
                 apiKey = prefs[Keys.API_KEY] ?: "",
                 model = prefs[Keys.MODEL] ?: "openai/gpt-4o-mini",
                 themeMode = runCatching {
-                    AppThemeMode.valueOf(prefs[Keys.THEME_MODE] ?: AppThemeMode.Auto.name)
+                    AppThemeMode.valueOf(
+                        prefs[Keys.THEME_MODE] ?: AppThemeMode.Auto.name
+                    )
                 }.getOrDefault(AppThemeMode.Auto)
             )
         }
