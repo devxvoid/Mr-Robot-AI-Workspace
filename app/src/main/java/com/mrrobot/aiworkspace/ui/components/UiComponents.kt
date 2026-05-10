@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -21,7 +22,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -62,7 +62,7 @@ fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
                     listOf(
                         scheme.background,
                         scheme.surface,
-                        scheme.surfaceVariant.copy(alpha = 0.82f)
+                        scheme.surfaceVariant.copy(alpha = 0.90f)
                     )
                 )
             )
@@ -84,10 +84,10 @@ fun AmbientGlow() {
 
     val alpha by infinite.animateFloat(
         initialValue = 0.10f,
-        targetValue = 0.28f,
+        targetValue = 0.32f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 2400,
+                durationMillis = 2600,
                 easing = FastOutSlowInEasing
             ),
             repeatMode = RepeatMode.Reverse
@@ -98,14 +98,14 @@ fun AmbientGlow() {
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
-                .size(220.dp)
-                .offset(x = (-90).dp, y = 30.dp)
+                .size(260.dp)
+                .offset(x = (-110).dp, y = 10.dp)
                 .alpha(alpha)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            NeonCyan.copy(alpha = 0.28f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
                             Color.Transparent
                         )
                     )
@@ -114,15 +114,15 @@ fun AmbientGlow() {
 
         Box(
             modifier = Modifier
-                .size(280.dp)
+                .size(300.dp)
                 .align(Alignment.BottomEnd)
-                .offset(x = 120.dp, y = 90.dp)
+                .offset(x = 120.dp, y = 80.dp)
                 .alpha(alpha)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            NeonPurple.copy(alpha = 0.24f),
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.26f),
                             Color.Transparent
                         )
                     )
@@ -143,21 +143,21 @@ fun GlassCard(
                 width = 1.dp,
                 brush = Brush.horizontalGradient(
                     listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.40f),
-                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f),
-                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.46f),
+                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.32f),
+                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f)
                     )
                 ),
-                shape = RoundedCornerShape(24.dp)
+                shape = MaterialTheme.shapes.extraLarge
             ),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(18.dp),
             content = content
         )
     }
@@ -172,35 +172,36 @@ fun PremiumHeader(
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 28.sp,
+                    fontSize = 30.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    lineHeight = 32.sp
+                    lineHeight = 34.sp
                 )
 
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(7.dp))
 
                 Text(
                     text = subtitle,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
-                    lineHeight = 20.sp
+                    lineHeight = 21.sp
                 )
             }
 
             if (badge != null) {
                 Surface(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
                     border = BorderStroke(
                         width = 1.dp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.50f)
                     ),
-                    shape = RoundedCornerShape(999.dp)
+                    shape = MaterialTheme.shapes.extraLarge
                 ) {
                     Text(
                         text = badge,
@@ -225,7 +226,7 @@ fun Title(text: String) {
         color = MaterialTheme.colorScheme.onSurface,
         fontSize = 23.sp,
         fontWeight = FontWeight.Bold,
-        lineHeight = 27.sp
+        lineHeight = 28.sp
     )
 }
 
@@ -235,7 +236,7 @@ fun Subtitle(text: String) {
         text = text,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontSize = 14.sp,
-        lineHeight = 20.sp
+        lineHeight = 21.sp
     )
 }
 
@@ -247,10 +248,10 @@ fun CyberButton(text: String, onClick: () -> Unit) {
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(54.dp)
     ) {
         Text(
             text = text,
@@ -269,7 +270,7 @@ fun PremiumMetric(
         Text(
             text = value,
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 20.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
             maxLines = 1
         )
@@ -299,19 +300,21 @@ fun PremiumMetric(
 @Composable
 fun StatusPill(
     text: String,
-    color: Color = NeonCyan
+    color: Color? = null
 ) {
+    val pillColor = color ?: MaterialTheme.colorScheme.primary
+
     Surface(
-        color = color.copy(alpha = 0.12f),
+        color = pillColor.copy(alpha = 0.12f),
         border = BorderStroke(
             width = 1.dp,
-            color = color.copy(alpha = 0.45f)
+            color = pillColor.copy(alpha = 0.45f)
         ),
-        shape = RoundedCornerShape(999.dp)
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Text(
             text = text,
-            color = color,
+            color = pillColor,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(

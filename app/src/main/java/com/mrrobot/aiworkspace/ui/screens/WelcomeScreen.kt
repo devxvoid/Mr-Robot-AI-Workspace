@@ -1,534 +1,145 @@
 package com.mrrobot.aiworkspace.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.mrrobot.aiworkspace.navigation.Route
 import com.mrrobot.aiworkspace.ui.components.CyberButton
 import com.mrrobot.aiworkspace.ui.components.GlassCard
+import com.mrrobot.aiworkspace.ui.components.PremiumHeader
+import com.mrrobot.aiworkspace.ui.components.PremiumMetric
 import com.mrrobot.aiworkspace.ui.components.ScreenShell
+import com.mrrobot.aiworkspace.ui.components.StatusPill
 import com.mrrobot.aiworkspace.ui.components.Subtitle
 import com.mrrobot.aiworkspace.ui.components.Title
 
 @Composable
-fun WelcomeScreen(navController: NavController) {
+fun WelcomeScreen(nav: NavController) {
     ScreenShell {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            contentPadding = PaddingValues(bottom = 18.dp)
         ) {
             item {
-                HomeHeroSection(
-                    onStartChat = {
-                        navController.navigate(Route.Chat.path)
-                    },
-                    onOpenSettings = {
-                        navController.navigate(Route.Settings.path)
+                PremiumHeader(
+                    title = "Mr. Robot AI Workspace",
+                    subtitle = "A professional Android command center rebuilt around imported Stitch design assets, Cyber/Hacker themes, AI chat, agent workflows, terminal logs, marketplace tools, and OpenRouter models.",
+                    badge = "STEP 21"
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                GlassCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StatusPill("Cyber")
+                        StatusPill("Hacker")
+                        StatusPill("Assets")
                     }
-                )
-            }
 
-            item {
-                WorkspaceStatusSection()
-            }
+                    Spacer(Modifier.height(14.dp))
 
-            item {
-                QuickActionsSection(navController)
-            }
+                    Title("Imported Design System")
+                    Subtitle("The Stitch ZIP assets are imported into the project, while Settings shows only Auto, Dark, Light, Cyber, and Hacker.")
 
-            item {
-                FeatureGridSection(navController)
-            }
+                    Spacer(Modifier.height(14.dp))
 
-            item {
-                BuildProgressSection()
-            }
+                    CyberButton("Launch AI Chat") {
+                        nav.navigate(Route.Chat.path)
+                    }
 
-            item {
-                DesignSourceSection()
-            }
-        }
-    }
-}
+                    Spacer(Modifier.height(10.dp))
 
-@Composable
-private fun HomeHeroSection(
-    onStartChat: () -> Unit,
-    onOpenSettings: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "Mr. Robot AI",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    lineHeight = 38.sp
-                )
+                    OutlinedButton(
+                        onClick = { nav.navigate(Route.Agents.path) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        Text("Open Agent System")
+                    }
 
-                Text(
-                    text = "Workspace",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    lineHeight = 38.sp
-                )
-            }
+                    Spacer(Modifier.height(10.dp))
 
-            StatusBadge("MVP")
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        Text(
-            text = "A mobile AI command center for chat, specialized agents, workflows, build logs, files, marketplace tools, and OpenRouter models.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 15.sp,
-            lineHeight = 22.sp
-        )
-
-        Spacer(Modifier.height(18.dp))
-
-        GlassCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = "Command Center",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 25.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Subtitle("Your Android AI workspace is now connected to real app systems, navigation, settings, and AI infrastructure.")
+                    OutlinedButton(
+                        onClick = { nav.navigate(Route.Workflow.path) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        Text("Build Workflow")
+                    }
                 }
 
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.height(14.dp))
 
-                StatusBadge("ONLINE")
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            CyberButton("Start AI Session") {
-                onStartChat()
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            OutlinedButton(
-                onClick = onOpenSettings,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text("Configure Workspace")
-            }
-        }
-    }
-}
-
-@Composable
-private fun WorkspaceStatusSection() {
-    GlassCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Title("Workspace Status")
-                Subtitle("Core MVP systems are active.")
-            }
-
-            StatusBadge("READY")
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        StatusRow(
-            label = "AI Provider",
-            value = "OpenRouter"
-        )
-
-        StatusRow(
-            label = "Theme Modes",
-            value = "Auto / Dark / Light"
-        )
-
-        StatusRow(
-            label = "Navigation",
-            value = "Professional 5-tab layout"
-        )
-
-        StatusRow(
-            label = "Build Pipeline",
-            value = "GitHub Actions APK"
-        )
-    }
-}
-
-@Composable
-private fun QuickActionsSection(navController: NavController) {
-    Column {
-        SectionHeader(
-            title = "Quick Actions",
-            subtitle = "Jump directly into the main workspace tools."
-        )
-
-        Spacer(Modifier.height(10.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            HomeMiniAction(
-                title = "Chat",
-                subtitle = "Ask AI",
-                modifier = Modifier.weight(1f),
-                onClick = { navController.navigate(Route.Chat.path) }
-            )
-
-            HomeMiniAction(
-                title = "Agents",
-                subtitle = "Specialists",
-                modifier = Modifier.weight(1f),
-                onClick = { navController.navigate(Route.Agents.path) }
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            HomeMiniAction(
-                title = "Flow",
-                subtitle = "Build tasks",
-                modifier = Modifier.weight(1f),
-                onClick = { navController.navigate(Route.Workflow.path) }
-            )
-
-            HomeMiniAction(
-                title = "More",
-                subtitle = "Tools",
-                modifier = Modifier.weight(1f),
-                onClick = { navController.navigate(Route.More.path) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun FeatureGridSection(navController: NavController) {
-    Column {
-        SectionHeader(
-            title = "Workspace Modules",
-            subtitle = "Everything required for a real Android AI productivity MVP."
-        )
-
-        Spacer(Modifier.height(10.dp))
-
-        HomeFeatureCard(
-            title = "AI Chat",
-            subtitle = "Real OpenRouter-powered assistant with saved model settings.",
-            status = "ACTIVE",
-            onClick = { navController.navigate(Route.Chat.path) }
-        )
-
-        HomeFeatureCard(
-            title = "Agent System",
-            subtitle = "Role-based prompt builders for Android, UI, backend, debugging, and CI/CD.",
-            status = "ACTIVE",
-            onClick = { navController.navigate(Route.Agents.path) }
-        )
-
-        HomeFeatureCard(
-            title = "Workflow Builder",
-            subtitle = "Create, reorder, simulate, and export multi-agent workflows.",
-            status = "ACTIVE",
-            onClick = { navController.navigate(Route.Workflow.path) }
-        )
-
-        HomeFeatureCard(
-            title = "Tools Hub",
-            subtitle = "Terminal, files, marketplace, settings, and profile are available from More.",
-            status = "READY",
-            onClick = { navController.navigate(Route.More.path) }
-        )
-    }
-}
-
-@Composable
-private fun BuildProgressSection() {
-    GlassCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Title("Product Maturity")
-                Subtitle("The app is moving from MVP foundation toward polished production experience.")
-            }
-
-            StatusBadge("72%")
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        LinearProgressIndicator(
-            progress = { 0.72f },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-
-        Spacer(Modifier.height(14.dp))
-
-        StatusRow("Completed", "Core screens, AI chat, agents, workflow, settings")
-        StatusRow("In Progress", "Premium UI polish and app identity")
-        StatusRow("Next", "Home, chat, agents, and settings refinement")
-    }
-}
-
-@Composable
-private fun DesignSourceSection() {
-    GlassCard {
-        Title("Design Source")
-        Subtitle("Keep the Google Stitch ZIP in the repo root as the official visual reference while the Android UI is upgraded screen by screen.")
-
-        Spacer(Modifier.height(12.dp))
-
-        Surface(
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-            border = BorderStroke(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-            ),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Text(
-                text = "stitch_mr._robot_ai_workspace.zip",
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun SectionHeader(
-    title: String,
-    subtitle: String
-) {
-    Column {
-        Title(title)
-        Spacer(Modifier.height(4.dp))
-        Subtitle(subtitle)
-    }
-}
-
-@Composable
-private fun HomeMiniAction(
-    title: String,
-    subtitle: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-        ),
-        shape = RoundedCornerShape(22.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = title,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 19.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text = subtitle,
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeFeatureCard(
-    title: String,
-    subtitle: String,
-    status: String,
-    onClick: () -> Unit
-) {
-    Spacer(Modifier.height(10.dp))
-
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
-        ),
-        shape = RoundedCornerShape(24.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = title,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Box(modifier = Modifier.weight(1f)) {
+                        PremiumMetric(
+                            label = "Screens",
+                            value = "20+",
+                            description = "Imported previews"
+                        )
+                    }
 
-                    Spacer(Modifier.height(6.dp))
-
-                    Text(
-                        text = subtitle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
-                    )
+                    Box(modifier = Modifier.weight(1f)) {
+                        PremiumMetric(
+                            label = "Themes",
+                            value = "5",
+                            description = "Auto/Dark/Light/Cyber/Hacker"
+                        )
+                    }
                 }
 
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.height(10.dp))
 
-                StatusBadge(status)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        PremiumMetric(
+                            label = "AI",
+                            value = "OR",
+                            description = "OpenRouter"
+                        )
+                    }
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        PremiumMetric(
+                            label = "Agents",
+                            value = "5",
+                            description = "Role prompts"
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                GlassCard {
+                    Title("Design Source")
+                    Subtitle("The imported ZIP remains your design source. Cyber and Hacker themes are available in Settings without adding a separate Stitch theme option.")
+                }
+
+                Spacer(Modifier.height(16.dp))
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Text(
-                text = "Open module",
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
         }
-    }
-}
-
-@Composable
-private fun StatusRow(
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp
-        )
-
-        Text(
-            text = value,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
-private fun StatusBadge(text: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
-        ),
-        shape = RoundedCornerShape(999.dp)
-    ) {
-        Text(
-            text = text,
-            color = MaterialTheme.colorScheme.primary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-        )
     }
 }

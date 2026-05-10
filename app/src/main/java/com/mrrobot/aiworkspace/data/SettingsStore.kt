@@ -12,7 +12,9 @@ private val Context.settingsDataStore by preferencesDataStore(name = "mr_robot_s
 enum class AppThemeMode {
     Auto,
     Dark,
-    Light
+    Light,
+    Cyberpunk,
+    Hacker
 }
 
 data class AppSettings(
