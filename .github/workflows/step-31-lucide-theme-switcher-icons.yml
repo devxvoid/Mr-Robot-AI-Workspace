@@ -1,0 +1,467 @@
+name: Step 31 Lucide Theme Switcher Icons
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    name: Replace Home Theme Icons With Lucide Vectors
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Add Lucide theme icons and update WelcomeScreen
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+          DRAWABLE_DIR="app/src/main/res/drawable"
+
+          mkdir -p "$APP_DIR/ui/screens"
+          mkdir -p "$DRAWABLE_DIR"
+
+          cat > "$DRAWABLE_DIR/ic_lucide_sun.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M12,7A5,5 0,1 0,12 17A5,5 0,1 0,12 7"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path android:pathData="M12,1V3" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M12,21V23" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.22,4.22L5.64,5.64" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M18.36,18.36L19.78,19.78" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M1,12H3" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M21,12H23" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.22,19.78L5.64,18.36" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M18.36,5.64L19.78,4.22" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+          </vector>
+          EOF
+
+          cat > "$DRAWABLE_DIR/ic_lucide_moon.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M21,12.79A9,9 0,1 1,11.21 3A7,7 0,0 0,21 12.79Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          cat > "$DRAWABLE_DIR/ic_lucide_sun_moon.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M12,8A4,4 0,1 0,12 16A4,4 0,1 0,12 8"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path android:pathData="M12,2V4" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M12,20V22" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.93,4.93L6.34,6.34" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M17.66,17.66L19.07,19.07" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M2,12H4" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M20,12H22" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.93,19.07L6.34,17.66" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M17.66,6.34L19.07,4.93" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+
+              <path
+                  android:pathData="M21,14.5A6.5,6.5 0,0 1,13.5 21A6,6 0,0 0,21 14.5Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          cat > "$APP_DIR/ui/screens/WelcomeScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.annotation.DrawableRes
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.PaddingValues
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.Surface
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.collectAsState
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.rememberCoroutineScope
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.res.painterResource
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.navigation.NavController
+          import com.mrrobot.aiworkspace.R
+          import com.mrrobot.aiworkspace.data.AppSettings
+          import com.mrrobot.aiworkspace.data.AppThemeMode
+          import com.mrrobot.aiworkspace.data.SettingsStore
+          import com.mrrobot.aiworkspace.navigation.Route
+          import com.mrrobot.aiworkspace.ui.components.CyberButton
+          import com.mrrobot.aiworkspace.ui.components.GlassCard
+          import com.mrrobot.aiworkspace.ui.components.PremiumMetric
+          import com.mrrobot.aiworkspace.ui.components.ScreenShell
+          import com.mrrobot.aiworkspace.ui.components.StatusPill
+          import com.mrrobot.aiworkspace.ui.components.Subtitle
+          import com.mrrobot.aiworkspace.ui.components.Title
+          import kotlinx.coroutines.launch
+
+          @Composable
+          fun WelcomeScreen(nav: NavController) {
+              val context = LocalContext.current
+              val settingsStore = remember {
+                  SettingsStore(context.applicationContext)
+              }
+              val coroutineScope = rememberCoroutineScope()
+
+              val settings by settingsStore.settingsFlow.collectAsState(
+                  initial = AppSettings()
+              )
+
+              ScreenShell {
+                  LazyColumn(
+                      modifier = Modifier.fillMaxSize(),
+                      contentPadding = PaddingValues(bottom = 18.dp)
+                  ) {
+                      item {
+                          HomeHeader()
+
+                          Spacer(Modifier.height(16.dp))
+
+                          QuickThemeCard(
+                              selected = settings.themeMode,
+                              onSelected = { theme ->
+                                  coroutineScope.launch {
+                                      settingsStore.saveSettings(
+                                          apiKey = settings.apiKey,
+                                          model = settings.model,
+                                          themeMode = theme
+                                      )
+                                  }
+                              }
+                          )
+
+                          Spacer(Modifier.height(14.dp))
+
+                          GlassCard {
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  horizontalArrangement = Arrangement.spacedBy(8.dp)
+                              ) {
+                                  StatusPill("Cyber")
+                                  StatusPill("Hacker")
+                                  StatusPill("Assets")
+                              }
+
+                              Spacer(Modifier.height(14.dp))
+
+                              Title("Command Center")
+
+                              Subtitle(
+                                  "Use quick switching for Auto, Light, and Dark directly from Home. Cyber and Hacker remain available inside Settings."
+                              )
+
+                              Spacer(Modifier.height(14.dp))
+
+                              CyberButton("Launch AI Chat") {
+                                  nav.navigate(Route.Chat.path)
+                              }
+
+                              Spacer(Modifier.height(10.dp))
+
+                              OutlinedButton(
+                                  onClick = { nav.navigate(Route.Agents.path) },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .height(50.dp)
+                              ) {
+                                  Text("Open Agent System")
+                              }
+
+                              Spacer(Modifier.height(10.dp))
+
+                              OutlinedButton(
+                                  onClick = { nav.navigate(Route.Workflow.path) },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .height(50.dp)
+                              ) {
+                                  Text("Build Workflow")
+                              }
+                          }
+
+                          Spacer(Modifier.height(14.dp))
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "Screens",
+                                      value = "20+",
+                                      description = "Workspace tools"
+                                  )
+                              }
+
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "Themes",
+                                      value = "5",
+                                      description = "Auto/Dark/Light/Cyber/Hacker"
+                                  )
+                              }
+                          }
+
+                          Spacer(Modifier.height(10.dp))
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "AI",
+                                      value = "OR",
+                                      description = "OpenRouter"
+                                  )
+                              }
+
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "Agents",
+                                      value = "5",
+                                      description = "Role prompts"
+                                  )
+                              }
+                          }
+
+                          Spacer(Modifier.height(14.dp))
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun HomeHeader() {
+              Column(modifier = Modifier.fillMaxWidth()) {
+                  Text(
+                      text = "Mr. Robot AI\nWorkspace",
+                      color = MaterialTheme.colorScheme.onBackground,
+                      fontSize = 30.sp,
+                      fontWeight = FontWeight.ExtraBold,
+                      lineHeight = 34.sp
+                  )
+
+                  Spacer(Modifier.height(10.dp))
+
+                  Text(
+                      text = "A professional Android command center for AI chat, agents, workflows, terminal logs, marketplace tools, and OpenRouter models.",
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      fontSize = 14.sp,
+                      lineHeight = 21.sp
+                  )
+              }
+          }
+
+          @Composable
+          private fun QuickThemeCard(
+              selected: AppThemeMode,
+              onSelected: (AppThemeMode) -> Unit
+          ) {
+              GlassCard {
+                  Title("Quick Theme")
+
+                  Spacer(Modifier.height(6.dp))
+
+                  Subtitle("Switch Auto, Light, or Dark directly from Home.")
+
+                  Spacer(Modifier.height(14.dp))
+
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(10.dp)
+                  ) {
+                      ThemeQuickTile(
+                          title = "Auto",
+                          mode = AppThemeMode.Auto,
+                          selected = selected,
+                          onSelected = onSelected,
+                          iconRes = R.drawable.ic_lucide_sun_moon,
+                          modifier = Modifier.weight(1f)
+                      )
+
+                      ThemeQuickTile(
+                          title = "Light",
+                          mode = AppThemeMode.Light,
+                          selected = selected,
+                          onSelected = onSelected,
+                          iconRes = R.drawable.ic_lucide_sun,
+                          modifier = Modifier.weight(1f)
+                      )
+
+                      ThemeQuickTile(
+                          title = "Dark",
+                          mode = AppThemeMode.Dark,
+                          selected = selected,
+                          onSelected = onSelected,
+                          iconRes = R.drawable.ic_lucide_moon,
+                          modifier = Modifier.weight(1f)
+                      )
+                  }
+              }
+          }
+
+          @Composable
+          private fun ThemeQuickTile(
+              title: String,
+              mode: AppThemeMode,
+              selected: AppThemeMode,
+              onSelected: (AppThemeMode) -> Unit,
+              @DrawableRes iconRes: Int,
+              modifier: Modifier = Modifier
+          ) {
+              val isSelected = selected == mode
+
+              val iconColor = if (isSelected) {
+                  MaterialTheme.colorScheme.primary
+              } else {
+                  MaterialTheme.colorScheme.onSurfaceVariant
+              }
+
+              val borderColor = if (isSelected) {
+                  MaterialTheme.colorScheme.primary
+              } else {
+                  MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+              }
+
+              val containerColor = if (isSelected) {
+                  MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+              } else {
+                  MaterialTheme.colorScheme.surface.copy(alpha = 0.76f)
+              }
+
+              Surface(
+                  modifier = modifier.clickable {
+                      onSelected(mode)
+                  },
+                  color = containerColor,
+                  border = BorderStroke(1.dp, borderColor),
+                  shape = MaterialTheme.shapes.large
+              ) {
+                  Column(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(vertical = 16.dp, horizontal = 8.dp),
+                      horizontalAlignment = Alignment.CenterHorizontally,
+                      verticalArrangement = Arrangement.spacedBy(8.dp)
+                  ) {
+                      Icon(
+                          painter = painterResource(id = iconRes),
+                          contentDescription = title,
+                          tint = iconColor,
+                          modifier = Modifier.size(26.dp)
+                      )
+
+                      Text(
+                          text = title,
+                          color = if (isSelected) {
+                              MaterialTheme.colorScheme.primary
+                          } else {
+                              MaterialTheme.colorScheme.onSurface
+                          },
+                          fontWeight = FontWeight.Bold,
+                          fontSize = 13.sp,
+                          maxLines = 1
+                      )
+                  }
+              }
+          }
+          EOF
+
+      - name: Verify old home text is gone
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if grep -R "STEP 21" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/WelcomeScreen.kt; then
+            echo "STEP 21 still exists in WelcomeScreen.kt"
+            exit 1
+          fi
+
+          if grep -R "Imported Design System" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/WelcomeScreen.kt; then
+            echo "Imported Design System still exists in WelcomeScreen.kt"
+            exit 1
+          fi
+
+          echo "WelcomeScreen.kt is clean."
+
+      - name: Commit Step 31
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 31 use Lucide icons for home theme switcher"
+
+          git pull --rebase origin main
+          git push origin main
