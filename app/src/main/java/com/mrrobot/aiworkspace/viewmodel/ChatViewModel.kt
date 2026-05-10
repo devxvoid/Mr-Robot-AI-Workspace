@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class ChatUiMessage(
-    val id: Long = System.currentTimeMillis(),
+    val id: Long = System.nanoTime(),
     val role: String,
     val content: String
 )
@@ -23,7 +23,7 @@ data class ChatUiState(
     val messages: List<ChatUiMessage> = listOf(
         ChatUiMessage(
             role = "assistant",
-            content = "Mr. Robot online. Add your OpenRouter API key in Settings, then send a message."
+            content = "Welcome to Mr. Robot AI Workspace. I can help you plan Android features, debug Gradle errors, improve Compose UI, create GitHub Actions, and turn your app into a polished product."
         )
     ),
     val apiKey: String = "",
@@ -60,39 +60,64 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun useSuggestion(prompt: String) {
+        _uiState.value = _uiState.value.copy(
+            input = prompt,
+            error = ""
+        )
+    }
+
     fun send() {
         val current = _uiState.value
         val prompt = current.input.trim()
 
         if (prompt.isBlank() || current.isLoading) return
 
-        sendPrompt(prompt, appendUserMessage = true)
+        sendPrompt(
+            prompt = prompt,
+            appendUserMessage = true
+        )
     }
 
     fun retryLast() {
         val prompt = _uiState.value.lastUserPrompt
+
         if (prompt.isBlank() || _uiState.value.isLoading) return
 
         _uiState.value = _uiState.value.copy(error = "")
-        sendPrompt(prompt, appendUserMessage = false)
+
+        sendPrompt(
+            prompt = prompt,
+            appendUserMessage = false
+        )
     }
 
     fun regenerateLastAnswer() {
         val current = _uiState.value
+
         if (current.isLoading) return
 
-        val lastUser = current.messages.lastOrNull { it.role == "user" }?.content.orEmpty()
-        if (lastUser.isBlank()) return
+        val lastUserPrompt = current.messages
+            .lastOrNull { it.role == "user" }
+            ?.content
+            .orEmpty()
 
-        val trimmedMessages = current.messages.dropLastWhile { it.role == "assistant" }
+        if (lastUserPrompt.isBlank()) return
+
+        val trimmedMessages = current.messages.dropLastWhile {
+            it.role == "assistant"
+        }
 
         _uiState.value = current.copy(
             messages = trimmedMessages,
             error = "",
-            lastUserPrompt = lastUser
+            lastUserPrompt = lastUserPrompt
         )
 
-        sendPrompt(lastUser, appendUserMessage = false)
+        sendPrompt(
+            prompt = lastUserPrompt,
+            appendUserMessage = false
+        )
     }
 
     fun stopGeneration() {
@@ -105,22 +130,45 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    private fun sendPrompt(prompt: String, appendUserMessage: Boolean) {
+    fun clearChat() {
+        activeJob?.cancel()
+        activeJob = null
+
+        _uiState.value = _uiState.value.copy(
+            input = "",
+            messages = listOf(
+                ChatUiMessage(
+                    role = "assistant",
+                    content = "Chat cleared. Mr. Robot is ready for the next task."
+                )
+            ),
+            isLoading = false,
+            error = "",
+            lastUserPrompt = ""
+        )
+    }
+
+    private fun sendPrompt(
+        prompt: String,
+        appendUserMessage: Boolean
+    ) {
         val current = _uiState.value
 
         if (current.apiKey.isBlank()) {
             _uiState.value = current.copy(
-                error = "OpenRouter API key missing. Save your key in Settings first."
+                error = "OpenRouter API key is missing. Open Settings, paste your key, then save settings."
             )
             return
         }
 
-        val updatedMessages =
-            if (appendUserMessage) {
-                current.messages + ChatUiMessage(role = "user", content = prompt)
-            } else {
-                current.messages
-            }
+        val updatedMessages = if (appendUserMessage) {
+            current.messages + ChatUiMessage(
+                role = "user",
+                content = prompt
+            )
+        } else {
+            current.messages
+        }
 
         _uiState.value = current.copy(
             input = "",
@@ -133,6 +181,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         activeJob = viewModelScope.launch {
             val requestMessages = _uiState.value.messages
                 .filter { it.role == "user" || it.role == "assistant" }
+                .takeLast(12)
                 .map {
                     ChatMessage(
                         role = it.role,
@@ -158,33 +207,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 .onFailure { throwable ->
-                    if (throwable is kotlinx.coroutines.CancellationException) {
-                        return@onFailure
-                    }
-
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = throwable.message ?: "Unknown chat error"
                     )
                 }
         }
-    }
-
-    fun clearChat() {
-        activeJob?.cancel()
-        activeJob = null
-
-        _uiState.value = _uiState.value.copy(
-            messages = listOf(
-                ChatUiMessage(
-                    role = "assistant",
-                    content = "Chat cleared. Mr. Robot is ready."
-                )
-            ),
-            error = "",
-            input = "",
-            isLoading = false,
-            lastUserPrompt = ""
-        )
     }
 }
