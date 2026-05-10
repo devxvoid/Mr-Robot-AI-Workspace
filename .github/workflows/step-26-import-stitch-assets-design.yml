@@ -1,4 +1,4 @@
-name: Step 21 Import Stitch Assets And Design Themes
+name: Step 26 Import Stitch Assets And Design Themes
 
 on:
   workflow_dispatch:
@@ -1226,7 +1226,7 @@ jobs:
           }
           EOF
 
-      - name: Commit Step 21 design import
+      - name: Commit Step 26 design import
         shell: bash
         run: |
           set -euo pipefail
@@ -1241,7 +1241,7 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Step 21 import Stitch assets with Cyber Hacker themes"
+          git commit -m "Step 26 import Stitch assets with Cyber Hacker themes"
 
           git pull --rebase origin main
 
