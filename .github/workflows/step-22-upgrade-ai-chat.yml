@@ -1,0 +1,866 @@
+name: Step 22 Upgrade AI Chat
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    name: Upgrade AI Chat Screen
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Replace AI chat with professional chat experience
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+          mkdir -p "$APP_DIR/viewmodel"
+          mkdir -p "$APP_DIR/ui/screens"
+
+          cat > "$APP_DIR/viewmodel/ChatViewModel.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.viewmodel
+
+          import android.app.Application
+          import androidx.lifecycle.AndroidViewModel
+          import androidx.lifecycle.viewModelScope
+          import com.mrrobot.aiworkspace.data.ChatMessage
+          import com.mrrobot.aiworkspace.data.ChatRepository
+          import com.mrrobot.aiworkspace.data.SettingsStore
+          import kotlinx.coroutines.Job
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          import kotlinx.coroutines.launch
+
+          data class ChatUiMessage(
+              val id: Long = System.nanoTime(),
+              val role: String,
+              val content: String
+          )
+
+          data class ChatUiState(
+              val input: String = "",
+              val messages: List<ChatUiMessage> = listOf(
+                  ChatUiMessage(
+                      role = "assistant",
+                      content = "Welcome to Mr. Robot AI Workspace. I can help you plan Android features, debug Gradle errors, improve Compose UI, create GitHub Actions, and turn your app into a polished product."
+                  )
+              ),
+              val apiKey: String = "",
+              val model: String = "openai/gpt-4o-mini",
+              val isLoading: Boolean = false,
+              val error: String = "",
+              val lastUserPrompt: String = ""
+          )
+
+          class ChatViewModel(application: Application) : AndroidViewModel(application) {
+
+              private val settingsStore = SettingsStore(application.applicationContext)
+              private val repository = ChatRepository()
+              private var activeJob: Job? = null
+
+              private val _uiState = MutableStateFlow(ChatUiState())
+              val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+              init {
+                  viewModelScope.launch {
+                      settingsStore.settingsFlow.collect { settings ->
+                          _uiState.value = _uiState.value.copy(
+                              apiKey = settings.apiKey,
+                              model = settings.model
+                          )
+                      }
+                  }
+              }
+
+              fun updateInput(value: String) {
+                  _uiState.value = _uiState.value.copy(
+                      input = value,
+                      error = ""
+                  )
+              }
+
+              fun useSuggestion(prompt: String) {
+                  _uiState.value = _uiState.value.copy(
+                      input = prompt,
+                      error = ""
+                  )
+              }
+
+              fun send() {
+                  val current = _uiState.value
+                  val prompt = current.input.trim()
+
+                  if (prompt.isBlank() || current.isLoading) return
+
+                  sendPrompt(
+                      prompt = prompt,
+                      appendUserMessage = true
+                  )
+              }
+
+              fun retryLast() {
+                  val prompt = _uiState.value.lastUserPrompt
+
+                  if (prompt.isBlank() || _uiState.value.isLoading) return
+
+                  _uiState.value = _uiState.value.copy(error = "")
+
+                  sendPrompt(
+                      prompt = prompt,
+                      appendUserMessage = false
+                  )
+              }
+
+              fun regenerateLastAnswer() {
+                  val current = _uiState.value
+
+                  if (current.isLoading) return
+
+                  val lastUserPrompt = current.messages
+                      .lastOrNull { it.role == "user" }
+                      ?.content
+                      .orEmpty()
+
+                  if (lastUserPrompt.isBlank()) return
+
+                  val trimmedMessages = current.messages.dropLastWhile {
+                      it.role == "assistant"
+                  }
+
+                  _uiState.value = current.copy(
+                      messages = trimmedMessages,
+                      error = "",
+                      lastUserPrompt = lastUserPrompt
+                  )
+
+                  sendPrompt(
+                      prompt = lastUserPrompt,
+                      appendUserMessage = false
+                  )
+              }
+
+              fun stopGeneration() {
+                  activeJob?.cancel()
+                  activeJob = null
+
+                  _uiState.value = _uiState.value.copy(
+                      isLoading = false,
+                      error = "Generation stopped."
+                  )
+              }
+
+              fun clearChat() {
+                  activeJob?.cancel()
+                  activeJob = null
+
+                  _uiState.value = _uiState.value.copy(
+                      input = "",
+                      messages = listOf(
+                          ChatUiMessage(
+                              role = "assistant",
+                              content = "Chat cleared. Mr. Robot is ready for the next task."
+                          )
+                      ),
+                      isLoading = false,
+                      error = "",
+                      lastUserPrompt = ""
+                  )
+              }
+
+              private fun sendPrompt(
+                  prompt: String,
+                  appendUserMessage: Boolean
+              ) {
+                  val current = _uiState.value
+
+                  if (current.apiKey.isBlank()) {
+                      _uiState.value = current.copy(
+                          error = "OpenRouter API key is missing. Open Settings, paste your key, then save settings."
+                      )
+                      return
+                  }
+
+                  val updatedMessages = if (appendUserMessage) {
+                      current.messages + ChatUiMessage(
+                          role = "user",
+                          content = prompt
+                      )
+                  } else {
+                      current.messages
+                  }
+
+                  _uiState.value = current.copy(
+                      input = "",
+                      messages = updatedMessages,
+                      isLoading = true,
+                      error = "",
+                      lastUserPrompt = prompt
+                  )
+
+                  activeJob = viewModelScope.launch {
+                      val requestMessages = _uiState.value.messages
+                          .filter { it.role == "user" || it.role == "assistant" }
+                          .takeLast(12)
+                          .map {
+                              ChatMessage(
+                                  role = it.role,
+                                  content = it.content
+                              )
+                          }
+
+                      val result = repository.sendMessage(
+                          apiKey = _uiState.value.apiKey,
+                          model = _uiState.value.model,
+                          messages = requestMessages
+                      )
+
+                      result
+                          .onSuccess { reply ->
+                              _uiState.value = _uiState.value.copy(
+                                  messages = _uiState.value.messages + ChatUiMessage(
+                                      role = "assistant",
+                                      content = reply
+                                  ),
+                                  isLoading = false,
+                                  error = ""
+                              )
+                          }
+                          .onFailure { throwable ->
+                              _uiState.value = _uiState.value.copy(
+                                  isLoading = false,
+                                  error = throwable.message ?: "Unknown chat error"
+                              )
+                          }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/ChatScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.horizontalScroll
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.PaddingValues
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.foundation.layout.width
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.lazy.rememberLazyListState
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.AssistChip
+          import androidx.compose.material3.Button
+          import androidx.compose.material3.ButtonDefaults
+          import androidx.compose.material3.Card
+          import androidx.compose.material3.CardDefaults
+          import androidx.compose.material3.CircularProgressIndicator
+          import androidx.compose.material3.HorizontalDivider
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.OutlinedTextField
+          import androidx.compose.material3.Surface
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.LaunchedEffect
+          import androidx.compose.runtime.collectAsState
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.rememberCoroutineScope
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalClipboardManager
+          import androidx.compose.ui.text.AnnotatedString
+          import androidx.compose.ui.text.font.FontFamily
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import com.mrrobot.aiworkspace.ui.components.GlassCard
+          import com.mrrobot.aiworkspace.ui.components.ScreenShell
+          import com.mrrobot.aiworkspace.ui.components.Subtitle
+          import com.mrrobot.aiworkspace.ui.components.Title
+          import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
+          import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
+          import kotlinx.coroutines.launch
+
+          private val PromptSuggestions = listOf(
+              "Improve my Android app UI professionally",
+              "Fix this Gradle build error",
+              "Create a GitHub Actions APK workflow",
+              "Review my Jetpack Compose screen",
+              "Plan the next MVP features"
+          )
+
+          @Composable
+          fun ChatScreen(
+              viewModel: ChatViewModel = viewModel()
+          ) {
+              val state by viewModel.uiState.collectAsState()
+              val listState = rememberLazyListState()
+              val scope = rememberCoroutineScope()
+
+              LaunchedEffect(state.messages.size, state.isLoading) {
+                  if (state.messages.isNotEmpty()) {
+                      scope.launch {
+                          listState.animateScrollToItem(state.messages.lastIndex)
+                      }
+                  }
+              }
+
+              ScreenShell {
+                  LazyColumn(
+                      state = listState,
+                      modifier = Modifier
+                          .fillMaxSize()
+                          .weight(1f),
+                      contentPadding = PaddingValues(bottom = 14.dp),
+                      verticalArrangement = Arrangement.spacedBy(12.dp)
+                  ) {
+                      item {
+                          ChatHeader(
+                              model = state.model,
+                              apiKeyConfigured = state.apiKey.isNotBlank(),
+                              messageCount = state.messages.count { it.role == "user" },
+                              onClear = { viewModel.clearChat() }
+                          )
+                      }
+
+                      item {
+                          PromptSuggestionRow(
+                              onSuggestionClick = viewModel::useSuggestion
+                          )
+                      }
+
+                      items(
+                          items = state.messages,
+                          key = { it.id }
+                      ) { message ->
+                          ChatBubble(message = message)
+                      }
+
+                      if (state.isLoading) {
+                          item {
+                              ThinkingBubble()
+                          }
+                      }
+                  }
+
+                  if (state.error.isNotBlank()) {
+                      ErrorPanel(
+                          message = state.error,
+                          onRetry = { viewModel.retryLast() }
+                      )
+
+                      Spacer(Modifier.height(10.dp))
+                  }
+
+                  PromptInputPanel(
+                      input = state.input,
+                      isLoading = state.isLoading,
+                      canRegenerate = state.messages.any { it.role == "user" },
+                      onInputChange = viewModel::updateInput,
+                      onSend = { viewModel.send() },
+                      onStop = { viewModel.stopGeneration() },
+                      onRegenerate = { viewModel.regenerateLastAnswer() }
+                  )
+              }
+          }
+
+          @Composable
+          private fun ChatHeader(
+              model: String,
+              apiKeyConfigured: Boolean,
+              messageCount: Int,
+              onClear: () -> Unit
+          ) {
+              Column {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.Top
+                  ) {
+                      Column(modifier = Modifier.weight(1f)) {
+                          Text(
+                              text = "AI Chat",
+                              color = MaterialTheme.colorScheme.onBackground,
+                              fontSize = 32.sp,
+                              fontWeight = FontWeight.ExtraBold
+                          )
+
+                          Spacer(Modifier.height(4.dp))
+
+                          Text(
+                              text = "A focused workspace for Android builds, agents, prompts, UI polish, and debugging.",
+                              color = MaterialTheme.colorScheme.onSurfaceVariant,
+                              fontSize = 14.sp,
+                              lineHeight = 20.sp
+                          )
+                      }
+
+                      Text(
+                          text = "Clear",
+                          color = MaterialTheme.colorScheme.primary,
+                          fontWeight = FontWeight.Bold,
+                          modifier = Modifier.clickable { onClear() }
+                      )
+                  }
+
+                  Spacer(Modifier.height(14.dp))
+
+                  GlassCard {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically
+                      ) {
+                          Column(modifier = Modifier.weight(1f)) {
+                              Text(
+                                  text = "Assistant Status",
+                                  color = MaterialTheme.colorScheme.onSurface,
+                                  fontWeight = FontWeight.Bold
+                              )
+
+                              Spacer(Modifier.height(6.dp))
+
+                              Text(
+                                  text = if (apiKeyConfigured) {
+                                      "OpenRouter connected and ready"
+                                  } else {
+                                      "OpenRouter key required in Settings"
+                                  },
+                                  color = MaterialTheme.colorScheme.onSurfaceVariant
+                              )
+                          }
+
+                          StatusBadge(
+                              text = if (apiKeyConfigured) "ONLINE" else "SETUP",
+                              active = apiKeyConfigured
+                          )
+                      }
+
+                      Spacer(Modifier.height(12.dp))
+
+                      HorizontalDivider(
+                          color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                      )
+
+                      Spacer(Modifier.height(12.dp))
+
+                      MetadataRow(
+                          label = "Model",
+                          value = model
+                      )
+
+                      MetadataRow(
+                          label = "User messages",
+                          value = messageCount.toString()
+                      )
+                  }
+              }
+          }
+
+          @Composable
+          private fun PromptSuggestionRow(
+              onSuggestionClick: (String) -> Unit
+          ) {
+              Column {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Title("Prompt Starters")
+                      Subtitle("Tap one")
+                  }
+
+                  Spacer(Modifier.height(8.dp))
+
+                  Row(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .horizontalScroll(rememberScrollState()),
+                      horizontalArrangement = Arrangement.spacedBy(8.dp)
+                  ) {
+                      PromptSuggestions.forEach { prompt ->
+                          AssistChip(
+                              onClick = { onSuggestionClick(prompt) },
+                              label = {
+                                  Text(prompt)
+                              }
+                          )
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun ChatBubble(
+              message: ChatUiMessage
+          ) {
+              val clipboard = LocalClipboardManager.current
+              val isUser = message.role == "user"
+
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+              ) {
+                  Surface(
+                      modifier = Modifier.fillMaxWidth(if (isUser) 0.88f else 0.96f),
+                      color = if (isUser) {
+                          MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                      } else {
+                          MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+                      },
+                      border = BorderStroke(
+                          width = 1.dp,
+                          color = if (isUser) {
+                              MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
+                          } else {
+                              MaterialTheme.colorScheme.secondary.copy(alpha = 0.20f)
+                          }
+                      ),
+                      shape = RoundedCornerShape(
+                          topStart = 24.dp,
+                          topEnd = 24.dp,
+                          bottomStart = if (isUser) 24.dp else 6.dp,
+                          bottomEnd = if (isUser) 6.dp else 24.dp
+                      )
+                  ) {
+                      Column(
+                          modifier = Modifier.padding(16.dp)
+                      ) {
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.SpaceBetween,
+                              verticalAlignment = Alignment.CenterVertically
+                          ) {
+                              Text(
+                                  text = if (isUser) "You" else "Mr. Robot",
+                                  color = if (isUser) {
+                                      MaterialTheme.colorScheme.primary
+                                  } else {
+                                      MaterialTheme.colorScheme.secondary
+                                  },
+                                  fontWeight = FontWeight.Bold
+                              )
+
+                              Text(
+                                  text = "Copy",
+                                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                  fontWeight = FontWeight.SemiBold,
+                                  modifier = Modifier.clickable {
+                                      clipboard.setText(
+                                          AnnotatedString(message.content)
+                                      )
+                                  }
+                              )
+                          }
+
+                          Spacer(Modifier.height(10.dp))
+
+                          MessageText(
+                              content = message.content,
+                              textColor = MaterialTheme.colorScheme.onSurface
+                          )
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun MessageText(
+              content: String,
+              textColor: Color
+          ) {
+              val isCodeLike =
+                  content.contains("```") ||
+                      content.lines().any {
+                          val line = it.trim()
+                          line.startsWith("fun ") ||
+                              line.startsWith("class ") ||
+                              line.startsWith("val ") ||
+                              line.startsWith("var ") ||
+                              line.startsWith("import ") ||
+                              line.startsWith("package ") ||
+                              line.startsWith("plugins ") ||
+                              line.startsWith("implementation(") ||
+                              line.startsWith("android {") ||
+                              line.startsWith("name:")
+                      }
+
+              Text(
+                  text = content.replace("```", ""),
+                  color = textColor,
+                  fontFamily = if (isCodeLike) FontFamily.Monospace else FontFamily.Default,
+                  fontSize = 16.sp,
+                  lineHeight = 24.sp
+              )
+          }
+
+          @Composable
+          private fun ThinkingBubble() {
+              Surface(
+                  modifier = Modifier.fillMaxWidth(0.96f),
+                  color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                  border = BorderStroke(
+                      width = 1.dp,
+                      color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+                  ),
+                  shape = RoundedCornerShape(
+                      topStart = 24.dp,
+                      topEnd = 24.dp,
+                      bottomStart = 6.dp,
+                      bottomEnd = 24.dp
+                  )
+              ) {
+                  Row(
+                      modifier = Modifier.padding(16.dp),
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      CircularProgressIndicator(
+                          modifier = Modifier.size(18.dp),
+                          strokeWidth = 2.dp,
+                          color = MaterialTheme.colorScheme.primary
+                      )
+
+                      Spacer(Modifier.width(12.dp))
+
+                      Text(
+                          text = "Mr. Robot is thinking...",
+                          color = MaterialTheme.colorScheme.onSurfaceVariant,
+                          fontWeight = FontWeight.Medium
+                      )
+                  }
+              }
+          }
+
+          @Composable
+          private fun ErrorPanel(
+              message: String,
+              onRetry: () -> Unit
+          ) {
+              Card(
+                  modifier = Modifier.fillMaxWidth(),
+                  shape = RoundedCornerShape(22.dp),
+                  colors = CardDefaults.cardColors(
+                      containerColor = MaterialTheme.colorScheme.errorContainer
+                  )
+              ) {
+                  Column(
+                      modifier = Modifier.padding(16.dp)
+                  ) {
+                      Text(
+                          text = "Request failed",
+                          color = MaterialTheme.colorScheme.onErrorContainer,
+                          fontWeight = FontWeight.Bold
+                      )
+
+                      Spacer(Modifier.height(6.dp))
+
+                      Text(
+                          text = message,
+                          color = MaterialTheme.colorScheme.onErrorContainer
+                      )
+
+                      Spacer(Modifier.height(10.dp))
+
+                      OutlinedButton(onClick = onRetry) {
+                          Text("Retry last prompt")
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun PromptInputPanel(
+              input: String,
+              isLoading: Boolean,
+              canRegenerate: Boolean,
+              onInputChange: (String) -> Unit,
+              onSend: () -> Unit,
+              onStop: () -> Unit,
+              onRegenerate: () -> Unit
+          ) {
+              Surface(
+                  modifier = Modifier.fillMaxWidth(),
+                  color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                  shape = RoundedCornerShape(24.dp),
+                  border = BorderStroke(
+                      width = 1.dp,
+                      color = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                  )
+              ) {
+                  Column(
+                      modifier = Modifier.padding(12.dp)
+                  ) {
+                      OutlinedTextField(
+                          value = input,
+                          onValueChange = onInputChange,
+                          placeholder = {
+                              Text("Ask Mr. Robot about your app...")
+                          },
+                          modifier = Modifier.fillMaxWidth(),
+                          minLines = 1,
+                          maxLines = 5,
+                          textStyle = MaterialTheme.typography.bodyLarge.copy(
+                              color = MaterialTheme.colorScheme.onSurface
+                          )
+                      )
+
+                      Spacer(Modifier.height(10.dp))
+
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.spacedBy(10.dp)
+                      ) {
+                          Button(
+                              onClick = {
+                                  if (isLoading) {
+                                      onStop()
+                                  } else {
+                                      onSend()
+                                  }
+                              },
+                              modifier = Modifier
+                                  .weight(1f)
+                                  .height(52.dp),
+                              colors = ButtonDefaults.buttonColors(
+                                  containerColor = if (isLoading) {
+                                      MaterialTheme.colorScheme.tertiary
+                                  } else {
+                                      MaterialTheme.colorScheme.primary
+                                  },
+                                  contentColor = if (isLoading) {
+                                      MaterialTheme.colorScheme.onTertiary
+                                  } else {
+                                      MaterialTheme.colorScheme.onPrimary
+                                  }
+                              ),
+                              shape = RoundedCornerShape(18.dp)
+                          ) {
+                              Text(
+                                  text = if (isLoading) "Stop" else "Send",
+                                  fontWeight = FontWeight.Bold
+                              )
+                          }
+
+                          OutlinedButton(
+                              onClick = onRegenerate,
+                              enabled = canRegenerate && !isLoading,
+                              modifier = Modifier
+                                  .weight(1f)
+                                  .height(52.dp),
+                              shape = RoundedCornerShape(18.dp)
+                          ) {
+                              Text("Regenerate")
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun MetadataRow(
+              label: String,
+              value: String
+          ) {
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(vertical = 4.dp),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+              ) {
+                  Text(
+                      text = label,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      fontSize = 14.sp
+                  )
+
+                  Text(
+                      text = value,
+                      color = MaterialTheme.colorScheme.onSurface,
+                      fontWeight = FontWeight.SemiBold,
+                      fontSize = 14.sp
+                  )
+              }
+          }
+
+          @Composable
+          private fun StatusBadge(
+              text: String,
+              active: Boolean
+          ) {
+              Surface(
+                  color = if (active) {
+                      MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                  } else {
+                      MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
+                  },
+                  border = BorderStroke(
+                      width = 1.dp,
+                      color = if (active) {
+                          MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
+                      } else {
+                          MaterialTheme.colorScheme.error.copy(alpha = 0.30f)
+                      }
+                  ),
+                  shape = RoundedCornerShape(999.dp)
+              ) {
+                  Text(
+                      text = text,
+                      color = if (active) {
+                          MaterialTheme.colorScheme.primary
+                      } else {
+                          MaterialTheme.colorScheme.error
+                      },
+                      fontSize = 12.sp,
+                      fontWeight = FontWeight.Bold,
+                      modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                  )
+              }
+          }
+          EOF
+
+      - name: Commit AI chat upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 22 upgrade professional AI chat"
+
+          git pull --rebase origin main
+
+          git push origin main
