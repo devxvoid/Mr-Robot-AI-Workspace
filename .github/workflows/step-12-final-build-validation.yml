@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   actions: read
 
 jobs:
@@ -16,7 +16,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT_TOKEN || github.token }}
           fetch-depth: 0
 
       - name: Setup Java 17
@@ -32,10 +31,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Make Gradle executable
-        run: chmod +x ./gradlew
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
 
       - name: Show project structure
+        shell: bash
         run: |
+          set -euo pipefail
+
           echo "===== ROOT FILES ====="
           ls -la
 
@@ -107,13 +112,47 @@ jobs:
 
           echo "All required files exist."
 
-      - name: Run Gradle validation
+      - name: Run Gradle project validation
+        shell: bash
         run: |
-          ./gradlew projects --stacktrace | tee gradle-projects-log.txt
+          set -euo pipefail
+          ./gradlew projects --stacktrace 2>&1 | tee gradle-projects-log.txt
+
+      - name: Run Gradle dependency insight
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:dependencies --configuration debugRuntimeClasspath 2>&1 | tee gradle-dependencies-log.txt
 
       - name: Build Debug APK
+        shell: bash
         run: |
-          ./gradlew clean assembleDebug --stacktrace --info | tee build-log.txt
+          set -euo pipefail
+          ./gradlew clean assembleDebug --stacktrace --info 2>&1 | tee build-log.txt
+
+      - name: Verify APK exists
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK_DIR="app/build/outputs/apk/debug"
+
+          if [ ! -d "$APK_DIR" ]; then
+            echo "APK directory does not exist: $APK_DIR"
+            exit 1
+          fi
+
+          APK_COUNT=$(find "$APK_DIR" -name "*.apk" | wc -l | tr -d ' ')
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "No APK was produced."
+            echo "Contents of app/build/outputs:"
+            find app/build/outputs -maxdepth 5 -type f | sort || true
+            exit 1
+          fi
+
+          echo "APK files found:"
+          find "$APK_DIR" -name "*.apk" -print
 
       - name: Create validation summary
         if: always()
@@ -130,6 +169,7 @@ jobs:
             echo "- Welcome dashboard"
             echo "- OpenRouter chat"
             echo "- Persistent settings"
+            echo "- Auto / Dark / Light theme modes"
             echo "- Model selector"
             echo "- Agent system"
             echo "- Workflow builder"
@@ -143,6 +183,11 @@ jobs:
             echo "\`\`\`text"
             find app/build/outputs/apk -type f -name "*.apk" 2>/dev/null || true
             echo "\`\`\`"
+            echo
+            echo "## Source File Count"
+            echo "\`\`\`text"
+            find app/src/main/java/com/mrrobot/aiworkspace -type f | wc -l
+            echo "\`\`\`"
           } > VALIDATION_SUMMARY.md
 
       - name: Upload validation logs
@@ -153,6 +198,7 @@ jobs:
           path: |
             build-log.txt
             gradle-projects-log.txt
+            gradle-dependencies-log.txt
             VALIDATION_SUMMARY.md
 
       - name: Upload final APK
