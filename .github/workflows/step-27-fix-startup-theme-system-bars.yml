@@ -1,0 +1,186 @@
+name: Step 27 Fix Startup Theme And System Bars
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    name: Fix Startup Flicker And Navigation Bar Color
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Fix startup theme loading and Android system bars
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$APP_DIR"
+          mkdir -p "app/src/main/res/values"
+
+          cat > "$APP_DIR/MainActivity.kt" <<'EOF'
+          package com.mrrobot.aiworkspace
+
+          import android.graphics.Color
+          import android.os.Build
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.foundation.isSystemInDarkTheme
+          import androidx.compose.runtime.SideEffect
+          import androidx.compose.runtime.collectAsState
+          import androidx.compose.runtime.getValue
+          import androidx.compose.ui.platform.LocalView
+          import androidx.core.view.WindowInsetsControllerCompat
+          import com.mrrobot.aiworkspace.data.AppSettings
+          import com.mrrobot.aiworkspace.data.AppThemeMode
+          import com.mrrobot.aiworkspace.data.SettingsStore
+          import com.mrrobot.aiworkspace.navigation.AppNavGraph
+          import com.mrrobot.aiworkspace.ui.theme.MrRobotTheme
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.flow.first
+          import kotlinx.coroutines.runBlocking
+
+          class MainActivity : ComponentActivity() {
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  val settingsStore = SettingsStore(applicationContext)
+
+                  val initialSettings = runCatching {
+                      runBlocking(Dispatchers.IO) {
+                          settingsStore.settingsFlow.first()
+                      }
+                  }.getOrDefault(AppSettings())
+
+                  applySystemBars(
+                      themeMode = initialSettings.themeMode,
+                      systemDark = true
+                  )
+
+                  setContent {
+                      val settings by settingsStore.settingsFlow.collectAsState(
+                          initial = initialSettings
+                      )
+
+                      val systemDark = isSystemInDarkTheme()
+                      val view = LocalView.current
+
+                      SideEffect {
+                          val isDarkUi = isDarkUi(
+                              themeMode = settings.themeMode,
+                              systemDark = systemDark
+                          )
+
+                          val barColor = if (isDarkUi) {
+                              Color.rgb(3, 7, 18)
+                          } else {
+                              Color.rgb(248, 250, 252)
+                          }
+
+                          window.statusBarColor = barColor
+                          window.navigationBarColor = barColor
+
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                              window.navigationBarDividerColor = barColor
+                          }
+
+                          val controller = WindowInsetsControllerCompat(window, view)
+                          controller.isAppearanceLightStatusBars = !isDarkUi
+                          controller.isAppearanceLightNavigationBars = !isDarkUi
+                      }
+
+                      MrRobotTheme(themeMode = settings.themeMode) {
+                          AppNavGraph()
+                      }
+                  }
+              }
+
+              private fun applySystemBars(
+                  themeMode: AppThemeMode,
+                  systemDark: Boolean
+              ) {
+                  val isDarkUi = isDarkUi(
+                      themeMode = themeMode,
+                      systemDark = systemDark
+                  )
+
+                  val barColor = if (isDarkUi) {
+                      Color.rgb(3, 7, 18)
+                  } else {
+                      Color.rgb(248, 250, 252)
+                  }
+
+                  window.statusBarColor = barColor
+                  window.navigationBarColor = barColor
+
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                      window.navigationBarDividerColor = barColor
+                  }
+              }
+
+              private fun isDarkUi(
+                  themeMode: AppThemeMode,
+                  systemDark: Boolean
+              ): Boolean {
+                  return when (themeMode) {
+                      AppThemeMode.Auto -> systemDark
+                      AppThemeMode.Dark -> true
+                      AppThemeMode.Light -> false
+                      AppThemeMode.Cyberpunk -> false
+                      AppThemeMode.Hacker -> true
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+
+              <style name="Theme.MrRobot" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:windowNoTitle">true</item>
+                  <item name="android:windowActionBar">false</item>
+                  <item name="android:windowFullscreen">false</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:windowLightNavigationBar">false</item>
+                  <item name="android:statusBarColor">#030712</item>
+                  <item name="android:navigationBarColor">#030712</item>
+                  <item name="android:windowBackground">#030712</item>
+                  <item name="android:colorAccent">#00DFF7</item>
+              </style>
+
+          </resources>
+          EOF
+
+      - name: Commit startup theme fix
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 27 fix startup theme flicker and system bars"
+
+          git pull --rebase origin main
+
+          git push origin main
