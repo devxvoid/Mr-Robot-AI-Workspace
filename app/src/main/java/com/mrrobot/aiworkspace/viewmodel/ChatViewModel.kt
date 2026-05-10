@@ -12,10 +12,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+data class ChatAttachment(
+    val id: Long = System.nanoTime(),
+    val uri: String,
+    val name: String,
+    val mimeType: String,
+    val sizeLabel: String = ""
+)
+
 data class ChatUiMessage(
     val id: Long = System.nanoTime(),
     val role: String,
-    val content: String
+    val content: String,
+    val modelContent: String = content,
+    val attachments: List<ChatAttachment> = emptyList()
 )
 
 data class ChatUiState(
@@ -26,11 +36,13 @@ data class ChatUiState(
             content = "Welcome to Mr. Robot AI Workspace. I can help you plan Android features, debug Gradle errors, improve Compose UI, create GitHub Actions, and turn your app into a polished product."
         )
     ),
+    val selectedAttachments: List<ChatAttachment> = emptyList(),
     val apiKey: String = "",
     val model: String = "openai/gpt-4o-mini",
     val isLoading: Boolean = false,
     val error: String = "",
-    val lastUserPrompt: String = ""
+    val lastUserPrompt: String = "",
+    val lastAttachments: List<ChatAttachment> = emptyList()
 )
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -67,6 +79,36 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun addAttachments(attachments: List<ChatAttachment>) {
+        if (attachments.isEmpty()) return
+
+        val current = _uiState.value
+        val merged = (current.selectedAttachments + attachments)
+            .distinctBy { it.uri }
+            .take(8)
+
+        _uiState.value = current.copy(
+            selectedAttachments = merged,
+            error = ""
+        )
+    }
+
+    fun removeAttachment(id: Long) {
+        val current = _uiState.value
+
+        _uiState.value = current.copy(
+            selectedAttachments = current.selectedAttachments.filterNot { it.id == id },
+            error = ""
+        )
+    }
+
+    fun clearAttachments() {
+        _uiState.value = _uiState.value.copy(
+            selectedAttachments = emptyList(),
+            error = ""
+        )
+    }
+
     fun send() {
         val current = _uiState.value
         val prompt = current.input.trim()
@@ -75,19 +117,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         sendPrompt(
             prompt = prompt,
+            attachments = current.selectedAttachments,
             appendUserMessage = true
         )
     }
 
     fun retryLast() {
-        val prompt = _uiState.value.lastUserPrompt
+        val current = _uiState.value
 
-        if (prompt.isBlank() || _uiState.value.isLoading) return
+        if (current.lastUserPrompt.isBlank() || current.isLoading) return
 
-        _uiState.value = _uiState.value.copy(error = "")
+        _uiState.value = current.copy(error = "")
 
         sendPrompt(
-            prompt = prompt,
+            prompt = current.lastUserPrompt,
+            attachments = current.lastAttachments,
             appendUserMessage = false
         )
     }
@@ -97,12 +141,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (current.isLoading) return
 
-        val lastUserPrompt = current.messages
-            .lastOrNull { it.role == "user" }
-            ?.content
-            .orEmpty()
-
-        if (lastUserPrompt.isBlank()) return
+        val lastUserMessage = current.messages.lastOrNull { it.role == "user" }
+            ?: return
 
         val trimmedMessages = current.messages.dropLastWhile {
             it.role == "assistant"
@@ -111,11 +151,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = current.copy(
             messages = trimmedMessages,
             error = "",
-            lastUserPrompt = lastUserPrompt
+            lastUserPrompt = lastUserMessage.content,
+            lastAttachments = lastUserMessage.attachments
         )
 
         sendPrompt(
-            prompt = lastUserPrompt,
+            prompt = lastUserMessage.content,
+            attachments = lastUserMessage.attachments,
             appendUserMessage = false
         )
     }
@@ -142,29 +184,38 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     content = "Chat cleared. Mr. Robot is ready for the next task."
                 )
             ),
+            selectedAttachments = emptyList(),
             isLoading = false,
             error = "",
-            lastUserPrompt = ""
+            lastUserPrompt = "",
+            lastAttachments = emptyList()
         )
     }
 
     private fun sendPrompt(
         prompt: String,
+        attachments: List<ChatAttachment>,
         appendUserMessage: Boolean
     ) {
         val current = _uiState.value
 
         if (current.apiKey.isBlank()) {
             _uiState.value = current.copy(
-                error = "OpenRouter API key is missing. Open Settings, paste your key, then save settings."
+                error = "OpenRouter API key is missing. Open Settings, paste your key, then save settings.",
+                lastUserPrompt = prompt,
+                lastAttachments = attachments
             )
             return
         }
 
+        val modelContent = prompt + buildAttachmentContext(attachments)
+
         val updatedMessages = if (appendUserMessage) {
             current.messages + ChatUiMessage(
                 role = "user",
-                content = prompt
+                content = prompt,
+                modelContent = modelContent,
+                attachments = attachments
             )
         } else {
             current.messages
@@ -172,10 +223,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.value = current.copy(
             input = "",
+            selectedAttachments = if (appendUserMessage) emptyList() else current.selectedAttachments,
             messages = updatedMessages,
             isLoading = true,
             error = "",
-            lastUserPrompt = prompt
+            lastUserPrompt = prompt,
+            lastAttachments = attachments
         )
 
         activeJob = viewModelScope.launch {
@@ -185,7 +238,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 .map {
                     ChatMessage(
                         role = it.role,
-                        content = it.content
+                        content = it.modelContent
                     )
                 }
 
@@ -213,5 +266,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
         }
+    }
+
+    private fun buildAttachmentContext(
+        attachments: List<ChatAttachment>
+    ): String {
+        if (attachments.isEmpty()) return ""
+
+        val attachmentLines = attachments.joinToString(separator = "\n") { attachment ->
+            "- ${attachment.name} (${attachment.mimeType}${if (attachment.sizeLabel.isNotBlank()) ", ${attachment.sizeLabel}" else ""})"
+        }
+
+        return """
+
+        Attached files selected in the app:
+        $attachmentLines
+
+        Note: This MVP currently sends attachment metadata to the assistant. For full file/image understanding, add a parser or multimodal image upload pipeline in the next upgrade.
+        """.trimIndent().prependIndent("\n\n")
     }
 }

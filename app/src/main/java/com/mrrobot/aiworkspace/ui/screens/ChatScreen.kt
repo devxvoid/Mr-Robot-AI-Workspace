@@ -1,37 +1,21 @@
 package com.mrrobot.aiworkspace.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,9 +25,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -51,6 +37,7 @@ import com.mrrobot.aiworkspace.ui.components.GlassCard
 import com.mrrobot.aiworkspace.ui.components.ScreenShell
 import com.mrrobot.aiworkspace.ui.components.Subtitle
 import com.mrrobot.aiworkspace.ui.components.Title
+import com.mrrobot.aiworkspace.viewmodel.ChatAttachment
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
@@ -70,6 +57,29 @@ fun ChatScreen(
     val state by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val attachmentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        uris.forEach { uri ->
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+        }
+
+        val attachments = uris.map { uri ->
+            buildChatAttachment(
+                context = context,
+                uri = uri
+            )
+        }
+
+        viewModel.addAttachments(attachments)
+    }
 
     LaunchedEffect(state.messages.size, state.isLoading) {
         if (state.messages.isNotEmpty()) {
@@ -92,6 +102,7 @@ fun ChatScreen(
                 ChatHeader(
                     model = state.model,
                     apiKeyConfigured = state.apiKey.isNotBlank(),
+                    attachmentCount = state.selectedAttachments.size,
                     messageCount = state.messages.count { it.role == "user" },
                     onClear = { viewModel.clearChat() }
                 )
@@ -128,9 +139,14 @@ fun ChatScreen(
 
         PromptInputPanel(
             input = state.input,
+            selectedAttachments = state.selectedAttachments,
             isLoading = state.isLoading,
             canRegenerate = state.messages.any { it.role == "user" },
             onInputChange = viewModel::updateInput,
+            onAddAttachment = {
+                attachmentLauncher.launch(arrayOf("*/*"))
+            },
+            onRemoveAttachment = viewModel::removeAttachment,
             onSend = { viewModel.send() },
             onStop = { viewModel.stopGeneration() },
             onRegenerate = { viewModel.regenerateLastAnswer() }
@@ -142,6 +158,7 @@ fun ChatScreen(
 private fun ChatHeader(
     model: String,
     apiKeyConfigured: Boolean,
+    attachmentCount: Int,
     messageCount: Int,
     onClear: () -> Unit
 ) {
@@ -162,7 +179,7 @@ private fun ChatHeader(
                 Spacer(Modifier.height(4.dp))
 
                 Text(
-                    text = "A focused workspace for Android builds, agents, prompts, UI polish, and debugging.",
+                    text = "Ask, attach files, generate fixes, and coordinate Android development work.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
@@ -218,15 +235,9 @@ private fun ChatHeader(
 
             Spacer(Modifier.height(12.dp))
 
-            MetadataRow(
-                label = "Model",
-                value = model
-            )
-
-            MetadataRow(
-                label = "User messages",
-                value = messageCount.toString()
-            )
+            MetadataRow("Model", model)
+            MetadataRow("User messages", messageCount.toString())
+            MetadataRow("Queued attachments", attachmentCount.toString())
         }
     }
 }
@@ -334,6 +345,16 @@ private fun ChatBubble(
                     content = message.content,
                     textColor = MaterialTheme.colorScheme.onSurface
                 )
+
+                if (message.attachments.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+
+                    AttachmentTray(
+                        attachments = message.attachments,
+                        removable = false,
+                        onRemove = {}
+                    )
+                }
             }
         }
     }
@@ -446,9 +467,12 @@ private fun ErrorPanel(
 @Composable
 private fun PromptInputPanel(
     input: String,
+    selectedAttachments: List<ChatAttachment>,
     isLoading: Boolean,
     canRegenerate: Boolean,
     onInputChange: (String) -> Unit,
+    onAddAttachment: () -> Unit,
+    onRemoveAttachment: (Long) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
     onRegenerate: () -> Unit
@@ -465,19 +489,56 @@ private fun PromptInputPanel(
         Column(
             modifier = Modifier.padding(12.dp)
         ) {
-            OutlinedTextField(
-                value = input,
-                onValueChange = onInputChange,
-                placeholder = {
-                    Text("Ask Mr. Robot about your app...")
-                },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 1,
-                maxLines = 5,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onSurface
+            if (selectedAttachments.isNotEmpty()) {
+                AttachmentTray(
+                    attachments = selectedAttachments,
+                    removable = true,
+                    onRemove = onRemoveAttachment
                 )
-            )
+
+                Spacer(Modifier.height(10.dp))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clickable { onAddAttachment() },
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                    ),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "+",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 30.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = onInputChange,
+                    placeholder = {
+                        Text("Ask Mr. Robot or attach files...")
+                    },
+                    modifier = Modifier.weight(1f),
+                    minLines = 1,
+                    maxLines = 5,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
 
             Spacer(Modifier.height(10.dp))
 
@@ -532,6 +593,89 @@ private fun PromptInputPanel(
 }
 
 @Composable
+private fun AttachmentTray(
+    attachments: List<ChatAttachment>,
+    removable: Boolean,
+    onRemove: (Long) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        attachments.forEach { attachment ->
+            AttachmentPill(
+                attachment = attachment,
+                removable = removable,
+                onRemove = onRemove
+            )
+        }
+    }
+}
+
+@Composable
+private fun AttachmentPill(
+    attachment: ChatAttachment,
+    removable: Boolean,
+    onRemove: (Long) -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+        ),
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .width(190.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = attachmentIcon(attachment.mimeType),
+                fontSize = 14.sp
+            )
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = attachment.name,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = attachment.sizeLabel.ifBlank { attachment.mimeType },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (removable) {
+                Text(
+                    text = "×",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable {
+                        onRemove(attachment.id)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MetadataRow(
     label: String,
     value: String
@@ -553,7 +697,9 @@ private fun MetadataRow(
             text = value,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -590,5 +736,70 @@ private fun StatusBadge(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
         )
+    }
+}
+
+private fun buildChatAttachment(
+    context: Context,
+    uri: Uri
+): ChatAttachment {
+    var displayName = uri.lastPathSegment ?: "attachment"
+    var sizeBytes: Long? = null
+
+    context.contentResolver.query(
+        uri,
+        null,
+        null,
+        null,
+        null
+    )?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+
+            if (nameIndex >= 0) {
+                displayName = cursor.getString(nameIndex) ?: displayName
+            }
+
+            if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                sizeBytes = cursor.getLong(sizeIndex)
+            }
+        }
+    }
+
+    val mimeType = context.contentResolver.getType(uri)
+        ?: "application/octet-stream"
+
+    return ChatAttachment(
+        uri = uri.toString(),
+        name = displayName,
+        mimeType = mimeType,
+        sizeLabel = formatFileSize(sizeBytes)
+    )
+}
+
+private fun formatFileSize(sizeBytes: Long?): String {
+    if (sizeBytes == null || sizeBytes <= 0L) return ""
+
+    val kb = sizeBytes / 1024.0
+    val mb = kb / 1024.0
+
+    return if (mb >= 1.0) {
+        String.format("%.1f MB", mb)
+    } else {
+        String.format("%.1f KB", kb)
+    }
+}
+
+private fun attachmentIcon(mimeType: String): String {
+    return when {
+        mimeType.startsWith("image/") -> "🖼"
+        mimeType == "application/pdf" -> "PDF"
+        mimeType.contains("zip") -> "ZIP"
+        mimeType.startsWith("text/") -> "TXT"
+        mimeType.contains("json") -> "JSON"
+        mimeType.contains("xml") -> "XML"
+        mimeType.contains("word") -> "DOC"
+        else -> "FILE"
     }
 }
