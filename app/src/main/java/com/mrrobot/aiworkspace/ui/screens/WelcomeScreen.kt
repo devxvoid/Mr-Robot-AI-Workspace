@@ -1,20 +1,21 @@
 package com.mrrobot.aiworkspace.ui.screens
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -26,14 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.mrrobot.aiworkspace.R
 import com.mrrobot.aiworkspace.data.AppSettings
 import com.mrrobot.aiworkspace.data.AppThemeMode
 import com.mrrobot.aiworkspace.data.SettingsStore
@@ -46,9 +46,6 @@ import com.mrrobot.aiworkspace.ui.components.StatusPill
 import com.mrrobot.aiworkspace.ui.components.Subtitle
 import com.mrrobot.aiworkspace.ui.components.Title
 import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 @Composable
 fun WelcomeScreen(nav: NavController) {
@@ -231,7 +228,7 @@ private fun QuickThemeCard(
                 mode = AppThemeMode.Auto,
                 selected = selected,
                 onSelected = onSelected,
-                icon = ThemeIconType.Auto,
+                iconRes = R.drawable.ic_lucide_sun_moon,
                 modifier = Modifier.weight(1f)
             )
 
@@ -240,7 +237,7 @@ private fun QuickThemeCard(
                 mode = AppThemeMode.Light,
                 selected = selected,
                 onSelected = onSelected,
-                icon = ThemeIconType.Sun,
+                iconRes = R.drawable.ic_lucide_sun,
                 modifier = Modifier.weight(1f)
             )
 
@@ -249,7 +246,7 @@ private fun QuickThemeCard(
                 mode = AppThemeMode.Dark,
                 selected = selected,
                 onSelected = onSelected,
-                icon = ThemeIconType.Moon,
+                iconRes = R.drawable.ic_lucide_moon,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -262,7 +259,7 @@ private fun ThemeQuickTile(
     mode: AppThemeMode,
     selected: AppThemeMode,
     onSelected: (AppThemeMode) -> Unit,
-    icon: ThemeIconType,
+    @DrawableRes iconRes: Int,
     modifier: Modifier = Modifier
 ) {
     val isSelected = selected == mode
@@ -300,8 +297,9 @@ private fun ThemeQuickTile(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            ThemeLineIcon(
-                type = icon,
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = title,
                 tint = iconColor,
                 modifier = Modifier.size(26.dp)
             )
@@ -317,139 +315,6 @@ private fun ThemeQuickTile(
                 fontSize = 13.sp,
                 maxLines = 1
             )
-        }
-    }
-}
-
-private enum class ThemeIconType {
-    Auto,
-    Sun,
-    Moon
-}
-
-@Composable
-private fun ThemeLineIcon(
-    type: ThemeIconType,
-    tint: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val stroke = Stroke(
-            width = 2.2.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val radius = size.minDimension * 0.22f
-
-        when (type) {
-            ThemeIconType.Sun -> {
-                drawCircle(
-                    color = tint,
-                    radius = radius,
-                    center = center,
-                    style = stroke
-                )
-
-                repeat(8) { index ->
-                    val angle = index * PI / 4.0
-                    val startRadius = size.minDimension * 0.34f
-                    val endRadius = size.minDimension * 0.46f
-
-                    val start = Offset(
-                        x = center.x + cos(angle).toFloat() * startRadius,
-                        y = center.y + sin(angle).toFloat() * startRadius
-                    )
-
-                    val end = Offset(
-                        x = center.x + cos(angle).toFloat() * endRadius,
-                        y = center.y + sin(angle).toFloat() * endRadius
-                    )
-
-                    drawLine(
-                        color = tint,
-                        start = start,
-                        end = end,
-                        strokeWidth = 2.2.dp.toPx(),
-                        cap = StrokeCap.Round
-                    )
-                }
-            }
-
-            ThemeIconType.Moon -> {
-                drawArc(
-                    color = tint,
-                    startAngle = 55f,
-                    sweepAngle = 270f,
-                    useCenter = false,
-                    topLeft = Offset(size.width * 0.18f, size.height * 0.12f),
-                    size = androidx.compose.ui.geometry.Size(
-                        width = size.width * 0.62f,
-                        height = size.height * 0.76f
-                    ),
-                    style = stroke
-                )
-
-                drawArc(
-                    color = tint,
-                    startAngle = 95f,
-                    sweepAngle = 170f,
-                    useCenter = false,
-                    topLeft = Offset(size.width * 0.38f, size.height * 0.20f),
-                    size = androidx.compose.ui.geometry.Size(
-                        width = size.width * 0.44f,
-                        height = size.height * 0.58f
-                    ),
-                    style = stroke
-                )
-            }
-
-            ThemeIconType.Auto -> {
-                drawCircle(
-                    color = tint,
-                    radius = size.minDimension * 0.18f,
-                    center = Offset(size.width * 0.42f, size.height * 0.42f),
-                    style = stroke
-                )
-
-                repeat(8) { index ->
-                    val angle = index * PI / 4.0
-                    val localCenter = Offset(size.width * 0.42f, size.height * 0.42f)
-                    val startRadius = size.minDimension * 0.28f
-                    val endRadius = size.minDimension * 0.38f
-
-                    val start = Offset(
-                        x = localCenter.x + cos(angle).toFloat() * startRadius,
-                        y = localCenter.y + sin(angle).toFloat() * startRadius
-                    )
-
-                    val end = Offset(
-                        x = localCenter.x + cos(angle).toFloat() * endRadius,
-                        y = localCenter.y + sin(angle).toFloat() * endRadius
-                    )
-
-                    drawLine(
-                        color = tint,
-                        start = start,
-                        end = end,
-                        strokeWidth = 1.9.dp.toPx(),
-                        cap = StrokeCap.Round
-                    )
-                }
-
-                drawArc(
-                    color = tint,
-                    startAngle = 55f,
-                    sweepAngle = 250f,
-                    useCenter = false,
-                    topLeft = Offset(size.width * 0.47f, size.height * 0.44f),
-                    size = androidx.compose.ui.geometry.Size(
-                        width = size.width * 0.38f,
-                        height = size.height * 0.44f
-                    ),
-                    style = stroke
-                )
-            }
         }
     }
 }
