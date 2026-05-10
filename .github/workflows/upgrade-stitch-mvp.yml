@@ -1,0 +1,514 @@
+name: Upgrade Stitch Android MVP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    name: Generate MVP Screens
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Upgrade Android project to Stitch MVP
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+          mkdir -p "$APP_DIR/ui/screens"
+          mkdir -p "$APP_DIR/ui/components"
+          mkdir -p "$APP_DIR/ui/theme"
+          mkdir -p "$APP_DIR/navigation"
+          mkdir -p "$APP_DIR/data"
+          mkdir -p "$APP_DIR/viewmodel"
+
+          cat > app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "com.mrrobot.aiworkspace"
+              compileSdk = 35
+
+              defaultConfig {
+                  applicationId = "com.mrrobot.aiworkspace"
+                  minSdk = 26
+                  targetSdk = 35
+                  versionCode = 2
+                  versionName = "1.1"
+              }
+
+              buildFeatures {
+                  compose = true
+              }
+
+              composeOptions {
+                  kotlinCompilerExtensionVersion = "1.5.14"
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+
+          dependencies {
+              implementation("androidx.core:core-ktx:1.13.1")
+              implementation("androidx.activity:activity-compose:1.9.2")
+              implementation("androidx.compose.ui:ui:1.7.2")
+              implementation("androidx.compose.ui:ui-tooling-preview:1.7.2")
+              implementation("androidx.compose.material3:material3:1.3.0")
+              implementation("androidx.navigation:navigation-compose:2.8.1")
+              implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.5")
+              implementation("androidx.datastore:datastore-preferences:1.1.1")
+              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+              implementation("com.squareup.okhttp3:okhttp:4.12.0")
+              implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+              implementation("org.json:json:20240303")
+              debugImplementation("androidx.compose.ui:ui-tooling:1.7.2")
+          }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+
+              <application
+                  android:theme="@style/Theme.MrRobot"
+                  android:label="Mr. Robot AI"
+                  android:usesCleartextTraffic="true"
+                  android:allowBackup="true"
+                  android:supportsRtl="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="Theme.MrRobot" parent="android:style/Theme.Material.NoActionBar" />
+          </resources>
+          EOF
+
+          cat > "$APP_DIR/MainActivity.kt" <<'EOF'
+          package com.mrrobot.aiworkspace
+
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import com.mrrobot.aiworkspace.navigation.AppNavGraph
+          import com.mrrobot.aiworkspace.ui.theme.MrRobotTheme
+
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContent {
+                      MrRobotTheme {
+                          AppNavGraph()
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/theme/Theme.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.theme
+
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.darkColorScheme
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.graphics.Color
+
+          private val DarkScheme = darkColorScheme(
+              primary = Color(0xFF00E5FF),
+              secondary = Color(0xFF8B5CF6),
+              background = Color(0xFF05070A),
+              surface = Color(0xFF111827),
+              onPrimary = Color.Black,
+              onSecondary = Color.White,
+              onBackground = Color.White,
+              onSurface = Color.White
+          )
+
+          @Composable
+          fun MrRobotTheme(content: @Composable () -> Unit) {
+              MaterialTheme(
+                  colorScheme = DarkScheme,
+                  content = content
+              )
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/components/UiComponents.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.components
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.border
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+
+          val NeonCyan = Color(0xFF00E5FF)
+          val NeonPurple = Color(0xFF8B5CF6)
+          val DeepBg = Color(0xFF05070A)
+          val Panel = Color(0xFF111827)
+          val SoftText = Color(0xFFB8C0CC)
+
+          @Composable
+          fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
+              Column(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(
+                          Brush.verticalGradient(
+                              listOf(DeepBg, Color(0xFF0B1020), Color(0xFF111827))
+                          )
+                      )
+                      .padding(18.dp),
+                  content = content
+              )
+          }
+
+          @Composable
+          fun GlassCard(
+              modifier: Modifier = Modifier,
+              content: @Composable ColumnScope.() -> Unit
+          ) {
+              Card(
+                  modifier = modifier
+                      .fillMaxWidth()
+                      .border(
+                          width = 1.dp,
+                          brush = Brush.horizontalGradient(listOf(NeonCyan.copy(.45f), NeonPurple.copy(.45f))),
+                          shape = RoundedCornerShape(26.dp)
+                      ),
+                  shape = RoundedCornerShape(26.dp),
+                  colors = CardDefaults.cardColors(containerColor = Panel.copy(alpha = .92f)),
+                  content = {
+                      Column(modifier = Modifier.padding(20.dp), content = content)
+                  }
+              )
+          }
+
+          @Composable
+          fun Title(text: String) {
+              Text(text = text, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+          }
+
+          @Composable
+          fun Subtitle(text: String) {
+              Text(text = text, color = SoftText, fontSize = 14.sp)
+          }
+
+          @Composable
+          fun CyberButton(text: String, onClick: () -> Unit) {
+              Button(
+                  onClick = onClick,
+                  colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = Color.Black),
+                  shape = RoundedCornerShape(18.dp),
+                  modifier = Modifier.fillMaxWidth()
+              ) {
+                  Text(text, fontWeight = FontWeight.Bold)
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/navigation/AppNavGraph.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.navigation
+
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.navigation.compose.NavHost
+          import androidx.navigation.compose.composable
+          import androidx.navigation.compose.currentBackStackEntryAsState
+          import androidx.navigation.compose.rememberNavController
+          import com.mrrobot.aiworkspace.ui.screens.*
+
+          sealed class Route(val path: String, val label: String) {
+              object Welcome : Route("welcome", "Home")
+              object Chat : Route("chat", "Chat")
+              object Agents : Route("agents", "Agents")
+              object Workflow : Route("workflow", "Flow")
+              object Terminal : Route("terminal", "Terminal")
+              object Files : Route("files", "Files")
+              object Market : Route("market", "Market")
+              object Settings : Route("settings", "Settings")
+              object Profile : Route("profile", "Profile")
+          }
+
+          @Composable
+          fun AppNavGraph() {
+              val nav = rememberNavController()
+              val items = listOf(Route.Welcome, Route.Chat, Route.Agents, Route.Workflow, Route.Settings)
+
+              Scaffold(
+                  bottomBar = {
+                      NavigationBar {
+                          val current = nav.currentBackStackEntryAsState().value?.destination?.route
+                          items.forEach { route ->
+                              NavigationBarItem(
+                                  selected = current == route.path,
+                                  onClick = { nav.navigate(route.path) { launchSingleTop = true } },
+                                  label = { Text(route.label) },
+                                  icon = { Text("●") }
+                              )
+                          }
+                      }
+                  }
+              ) { padding ->
+                  NavHost(
+                      navController = nav,
+                      startDestination = Route.Welcome.path,
+                      modifier = Modifier.padding(padding)
+                  ) {
+                      composable(Route.Welcome.path) { WelcomeScreen(nav) }
+                      composable(Route.Chat.path) { ChatScreen() }
+                      composable(Route.Agents.path) { AgentsScreen() }
+                      composable(Route.Workflow.path) { WorkflowScreen() }
+                      composable(Route.Terminal.path) { TerminalScreen() }
+                      composable(Route.Files.path) { FileManagerScreen() }
+                      composable(Route.Market.path) { MarketplaceScreen() }
+                      composable(Route.Settings.path) { SettingsScreen() }
+                      composable(Route.Profile.path) { ProfileScreen() }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/WelcomeScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import androidx.navigation.NavController
+          import com.mrrobot.aiworkspace.navigation.Route
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun WelcomeScreen(nav: NavController) {
+              ScreenShell {
+                  Spacer(Modifier.height(24.dp))
+                  Title("Mr. Robot AI Workspace")
+                  Subtitle("Premium cyberpunk AI workspace generated from your Google Stitch design.")
+                  Spacer(Modifier.height(24.dp))
+
+                  GlassCard {
+                      Title("Command Center")
+                      Subtitle("Chat with AI, manage agents, build workflows, inspect files, and configure models.")
+                      Spacer(Modifier.height(18.dp))
+                      CyberButton("Launch AI Chat") { nav.navigate(Route.Chat.path) }
+                      Spacer(Modifier.height(10.dp))
+                      CyberButton("Open Agents") { nav.navigate(Route.Agents.path) }
+                      Spacer(Modifier.height(10.dp))
+                      CyberButton("Workflow Builder") { nav.navigate(Route.Workflow.path) }
+                  }
+
+                  Spacer(Modifier.height(16.dp))
+
+                  GlassCard {
+                      Subtitle("Stitch reference ZIP is kept in your repo root as the source design asset.")
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/ChatScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun ChatScreen() {
+              var input by remember { mutableStateOf("") }
+              val messages = remember { mutableStateListOf("Mr. Robot online. Configure OpenRouter API key in Settings, then connect real chat logic.") }
+
+              ScreenShell {
+                  Title("AI Chat")
+                  Subtitle("OpenRouter-ready chat workspace.")
+                  Spacer(Modifier.height(16.dp))
+
+                  LazyColumn(modifier = Modifier.weight(1f)) {
+                      items(messages) { msg ->
+                          GlassCard(modifier = Modifier.padding(bottom = 10.dp)) {
+                              Subtitle(msg)
+                          }
+                      }
+                  }
+
+                  OutlinedTextField(
+                      value = input,
+                      onValueChange = { input = it },
+                      placeholder = { Text("Ask Mr. Robot...") },
+                      modifier = Modifier.fillMaxWidth()
+                  )
+
+                  Spacer(Modifier.height(8.dp))
+
+                  CyberButton("Send") {
+                      if (input.isNotBlank()) {
+                          messages.add("You: $input")
+                          messages.add("AI: MVP response placeholder. Next upgrade wires OpenRouter API call.")
+                          input = ""
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/AgentsScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun AgentsScreen() {
+              val agents = listOf(
+                  "Android Architect",
+                  "UI/UX Strategist",
+                  "Backend Engineer",
+                  "Debugging Specialist",
+                  "GitHub Actions Builder"
+              )
+
+              ScreenShell {
+                  Title("Agents")
+                  Subtitle("Multi-agent command dashboard.")
+                  Spacer(Modifier.height(16.dp))
+                  agents.forEach {
+                      GlassCard(modifier = Modifier.padding(bottom = 12.dp)) {
+                          Title(it)
+                          Subtitle("Status: ready • Role: specialized execution agent")
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/WorkflowScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun WorkflowScreen() {
+              val steps = listOf("Receive prompt", "Analyze task", "Assign agents", "Generate code", "Build APK", "Upload artifact")
+
+              ScreenShell {
+                  Title("Workflow Builder")
+                  Subtitle("Automation pipeline designer.")
+                  Spacer(Modifier.height(16.dp))
+                  steps.forEachIndexed { index, step ->
+                      GlassCard(modifier = Modifier.padding(bottom = 12.dp)) {
+                          Title("${index + 1}. $step")
+                          Subtitle("Mock workflow block for MVP.")
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/TerminalScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun TerminalScreen() {
+              ScreenShell {
+                  Title("Live Terminal")
+                  Subtitle("Execution logs and command output.")
+                  Spacer(Modifier.height(16.dp))
+                  GlassCard {
+                      Subtitle("$ ./gradlew assembleDebug")
+                      Subtitle("> BUILD SUCCESSFUL")
+                      Subtitle("> APK uploaded as GitHub artifact")
+                      Subtitle("> Mr. Robot workspace ready")
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/FileManagerScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import com.mrrobot.aiworkspace.ui.components.*
+
+          @Composable
+          fun FileManagerScreen() {
+              val files = listOf("BUILD_PROMPT.md", "stitch_mr_robot_ai_workspace.zip", "build.gradle.kts", "MainActivity.kt")
+
+              ScreenShell {
+                  Title("File Manager")
+                  Subtitle("Project assets and generated files.")
+                  Spacer(Modifier.height(16.dp))
+                  files.forEach {
+                      GlassCard(modifier = Modifier.padding(bottom = 12.dp)) {
+                          Subtitle("📄 $it")
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/MarketplaceScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.runtime.Comp
