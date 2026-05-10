@@ -17,8 +17,12 @@ data class ChatAttachment(
     val uri: String,
     val name: String,
     val mimeType: String,
-    val sizeLabel: String = ""
-)
+    val sizeLabel: String = "",
+    val imageDataUrl: String? = null
+) {
+    val isImage: Boolean
+        get() = mimeType.startsWith("image/")
+}
 
 data class ChatUiMessage(
     val id: Long = System.nanoTime(),
@@ -33,7 +37,7 @@ data class ChatUiState(
     val messages: List<ChatUiMessage> = listOf(
         ChatUiMessage(
             role = "assistant",
-            content = "Welcome to Mr. Robot AI Workspace. I can help you plan Android features, debug Gradle errors, improve Compose UI, create GitHub Actions, and turn your app into a polished product."
+            content = "Welcome to Mr. Robot AI Workspace. Attach an image and ask me to explain it, review UI problems, read visible text, or suggest improvements."
         )
     ),
     val selectedAttachments: List<ChatAttachment> = emptyList(),
@@ -85,7 +89,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val current = _uiState.value
         val merged = (current.selectedAttachments + attachments)
             .distinctBy { it.uri }
-            .take(8)
+            .take(6)
 
         _uiState.value = current.copy(
             selectedAttachments = merged,
@@ -181,7 +185,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             messages = listOf(
                 ChatUiMessage(
                     role = "assistant",
-                    content = "Chat cleared. Mr. Robot is ready for the next task."
+                    content = "Chat cleared. Attach an image or ask your next Android development question."
                 )
             ),
             selectedAttachments = emptyList(),
@@ -208,7 +212,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        val modelContent = prompt + buildAttachmentContext(attachments)
+        val imageAttachments = attachments.filter { it.imageDataUrl != null }
+        val nonReadableImages = attachments.filter { it.isImage && it.imageDataUrl == null }
+
+        val modelContent = buildModelContent(
+            prompt = prompt,
+            attachments = attachments,
+            imageAttachments = imageAttachments,
+            nonReadableImages = nonReadableImages
+        )
 
         val updatedMessages = if (appendUserMessage) {
             current.messages + ChatUiMessage(
@@ -238,7 +250,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 .map {
                     ChatMessage(
                         role = it.role,
-                        content = it.modelContent
+                        content = it.modelContent,
+                        imageDataUrls = it.attachments.mapNotNull { attachment ->
+                            attachment.imageDataUrl
+                        }
                     )
                 }
 
@@ -260,29 +275,60 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 .onFailure { throwable ->
+                    val hasImage = attachments.any { it.imageDataUrl != null }
+
+                    val extraHint = if (hasImage) {
+                        "\n\nIf this error says the model does not support image input, open Settings and select a vision-capable model."
+                    } else {
+                        ""
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = throwable.message ?: "Unknown chat error"
+                        error = (throwable.message ?: "Unknown chat error") + extraHint
                     )
                 }
         }
     }
 
-    private fun buildAttachmentContext(
-        attachments: List<ChatAttachment>
+    private fun buildModelContent(
+        prompt: String,
+        attachments: List<ChatAttachment>,
+        imageAttachments: List<ChatAttachment>,
+        nonReadableImages: List<ChatAttachment>
     ): String {
-        if (attachments.isEmpty()) return ""
+        if (attachments.isEmpty()) return prompt
 
-        val attachmentLines = attachments.joinToString(separator = "\n") { attachment ->
+        val metadata = attachments.joinToString(separator = "\n") { attachment ->
             "- ${attachment.name} (${attachment.mimeType}${if (attachment.sizeLabel.isNotBlank()) ", ${attachment.sizeLabel}" else ""})"
         }
 
+        val imageInstruction = if (imageAttachments.isNotEmpty()) {
+            """
+
+            Actual image data is attached to this message. Analyze the visual content directly. Do not only describe the filename. If the user asks what is in the image, describe the visible screen, UI, objects, text, layout, colors, and problems.
+            """.trimIndent()
+        } else {
+            ""
+        }
+
+        val unreadableImageNote = if (nonReadableImages.isNotEmpty()) {
+            """
+
+            Some selected images could not be converted into image input. Mention that if needed.
+            """.trimIndent()
+        } else {
+            ""
+        }
+
         return """
+        $prompt
 
-        Attached files selected in the app:
-        $attachmentLines
+        Attachments:
+        $metadata
 
-        Note: This MVP currently sends attachment metadata to the assistant. For full file/image understanding, add a parser or multimodal image upload pipeline in the next upgrade.
-        """.trimIndent().prependIndent("\n\n")
+        $imageInstruction
+        $unreadableImageNote
+        """.trimIndent()
     }
 }

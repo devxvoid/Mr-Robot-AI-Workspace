@@ -2,8 +2,11 @@ package com.mrrobot.aiworkspace.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -41,13 +44,14 @@ import com.mrrobot.aiworkspace.viewmodel.ChatAttachment
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 
 private val PromptSuggestions = listOf(
-    "Improve my Android app UI professionally",
-    "Fix this Gradle build error",
-    "Create a GitHub Actions APK workflow",
-    "Review my Jetpack Compose screen",
-    "Plan the next MVP features"
+    "Explain this image",
+    "Review this UI screenshot",
+    "Find problems in this screen",
+    "Extract visible text from this image",
+    "Suggest professional UI improvements"
 )
 
 @Composable
@@ -103,6 +107,7 @@ fun ChatScreen(
                     model = state.model,
                     apiKeyConfigured = state.apiKey.isNotBlank(),
                     attachmentCount = state.selectedAttachments.size,
+                    imageCount = state.selectedAttachments.count { it.imageDataUrl != null },
                     messageCount = state.messages.count { it.role == "user" },
                     onClear = { viewModel.clearChat() }
                 )
@@ -144,7 +149,7 @@ fun ChatScreen(
             canRegenerate = state.messages.any { it.role == "user" },
             onInputChange = viewModel::updateInput,
             onAddAttachment = {
-                attachmentLauncher.launch(arrayOf("*/*"))
+                attachmentLauncher.launch(arrayOf("image/*", "application/pdf", "text/*", "application/zip", "application/json", "application/xml", "*/*"))
             },
             onRemoveAttachment = viewModel::removeAttachment,
             onSend = { viewModel.send() },
@@ -159,6 +164,7 @@ private fun ChatHeader(
     model: String,
     apiKeyConfigured: Boolean,
     attachmentCount: Int,
+    imageCount: Int,
     messageCount: Int,
     onClear: () -> Unit
 ) {
@@ -179,7 +185,7 @@ private fun ChatHeader(
                 Spacer(Modifier.height(4.dp))
 
                 Text(
-                    text = "Ask, attach files, generate fixes, and coordinate Android development work.",
+                    text = "Ask, attach images, analyze screenshots, and coordinate Android development work.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
@@ -213,7 +219,7 @@ private fun ChatHeader(
 
                     Text(
                         text = if (apiKeyConfigured) {
-                            "OpenRouter connected and ready"
+                            "OpenRouter connected. Images are sent as real vision input when supported by the selected model."
                         } else {
                             "OpenRouter key required in Settings"
                         },
@@ -237,7 +243,8 @@ private fun ChatHeader(
 
             MetadataRow("Model", model)
             MetadataRow("User messages", messageCount.toString())
-            MetadataRow("Queued attachments", attachmentCount.toString())
+            MetadataRow("Queued files", attachmentCount.toString())
+            MetadataRow("Vision images", imageCount.toString())
         }
     }
 }
@@ -419,7 +426,7 @@ private fun ThinkingBubble() {
             Spacer(Modifier.width(12.dp))
 
             Text(
-                text = "Mr. Robot is thinking...",
+                text = "Mr. Robot is analyzing...",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium
             )
@@ -529,7 +536,7 @@ private fun PromptInputPanel(
                     value = input,
                     onValueChange = onInputChange,
                     placeholder = {
-                        Text("Ask Mr. Robot or attach files...")
+                        Text("Ask Mr. Robot or attach images...")
                     },
                     modifier = Modifier.weight(1f),
                     minLines = 1,
@@ -620,6 +627,12 @@ private fun AttachmentPill(
     removable: Boolean,
     onRemove: (Long) -> Unit
 ) {
+    val readyLabel = when {
+        attachment.imageDataUrl != null -> "Vision ready"
+        attachment.isImage -> "Image metadata only"
+        else -> attachment.mimeType
+    }
+
     Surface(
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
         border = BorderStroke(
@@ -630,13 +643,13 @@ private fun AttachmentPill(
     ) {
         Row(
             modifier = Modifier
-                .width(190.dp)
+                .width(215.dp)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = attachmentIcon(attachment.mimeType),
+                text = attachmentIcon(attachment),
                 fontSize = 14.sp
             )
 
@@ -652,7 +665,11 @@ private fun AttachmentPill(
                 )
 
                 Text(
-                    text = attachment.sizeLabel.ifBlank { attachment.mimeType },
+                    text = if (attachment.sizeLabel.isNotBlank()) {
+                        "$readyLabel • ${attachment.sizeLabel}"
+                    } else {
+                        readyLabel
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -770,11 +787,69 @@ private fun buildChatAttachment(
     val mimeType = context.contentResolver.getType(uri)
         ?: "application/octet-stream"
 
+    val imageDataUrl = if (mimeType.startsWith("image/")) {
+        buildImageDataUrl(
+            context = context,
+            uri = uri
+        )
+    } else {
+        null
+    }
+
     return ChatAttachment(
         uri = uri.toString(),
         name = displayName,
         mimeType = mimeType,
-        sizeLabel = formatFileSize(sizeBytes)
+        sizeLabel = formatFileSize(sizeBytes),
+        imageDataUrl = imageDataUrl
+    )
+}
+
+private fun buildImageDataUrl(
+    context: Context,
+    uri: Uri
+): String? {
+    return runCatching {
+        val bitmap = context.contentResolver.openInputStream(uri).use { input ->
+            BitmapFactory.decodeStream(input)
+        } ?: return null
+
+        val scaledBitmap = scaleBitmapForVision(bitmap)
+
+        val output = ByteArrayOutputStream()
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 82, output)
+
+        val base64 = Base64.encodeToString(
+            output.toByteArray(),
+            Base64.NO_WRAP
+        )
+
+        "data:image/jpeg;base64,$base64"
+    }.getOrNull()
+}
+
+private fun scaleBitmapForVision(bitmap: Bitmap): Bitmap {
+    val maxDimension = 1280
+    val width = bitmap.width
+    val height = bitmap.height
+
+    if (width <= maxDimension && height <= maxDimension) {
+        return bitmap
+    }
+
+    val scale = minOf(
+        maxDimension.toFloat() / width.toFloat(),
+        maxDimension.toFloat() / height.toFloat()
+    )
+
+    val newWidth = (width * scale).toInt().coerceAtLeast(1)
+    val newHeight = (height * scale).toInt().coerceAtLeast(1)
+
+    return Bitmap.createScaledBitmap(
+        bitmap,
+        newWidth,
+        newHeight,
+        true
     )
 }
 
@@ -791,15 +866,16 @@ private fun formatFileSize(sizeBytes: Long?): String {
     }
 }
 
-private fun attachmentIcon(mimeType: String): String {
+private fun attachmentIcon(attachment: ChatAttachment): String {
     return when {
-        mimeType.startsWith("image/") -> "🖼"
-        mimeType == "application/pdf" -> "PDF"
-        mimeType.contains("zip") -> "ZIP"
-        mimeType.startsWith("text/") -> "TXT"
-        mimeType.contains("json") -> "JSON"
-        mimeType.contains("xml") -> "XML"
-        mimeType.contains("word") -> "DOC"
+        attachment.imageDataUrl != null -> "🖼"
+        attachment.mimeType.startsWith("image/") -> "IMG"
+        attachment.mimeType == "application/pdf" -> "PDF"
+        attachment.mimeType.contains("zip") -> "ZIP"
+        attachment.mimeType.startsWith("text/") -> "TXT"
+        attachment.mimeType.contains("json") -> "JSON"
+        attachment.mimeType.contains("xml") -> "XML"
+        attachment.mimeType.contains("word") -> "DOC"
         else -> "FILE"
     }
 }

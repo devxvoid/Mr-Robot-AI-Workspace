@@ -12,7 +12,8 @@ import java.net.URL
 
 data class ChatMessage(
     val role: String,
-    val content: String
+    val content: String,
+    val imageDataUrls: List<String> = emptyList()
 )
 
 class ChatRepository {
@@ -39,7 +40,7 @@ class ChatRepository {
 
             connection.requestMethod = "POST"
             connection.connectTimeout = 30_000
-            connection.readTimeout = 90_000
+            connection.readTimeout = 120_000
             connection.doOutput = true
             connection.setRequestProperty("Authorization", "Bearer $apiKey")
             connection.setRequestProperty("Content-Type", "application/json")
@@ -91,30 +92,54 @@ class ChatRepository {
                 .put("role", "system")
                 .put(
                     "content",
-                    "You are Mr. Robot AI Workspace, a precise Android development assistant. Give practical, production-ready answers."
+                    "You are Mr. Robot AI Workspace, a precise Android development assistant. When the user attaches an image, analyze the actual image content, not only the file metadata. Describe visible UI, layout, errors, objects, text, design problems, and useful improvements."
                 )
         )
 
         messages.forEach { message ->
-            jsonMessages.put(
-                JSONObject()
-                    .put("role", message.role)
-                    .put("content", message.content)
-            )
+            val jsonMessage = JSONObject()
+                .put("role", message.role)
+
+            if (message.imageDataUrls.isNotEmpty()) {
+                val contentArray = JSONArray()
+
+                contentArray.put(
+                    JSONObject()
+                        .put("type", "text")
+                        .put("text", message.content)
+                )
+
+                message.imageDataUrls.forEach { imageDataUrl ->
+                    contentArray.put(
+                        JSONObject()
+                            .put("type", "image_url")
+                            .put(
+                                "image_url",
+                                JSONObject().put("url", imageDataUrl)
+                            )
+                    )
+                }
+
+                jsonMessage.put("content", contentArray)
+            } else {
+                jsonMessage.put("content", message.content)
+            }
+
+            jsonMessages.put(jsonMessage)
         }
 
         return JSONObject()
             .put("model", model)
             .put("messages", jsonMessages)
-            .put("temperature", 0.7)
-            .put("max_tokens", 1200)
+            .put("temperature", 0.55)
+            .put("max_tokens", 1600)
     }
 
     private fun parseAssistantReply(responseText: String): String {
         val root = JSONObject(responseText)
-        val choices = root.getJSONArray("choices")
+        val choices = root.optJSONArray("choices")
 
-        if (choices.length() == 0) {
+        if (choices == null || choices.length() == 0) {
             return "No response returned from OpenRouter."
         }
 
@@ -130,15 +155,8 @@ class ChatRepository {
     private fun readStream(reader: InputStreamReader): String {
         return BufferedReader(reader).use { buffered ->
             buildString {
-                var line: String?
-
                 while (true) {
-                    line = buffered.readLine()
-
-                    if (line == null) {
-                        break
-                    }
-
+                    val line = buffered.readLine() ?: break
                     append(line)
                     append('\n')
                 }
