@@ -7,8 +7,10 @@
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:colorAccent">#00DFF7</item>
+        <item name="android:statusBarColor">#030712</item>
+        <item name="android:navigationBarColor">#030712</item>
         <item name="android:windowBackground">#030712</item>
+        <item name="android:colorAccent">#00DFF7</item>
     </style>
 
 </resources>
