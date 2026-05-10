@@ -1,0 +1,442 @@
+name: Step 2 OpenRouter Chat
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    name: Add Real OpenRouter Chat
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+
+      - name: Add OpenRouter chat integration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+
+          mkdir -p "$APP_DIR/data"
+          mkdir -p "$APP_DIR/viewmodel"
+          mkdir -p "$APP_DIR/ui/screens"
+
+          cat > "$APP_DIR/data/ChatRepository.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.data
+
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.withContext
+          import okhttp3.MediaType.Companion.toMediaType
+          import okhttp3.OkHttpClient
+          import okhttp3.Request
+          import okhttp3.RequestBody.Companion.toRequestBody
+          import org.json.JSONArray
+          import org.json.JSONObject
+          import java.util.concurrent.TimeUnit
+
+          data class ChatMessage(
+              val role: String,
+              val content: String
+          )
+
+          class ChatRepository {
+
+              private val client = OkHttpClient.Builder()
+                  .connectTimeout(30, TimeUnit.SECONDS)
+                  .readTimeout(90, TimeUnit.SECONDS)
+                  .writeTimeout(60, TimeUnit.SECONDS)
+                  .build()
+
+              suspend fun sendMessage(
+                  apiKey: String,
+                  model: String,
+                  messages: List<ChatMessage>
+              ): Result<String> = withContext(Dispatchers.IO) {
+                  try {
+                      if (apiKey.isBlank()) {
+                          return@withContext Result.failure(
+                              IllegalStateException("OpenRouter API key is missing. Add it in Settings.")
+                          )
+                      }
+
+                      val jsonMessages = JSONArray()
+
+                      jsonMessages.put(
+                          JSONObject()
+                              .put("role", "system")
+                              .put(
+                                  "content",
+                                  "You are Mr. Robot AI Workspace, a precise Android development assistant. Give useful, practical, production-ready answers."
+                              )
+                      )
+
+                      messages.forEach { msg ->
+                          jsonMessages.put(
+                              JSONObject()
+                                  .put("role", msg.role)
+                                  .put("content", msg.content)
+                          )
+                      }
+
+                      val bodyJson = JSONObject()
+                          .put("model", model.ifBlank { "openai/gpt-4o-mini" })
+                          .put("messages", jsonMessages)
+                          .put("temperature", 0.7)
+                          .put("max_tokens", 1200)
+
+                      val body = bodyJson
+                          .toString()
+                          .toRequestBody("application/json".toMediaType())
+
+                      val request = Request.Builder()
+                          .url("https://openrouter.ai/api/v1/chat/completions")
+                          .addHeader("Authorization", "Bearer $apiKey")
+                          .addHeader("Content-Type", "application/json")
+                          .addHeader("HTTP-Referer", "https://github.com/devxvoid/Mr-Robot-AI-Workspace")
+                          .addHeader("X-Title", "Mr. Robot AI Workspace")
+                          .post(body)
+                          .build()
+
+                      client.newCall(request).execute().use { response ->
+                          val raw = response.body?.string().orEmpty()
+
+                          if (!response.isSuccessful) {
+                              return@withContext Result.failure(
+                                  IllegalStateException("OpenRouter error ${response.code}: $raw")
+                              )
+                          }
+
+                          val content = JSONObject(raw)
+                              .getJSONArray("choices")
+                              .getJSONObject(0)
+                              .getJSONObject("message")
+                              .getString("content")
+
+                          Result.success(content)
+                      }
+                  } catch (e: Exception) {
+                      Result.failure(e)
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/viewmodel/ChatViewModel.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.viewmodel
+
+          import android.app.Application
+          import androidx.lifecycle.AndroidViewModel
+          import androidx.lifecycle.viewModelScope
+          import com.mrrobot.aiworkspace.data.ChatMessage
+          import com.mrrobot.aiworkspace.data.ChatRepository
+          import com.mrrobot.aiworkspace.data.SettingsStore
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          import kotlinx.coroutines.launch
+
+          data class ChatUiMessage(
+              val role: String,
+              val content: String
+          )
+
+          data class ChatUiState(
+              val input: String = "",
+              val messages: List<ChatUiMessage> = listOf(
+                  ChatUiMessage(
+                      role = "assistant",
+                      content = "Mr. Robot online. Add your OpenRouter API key in Settings, then send a message."
+                  )
+              ),
+              val apiKey: String = "",
+              val model: String = "openai/gpt-4o-mini",
+              val isLoading: Boolean = false,
+              val error: String = ""
+          )
+
+          class ChatViewModel(application: Application) : AndroidViewModel(application) {
+
+              private val settingsStore = SettingsStore(application.applicationContext)
+              private val repository = ChatRepository()
+
+              private val _uiState = MutableStateFlow(ChatUiState())
+              val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+              init {
+                  viewModelScope.launch {
+                      settingsStore.settingsFlow.collect { settings ->
+                          _uiState.value = _uiState.value.copy(
+                              apiKey = settings.apiKey,
+                              model = settings.model
+                          )
+                      }
+                  }
+              }
+
+              fun updateInput(value: String) {
+                  _uiState.value = _uiState.value.copy(
+                      input = value,
+                      error = ""
+                  )
+              }
+
+              fun send() {
+                  val current = _uiState.value
+                  val prompt = current.input.trim()
+
+                  if (prompt.isBlank() || current.isLoading) return
+
+                  if (current.apiKey.isBlank()) {
+                      _uiState.value = current.copy(
+                          error = "OpenRouter API key missing. Save your key in Settings first."
+                      )
+                      return
+                  }
+
+                  val userMessage = ChatUiMessage("user", prompt)
+                  val updatedMessages = current.messages + userMessage
+
+                  _uiState.value = current.copy(
+                      input = "",
+                      messages = updatedMessages,
+                      isLoading = true,
+                      error = ""
+                  )
+
+                  viewModelScope.launch {
+                      val requestMessages = updatedMessages
+                          .filter { it.role == "user" || it.role == "assistant" }
+                          .map {
+                              ChatMessage(
+                                  role = it.role,
+                                  content = it.content
+                              )
+                          }
+
+                      val result = repository.sendMessage(
+                          apiKey = _uiState.value.apiKey,
+                          model = _uiState.value.model,
+                          messages = requestMessages
+                      )
+
+                      result
+                          .onSuccess { reply ->
+                              _uiState.value = _uiState.value.copy(
+                                  messages = _uiState.value.messages + ChatUiMessage(
+                                      role = "assistant",
+                                      content = reply
+                                  ),
+                                  isLoading = false,
+                                  error = ""
+                              )
+                          }
+                          .onFailure { throwable ->
+                              _uiState.value = _uiState.value.copy(
+                                  isLoading = false,
+                                  error = throwable.message ?: "Unknown chat error"
+                              )
+                          }
+                  }
+              }
+
+              fun clearChat() {
+                  _uiState.value = _uiState.value.copy(
+                      messages = listOf(
+                          ChatUiMessage(
+                              role = "assistant",
+                              content = "Chat cleared. Mr. Robot is ready."
+                          )
+                      ),
+                      error = "",
+                      input = ""
+                  )
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/ChatScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.foundation.lazy.items
+          import androidx.compose.foundation.lazy.rememberLazyListState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import com.mrrobot.aiworkspace.ui.components.*
+          import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
+          import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
+          import kotlinx.coroutines.launch
+
+          @Composable
+          fun ChatScreen(
+              viewModel: ChatViewModel = viewModel()
+          ) {
+              val state by viewModel.uiState.collectAsState()
+              val listState = rememberLazyListState()
+              val scope = rememberCoroutineScope()
+
+              LaunchedEffect(state.messages.size) {
+                  if (state.messages.isNotEmpty()) {
+                      scope.launch {
+                          listState.animateScrollToItem(state.messages.lastIndex)
+                      }
+                  }
+              }
+
+              ScreenShell {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Column {
+                          Title("AI Chat")
+                          Subtitle("Real OpenRouter chat workspace.")
+                      }
+
+                      TextButton(onClick = { viewModel.clearChat() }) {
+                          Text("Clear")
+                      }
+                  }
+
+                  Spacer(Modifier.height(8.dp))
+
+                  GlassCard {
+                      Subtitle("Model: ${state.model}")
+                      if (state.apiKey.isBlank()) {
+                          Spacer(Modifier.height(4.dp))
+                          Subtitle("API key missing. Open Settings and save your OpenRouter key.")
+                      }
+                  }
+
+                  Spacer(Modifier.height(12.dp))
+
+                  LazyColumn(
+                      state = listState,
+                      modifier = Modifier
+                          .weight(1f)
+                          .fillMaxWidth(),
+                      contentPadding = PaddingValues(bottom = 12.dp)
+                  ) {
+                      items(state.messages) { message ->
+                          ChatBubble(message)
+                      }
+
+                      if (state.isLoading) {
+                          item {
+                              GlassCard(modifier = Modifier.padding(bottom = 10.dp)) {
+                                  Row(verticalAlignment = Alignment.CenterVertically) {
+                                      CircularProgressIndicator(
+                                          modifier = Modifier.size(18.dp),
+                                          strokeWidth = 2.dp
+                                      )
+                                      Spacer(Modifier.width(12.dp))
+                                      Subtitle("Mr. Robot is thinking...")
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  if (state.error.isNotBlank()) {
+                      Card(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .padding(bottom = 10.dp),
+                          shape = RoundedCornerShape(18.dp),
+                          colors = CardDefaults.cardColors(
+                              containerColor = Color(0xFF3B1111)
+                          )
+                      ) {
+                          Text(
+                              text = state.error,
+                              modifier = Modifier.padding(14.dp),
+                              color = Color(0xFFFFB4AB)
+                          )
+                      }
+                  }
+
+                  OutlinedTextField(
+                      value = state.input,
+                      onValueChange = viewModel::updateInput,
+                      placeholder = { Text("Ask Mr. Robot...") },
+                      modifier = Modifier.fillMaxWidth(),
+                      minLines = 1,
+                      maxLines = 5
+                  )
+
+                  Spacer(Modifier.height(8.dp))
+
+                  CyberButton(
+                      text = if (state.isLoading) "Generating..." else "Send",
+                      onClick = { viewModel.send() }
+                  )
+              }
+          }
+
+          @Composable
+          private fun ChatBubble(message: ChatUiMessage) {
+              val isUser = message.role == "user"
+
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(bottom = 10.dp),
+                  horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+              ) {
+                  Column(
+                      modifier = Modifier
+                          .fillMaxWidth(if (isUser) 0.88f else 0.96f)
+                          .background(
+                              color = if (isUser) NeonCyan.copy(alpha = 0.16f) else Panel.copy(alpha = 0.95f),
+                              shape = RoundedCornerShape(
+                                  topStart = 22.dp,
+                                  topEnd = 22.dp,
+                                  bottomStart = if (isUser) 22.dp else 4.dp,
+                                  bottomEnd = if (isUser) 4.dp else 22.dp
+                              )
+                          )
+                          .padding(16.dp)
+                  ) {
+                      Text(
+                          text = if (isUser) "You" else "Mr. Robot",
+                          color = if (isUser) NeonCyan else NeonPurple,
+                          fontWeight = FontWeight.Bold
+                      )
+
+                      Spacer(Modifier.height(6.dp))
+
+                      Text(
+                          text = message.content,
+                          color = Color.White
+                      )
+                  }
+              }
+          }
+          EOF
+
+      - name: Commit Step 2 upgrade
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+          git commit -m "Step 2 add real OpenRouter chat" || echo "No changes to commit"
+          git push
