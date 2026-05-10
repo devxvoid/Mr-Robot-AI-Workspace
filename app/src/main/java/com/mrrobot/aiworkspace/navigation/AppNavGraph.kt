@@ -43,19 +43,19 @@ sealed class Route(
     val icon: String
 ) {
     object Welcome : Route("welcome", "Home", "⌂")
-    object Chat : Route("chat", "Chat", "AI")
+    object Chat : Route("chat", "AI", "✦")
     object Agents : Route("agents", "Agents", "◆")
     object Workflow : Route("workflow", "Flow", "↯")
     object Terminal : Route("terminal", "Term", ">_")
     object Files : Route("files", "Files", "▣")
-    object Market : Route("market", "Market", "✦")
+    object Market : Route("market", "Store", "◈")
     object Settings : Route("settings", "Settings", "⚙")
     object Profile : Route("profile", "Profile", "◎")
 }
 
 @Composable
 fun AppNavGraph() {
-    val nav = rememberNavController()
+    val navController = rememberNavController()
 
     val items = listOf(
         Route.Welcome,
@@ -72,30 +72,34 @@ fun AppNavGraph() {
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-            val current =
-                nav.currentBackStackEntryAsState().value?.destination?.route
+            val currentRoute =
+                navController.currentBackStackEntryAsState().value?.destination?.route
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
-                tonalElevation = 0.dp
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     items.forEach { route ->
                         BottomNavChip(
                             route = route,
-                            selected = current == route.path,
+                            selected = currentRoute == route.path,
                             onClick = {
-                                nav.navigate(route.path) {
+                                navController.navigate(route.path) {
                                     launchSingleTop = true
                                     restoreState = true
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        saveState = true
+                                    }
                                 }
                             }
                         )
@@ -103,13 +107,13 @@ fun AppNavGraph() {
                 }
             }
         }
-    ) { padding ->
+    ) { innerPadding ->
         NavHost(
-            navController = nav,
+            navController = navController,
             startDestination = Route.Welcome.path,
-            modifier = Modifier.padding(padding)
+            modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Route.Welcome.path) { WelcomeScreen(nav) }
+            composable(Route.Welcome.path) { WelcomeScreen(navController) }
             composable(Route.Chat.path) { ChatScreen() }
             composable(Route.Agents.path) { AgentsScreen() }
             composable(Route.Workflow.path) { WorkflowScreen() }
@@ -130,18 +134,23 @@ private fun BottomNavChip(
 ) {
     Surface(
         modifier = Modifier
-            .width(86.dp)
-            .height(54.dp)
+            .width(84.dp)
+            .height(56.dp)
             .clickable { onClick() },
         color = if (selected) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
         } else {
             Color.Transparent
         },
-        shape = RoundedCornerShape(18.dp)
+        shape = RoundedCornerShape(18.dp),
+        tonalElevation = 0.dp
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
                     text = route.icon,
                     color = if (selected) {
@@ -152,7 +161,7 @@ private fun BottomNavChip(
                     fontWeight = FontWeight.Bold
                 )
 
-                Spacer(Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text = route.label,
@@ -161,11 +170,7 @@ private fun BottomNavChip(
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    fontWeight = if (selected) {
-                        FontWeight.Bold
-                    } else {
-                        FontWeight.Normal
-                    }
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                 )
             }
         }
