@@ -1,14 +1,36 @@
 package com.mrrobot.aiworkspace.ui.screens
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,7 +40,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mrrobot.aiworkspace.ui.components.*
+import com.mrrobot.aiworkspace.ui.components.GlassCard
+import com.mrrobot.aiworkspace.ui.components.ScreenShell
+import com.mrrobot.aiworkspace.ui.components.Subtitle
+import com.mrrobot.aiworkspace.ui.components.Title
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
@@ -50,22 +75,35 @@ fun ChatScreen(
                 Subtitle("OpenRouter-powered Mr. Robot assistant.")
             }
 
-            TextButton(onClick = { viewModel.clearChat() }) {
-                Text("Clear")
-            }
+            Text(
+                text = "Clear",
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable {
+                    viewModel.clearChat()
+                }
+            )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
         GlassCard {
-            Subtitle("Model: ${state.model}")
+            Text(
+                text = "Model: ${state.model}",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium
+            )
+
             Spacer(Modifier.height(6.dp))
 
-            if (state.apiKey.isBlank()) {
-                Subtitle("API key missing. Open Settings and save your OpenRouter key.")
-            } else {
-                Subtitle("API key configured • Ready")
-            }
+            Text(
+                text = if (state.apiKey.isBlank()) {
+                    "API key missing. Open Settings and save your OpenRouter key."
+                } else {
+                    "API key configured  •  Ready"
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         Spacer(Modifier.height(12.dp))
@@ -75,7 +113,8 @@ fun ChatScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 12.dp)
+            contentPadding = PaddingValues(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
                 items = state.messages,
@@ -96,16 +135,18 @@ fun ChatScreen(
                 message = state.error,
                 onRetry = { viewModel.retryLast() }
             )
+
+            Spacer(Modifier.height(10.dp))
         }
 
         PromptInputBar(
             input = state.input,
             isLoading = state.isLoading,
+            canRegenerate = state.messages.any { it.role == "user" },
             onInputChange = viewModel::updateInput,
             onSend = { viewModel.send() },
             onStop = { viewModel.stopGeneration() },
-            onRegenerate = { viewModel.regenerateLastAnswer() },
-            canRegenerate = state.messages.any { it.role == "user" }
+            onRegenerate = { viewModel.regenerateLastAnswer() }
         )
     }
 }
@@ -116,89 +157,116 @@ private fun ChatBubble(message: ChatUiMessage) {
     val isUser = message.role == "user"
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 12.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(if (isUser) 0.88f else 0.96f)
-                .background(
-                    color = if (isUser) NeonCyan.copy(alpha = 0.17f) else Panel.copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(
-                        topStart = 24.dp,
-                        topEnd = 24.dp,
-                        bottomStart = if (isUser) 24.dp else 6.dp,
-                        bottomEnd = if (isUser) 6.dp else 24.dp
-                    )
-                )
-                .padding(16.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth(if (isUser) 0.88f else 0.96f),
+            color = if (isUser) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+            } else {
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
+            },
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (isUser) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                } else {
+                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
+                }
+            ),
+            shape = RoundedCornerShape(
+                topStart = 24.dp,
+                topEnd = 24.dp,
+                bottomStart = if (isUser) 24.dp else 6.dp,
+                bottomEnd = if (isUser) 6.dp else 24.dp
+            )
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.padding(16.dp)
             ) {
-                Text(
-                    text = if (isUser) "You" else "Mr. Robot",
-                    color = if (isUser) NeonCyan else NeonPurple,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isUser) "You" else "Mr. Robot",
+                        color = if (isUser) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.secondary
+                        },
+                        fontWeight = FontWeight.Bold
+                    )
 
-                Text(
-                    text = "Copy",
-                    color = SoftText,
-                    modifier = Modifier.clickable {
-                        clipboard.setText(AnnotatedString(message.content))
-                    }
+                    Text(
+                        text = "Copy",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable {
+                            clipboard.setText(
+                                AnnotatedString(message.content)
+                            )
+                        }
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                MessageText(
+                    content = message.content,
+                    textColor = MaterialTheme.colorScheme.onSurface
                 )
             }
-
-            Spacer(Modifier.height(8.dp))
-
-            MessageText(message.content)
         }
     }
 }
 
 @Composable
-private fun MessageText(content: String) {
+private fun MessageText(
+    content: String,
+    textColor: Color
+) {
     val isCodeLike =
         content.contains("```") ||
-        content.lines().any {
-            it.trim().startsWith("fun ") ||
-            it.trim().startsWith("class ") ||
-            it.trim().startsWith("val ") ||
-            it.trim().startsWith("var ") ||
-            it.trim().startsWith("import ") ||
-            it.trim().startsWith("package ")
-        }
+            content.lines().any {
+                val line = it.trim()
+                line.startsWith("fun ") ||
+                    line.startsWith("class ") ||
+                    line.startsWith("val ") ||
+                    line.startsWith("var ") ||
+                    line.startsWith("import ") ||
+                    line.startsWith("package ") ||
+                    line.startsWith("plugins ") ||
+                    line.startsWith("implementation(")
+            }
 
-    if (isCodeLike) {
-        Text(
-            text = content.replace("```", ""),
-            color = Color.White,
-            fontFamily = FontFamily.Monospace
-        )
-    } else {
-        Text(
-            text = content,
-            color = Color.White
-        )
-    }
+    Text(
+        text = content.replace("```", ""),
+        color = textColor,
+        fontFamily = if (isCodeLike) FontFamily.Monospace else FontFamily.Default
+    )
 }
 
 @Composable
 private fun ThinkingBubble() {
-    GlassCard(modifier = Modifier.padding(bottom = 10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    GlassCard {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary
             )
+
             Spacer(Modifier.width(12.dp))
-            Subtitle("Mr. Robot is thinking...")
+
+            Text(
+                text = "Mr. Robot is thinking...",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -209,21 +277,22 @@ private fun ErrorPanel(
     onRetry: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 10.dp),
-        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF3B1111)
+            containerColor = MaterialTheme.colorScheme.errorContainer
         )
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
             Text(
                 text = message,
-                color = Color(0xFFFFB4AB)
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                fontWeight = FontWeight.Medium
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
 
             OutlinedButton(onClick = onRetry) {
                 Text("Retry")
@@ -242,45 +311,80 @@ private fun PromptInputBar(
     onStop: () -> Unit,
     onRegenerate: () -> Unit
 ) {
-    OutlinedTextField(
-        value = input,
-        onValueChange = onInputChange,
-        placeholder = { Text("Ask Mr. Robot...") },
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        minLines = 1,
-        maxLines = 5
-    )
-
-    Spacer(Modifier.height(8.dp))
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+        )
     ) {
-        Button(
-            onClick = {
-                if (isLoading) onStop() else onSend()
-            },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isLoading) Color(0xFFFFB020) else NeonCyan,
-                contentColor = Color.Black
-            ),
-            shape = RoundedCornerShape(18.dp)
+        Column(
+            modifier = Modifier.padding(12.dp)
         ) {
-            Text(
-                text = if (isLoading) "Stop" else "Send",
-                fontWeight = FontWeight.Bold
+            OutlinedTextField(
+                value = input,
+                onValueChange = onInputChange,
+                placeholder = {
+                    Text("Ask Mr. Robot...")
+                },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 1,
+                maxLines = 5,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             )
-        }
 
-        OutlinedButton(
-            onClick = onRegenerate,
-            enabled = canRegenerate && !isLoading,
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            Text("Regenerate")
+            Spacer(Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = {
+                        if (isLoading) {
+                            onStop()
+                        } else {
+                            onSend()
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isLoading) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                        contentColor = if (isLoading) {
+                            MaterialTheme.colorScheme.onTertiary
+                        } else {
+                            MaterialTheme.colorScheme.onPrimary
+                        }
+                    ),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Text(
+                        text = if (isLoading) "Stop" else "Send",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onRegenerate,
+                    enabled = canRegenerate && !isLoading,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Text("Regenerate")
+                }
+            }
         }
     }
 }
