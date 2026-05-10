@@ -1,6 +1,8 @@
 package com.mrrobot.aiworkspace.navigation
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -10,11 +12,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.mrrobot.aiworkspace.R
 import com.mrrobot.aiworkspace.ui.screens.AgentsScreen
 import com.mrrobot.aiworkspace.ui.screens.ChatScreen
 import com.mrrobot.aiworkspace.ui.screens.FileManagerScreen
@@ -29,19 +32,67 @@ import com.mrrobot.aiworkspace.ui.screens.WorkflowScreen
 sealed class Route(
     val path: String,
     val label: String,
-    val icon: String
+    @DrawableRes val iconRes: Int
 ) {
-    object Welcome : Route("welcome", "Home", "⌂")
-    object Chat : Route("chat", "AI", "✦")
-    object Agents : Route("agents", "Agents", "◆")
-    object Workflow : Route("workflow", "Flow", "↯")
-    object More : Route("more", "More", "☰")
+    object Welcome : Route(
+        path = "welcome",
+        label = "Home",
+        iconRes = R.drawable.ic_lucide_home
+    )
 
-    object Terminal : Route("terminal", "Terminal", ">_")
-    object Files : Route("files", "Files", "▣")
-    object Market : Route("market", "Store", "◈")
-    object Settings : Route("settings", "Settings", "⚙")
-    object Profile : Route("profile", "Profile", "◎")
+    object Chat : Route(
+        path = "chat",
+        label = "AI",
+        iconRes = R.drawable.ic_lucide_sparkles
+    )
+
+    object Agents : Route(
+        path = "agents",
+        label = "Agents",
+        iconRes = R.drawable.ic_lucide_bot
+    )
+
+    object Workflow : Route(
+        path = "workflow",
+        label = "Flow",
+        iconRes = R.drawable.ic_lucide_workflow
+    )
+
+    object More : Route(
+        path = "more",
+        label = "More",
+        iconRes = R.drawable.ic_lucide_menu
+    )
+
+    object Terminal : Route(
+        path = "terminal",
+        label = "Terminal",
+        iconRes = R.drawable.ic_lucide_terminal
+    )
+
+    object Files : Route(
+        path = "files",
+        label = "Files",
+        iconRes = R.drawable.ic_lucide_folder
+    )
+
+    object Market : Route(
+        path = "market",
+        label = "Store",
+        iconRes = R.drawable.ic_lucide_store
+    )
+
+    object Settings : Route(
+        path = "settings",
+        label = "Settings",
+        iconRes = R.drawable.ic_lucide_settings
+    )
+
+    object Profile : Route(
+        path = "profile",
+        label = "Profile",
+        iconRes = R.drawable.ic_lucide_user
+    )
 }
 
 @Composable
@@ -82,9 +133,9 @@ fun AppNavGraph() {
                             }
                         },
                         icon = {
-                            Text(
-                                text = route.icon,
-                                fontWeight = FontWeight.Bold
+                            Icon(
+                                painter = painterResource(id = route.iconRes),
+                                contentDescription = route.label
                             )
                         },
                         label = {

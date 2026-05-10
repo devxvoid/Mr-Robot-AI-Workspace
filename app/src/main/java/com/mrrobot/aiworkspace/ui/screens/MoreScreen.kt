@@ -1,14 +1,22 @@
 package com.mrrobot.aiworkspace.ui.screens
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mrrobot.aiworkspace.navigation.Route
@@ -31,6 +39,7 @@ fun MoreScreen(navController: NavController) {
                 Spacer(Modifier.height(14.dp))
 
                 MoreCard(
+                    iconRes = Route.Terminal.iconRes,
                     title = "Live Terminal",
                     subtitle = "View simulated build logs and command output.",
                     button = "Open Terminal",
@@ -38,6 +47,7 @@ fun MoreScreen(navController: NavController) {
                 )
 
                 MoreCard(
+                    iconRes = Route.Files.iconRes,
                     title = "File Manager",
                     subtitle = "Browse project files and Stitch design references.",
                     button = "Open Files",
@@ -45,6 +55,7 @@ fun MoreScreen(navController: NavController) {
                 )
 
                 MoreCard(
+                    iconRes = Route.Market.iconRes,
                     title = "Marketplace",
                     subtitle = "Manage models, tools, agents, workflows, and integrations.",
                     button = "Open Marketplace",
@@ -52,6 +63,7 @@ fun MoreScreen(navController: NavController) {
                 )
 
                 MoreCard(
+                    iconRes = Route.Settings.iconRes,
                     title = "Settings",
                     subtitle = "Configure OpenRouter, model selection, and Auto/Dark/Light theme.",
                     button = "Open Settings",
@@ -59,6 +71,7 @@ fun MoreScreen(navController: NavController) {
                 )
 
                 MoreCard(
+                    iconRes = Route.Profile.iconRes,
                     title = "Profile",
                     subtitle = "View workspace identity, stats, and export summary.",
                     button = "Open Profile",
@@ -71,22 +84,34 @@ fun MoreScreen(navController: NavController) {
 
 @Composable
 private fun MoreCard(
+    @DrawableRes iconRes: Int,
     title: String,
     subtitle: String,
     button: String,
     onClick: () -> Unit
 ) {
-    GlassCard(
-        modifier = Modifier
-    ) {
-        Title(title)
+    GlassCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = title,
+                modifier = Modifier.size(28.dp)
+            )
+
+            Title(title)
+        }
+
+        Spacer(Modifier.height(8.dp))
+
         Subtitle(subtitle)
 
         Spacer(Modifier.height(12.dp))
 
-        OutlinedButton(
-            onClick = onClick
-        ) {
+        OutlinedButton(onClick = onClick) {
             Text(button)
         }
     }
