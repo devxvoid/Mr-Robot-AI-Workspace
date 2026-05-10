@@ -9,10 +9,13 @@ import com.mrrobot.aiworkspace.data.AppSettings
 import com.mrrobot.aiworkspace.data.SettingsStore
 import com.mrrobot.aiworkspace.navigation.AppNavGraph
 import com.mrrobot.aiworkspace.ui.theme.MrRobotTheme
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        PDFBoxResourceLoader.init(applicationContext)
 
         val settingsStore = SettingsStore(applicationContext)
 

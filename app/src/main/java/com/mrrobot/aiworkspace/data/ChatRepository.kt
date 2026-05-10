@@ -73,9 +73,7 @@ class ChatRepository {
                 )
             }
 
-            val reply = parseAssistantReply(responseText)
-
-            Result.success(reply)
+            Result.success(parseAssistantReply(responseText))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -92,7 +90,7 @@ class ChatRepository {
                 .put("role", "system")
                 .put(
                     "content",
-                    "You are Mr. Robot AI Workspace, a precise Android development assistant. When the user attaches an image, analyze the actual image content, not only the file metadata. Describe visible UI, layout, errors, objects, text, design problems, and useful improvements."
+                    "You are Mr. Robot AI Workspace, a precise Android development assistant. When files are attached, analyze their extracted text/content directly. When images are attached, analyze the actual visible image content. Do not claim you cannot access the file if extracted content or image data is included in the message."
                 )
         )
 
@@ -132,7 +130,7 @@ class ChatRepository {
             .put("model", model)
             .put("messages", jsonMessages)
             .put("temperature", 0.55)
-            .put("max_tokens", 1600)
+            .put("max_tokens", 2200)
     }
 
     private fun parseAssistantReply(responseText: String): String {

@@ -18,10 +18,15 @@ data class ChatAttachment(
     val name: String,
     val mimeType: String,
     val sizeLabel: String = "",
-    val imageDataUrl: String? = null
+    val imageDataUrl: String? = null,
+    val extractedText: String = "",
+    val extractionStatus: String = ""
 ) {
     val isImage: Boolean
         get() = mimeType.startsWith("image/")
+
+    val isReadable: Boolean
+        get() = extractedText.isNotBlank()
 }
 
 data class ChatUiMessage(
@@ -37,7 +42,7 @@ data class ChatUiState(
     val messages: List<ChatUiMessage> = listOf(
         ChatUiMessage(
             role = "assistant",
-            content = "Welcome to Mr. Robot AI Workspace. Attach an image and ask me to explain it, review UI problems, read visible text, or suggest improvements."
+            content = "Welcome to Mr. Robot AI Workspace. Attach an image, PDF, text file, code file, DOCX, or ZIP and ask me to explain or analyze it."
         )
     ),
     val selectedAttachments: List<ChatAttachment> = emptyList(),
@@ -185,7 +190,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             messages = listOf(
                 ChatUiMessage(
                     role = "assistant",
-                    content = "Chat cleared. Attach an image or ask your next Android development question."
+                    content = "Chat cleared. Attach a file or ask your next Android development question."
                 )
             ),
             selectedAttachments = emptyList(),
@@ -212,14 +217,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        val imageAttachments = attachments.filter { it.imageDataUrl != null }
-        val nonReadableImages = attachments.filter { it.isImage && it.imageDataUrl == null }
-
         val modelContent = buildModelContent(
             prompt = prompt,
-            attachments = attachments,
-            imageAttachments = imageAttachments,
-            nonReadableImages = nonReadableImages
+            attachments = attachments
         )
 
         val updatedMessages = if (appendUserMessage) {
@@ -246,7 +246,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         activeJob = viewModelScope.launch {
             val requestMessages = _uiState.value.messages
                 .filter { it.role == "user" || it.role == "assistant" }
-                .takeLast(12)
+                .takeLast(10)
                 .map {
                     ChatMessage(
                         role = it.role,
@@ -293,42 +293,64 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun buildModelContent(
         prompt: String,
-        attachments: List<ChatAttachment>,
-        imageAttachments: List<ChatAttachment>,
-        nonReadableImages: List<ChatAttachment>
+        attachments: List<ChatAttachment>
     ): String {
         if (attachments.isEmpty()) return prompt
 
         val metadata = attachments.joinToString(separator = "\n") { attachment ->
-            "- ${attachment.name} (${attachment.mimeType}${if (attachment.sizeLabel.isNotBlank()) ", ${attachment.sizeLabel}" else ""})"
+            "- ${attachment.name} (${attachment.mimeType}${if (attachment.sizeLabel.isNotBlank()) ", ${attachment.sizeLabel}" else ""}) — ${attachment.extractionStatus.ifBlank { "metadata only" }}"
         }
 
-        val imageInstruction = if (imageAttachments.isNotEmpty()) {
+        val readableText = attachments
+            .filter { it.extractedText.isNotBlank() }
+            .joinToString(separator = "\n\n") { attachment ->
+                """
+                ===== FILE: ${attachment.name} =====
+                MIME: ${attachment.mimeType}
+                SIZE: ${attachment.sizeLabel}
+                STATUS: ${attachment.extractionStatus}
+
+                ${attachment.extractedText}
+                ===== END FILE: ${attachment.name} =====
+                """.trimIndent()
+            }
+
+        val hasImages = attachments.any { it.imageDataUrl != null }
+
+        val imageInstruction = if (hasImages) {
             """
 
-            Actual image data is attached to this message. Analyze the visual content directly. Do not only describe the filename. If the user asks what is in the image, describe the visible screen, UI, objects, text, layout, colors, and problems.
+            Actual image data is attached to this message. Analyze visible image content directly.
             """.trimIndent()
         } else {
             ""
         }
 
-        val unreadableImageNote = if (nonReadableImages.isNotEmpty()) {
+        val fileInstruction = if (readableText.isNotBlank()) {
             """
 
-            Some selected images could not be converted into image input. Mention that if needed.
+            Extracted readable file content is included below. Analyze this content directly. Do not say you cannot access the file.
             """.trimIndent()
         } else {
-            ""
+            """
+
+            No readable text could be extracted from the selected file(s). Use metadata only and explain the limitation.
+            """.trimIndent()
         }
 
         return """
+        User request:
         $prompt
 
-        Attachments:
+        Attached files:
         $metadata
 
         $imageInstruction
-        $unreadableImageNote
+
+        $fileInstruction
+
+        Extracted file content:
+        $readableText
         """.trimIndent()
     }
 }

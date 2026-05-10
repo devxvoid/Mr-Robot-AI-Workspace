@@ -12,13 +12,35 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,15 +65,21 @@ import com.mrrobot.aiworkspace.ui.components.Title
 import com.mrrobot.aiworkspace.viewmodel.ChatAttachment
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.util.zip.ZipInputStream
+
+private const val MAX_TEXT_PER_FILE = 12_000
+private const val MAX_TOTAL_TEXT = 26_000
 
 private val PromptSuggestions = listOf(
+    "Summarize this file",
+    "What is inside this file?",
+    "Find problems in this code",
     "Explain this image",
-    "Review this UI screenshot",
-    "Find problems in this screen",
-    "Extract visible text from this image",
-    "Suggest professional UI improvements"
+    "Extract important points"
 )
 
 @Composable
@@ -107,6 +135,7 @@ fun ChatScreen(
                     model = state.model,
                     apiKeyConfigured = state.apiKey.isNotBlank(),
                     attachmentCount = state.selectedAttachments.size,
+                    readableCount = state.selectedAttachments.count { it.extractedText.isNotBlank() },
                     imageCount = state.selectedAttachments.count { it.imageDataUrl != null },
                     messageCount = state.messages.count { it.role == "user" },
                     onClear = { viewModel.clearChat() }
@@ -149,7 +178,18 @@ fun ChatScreen(
             canRegenerate = state.messages.any { it.role == "user" },
             onInputChange = viewModel::updateInput,
             onAddAttachment = {
-                attachmentLauncher.launch(arrayOf("image/*", "application/pdf", "text/*", "application/zip", "application/json", "application/xml", "*/*"))
+                attachmentLauncher.launch(
+                    arrayOf(
+                        "image/*",
+                        "application/pdf",
+                        "text/*",
+                        "application/json",
+                        "application/xml",
+                        "application/zip",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "*/*"
+                    )
+                )
             },
             onRemoveAttachment = viewModel::removeAttachment,
             onSend = { viewModel.send() },
@@ -164,6 +204,7 @@ private fun ChatHeader(
     model: String,
     apiKeyConfigured: Boolean,
     attachmentCount: Int,
+    readableCount: Int,
     imageCount: Int,
     messageCount: Int,
     onClear: () -> Unit
@@ -185,7 +226,7 @@ private fun ChatHeader(
                 Spacer(Modifier.height(4.dp))
 
                 Text(
-                    text = "Ask, attach images, analyze screenshots, and coordinate Android development work.",
+                    text = "Attach files, read content, analyze screenshots, and coordinate Android development work.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
@@ -219,7 +260,7 @@ private fun ChatHeader(
 
                     Text(
                         text = if (apiKeyConfigured) {
-                            "OpenRouter connected. Images are sent as real vision input when supported by the selected model."
+                            "OpenRouter connected. Text, PDF, DOCX, ZIP index, and image vision inputs are supported."
                         } else {
                             "OpenRouter key required in Settings"
                         },
@@ -244,6 +285,7 @@ private fun ChatHeader(
             MetadataRow("Model", model)
             MetadataRow("User messages", messageCount.toString())
             MetadataRow("Queued files", attachmentCount.toString())
+            MetadataRow("Readable files", readableCount.toString())
             MetadataRow("Vision images", imageCount.toString())
         }
     }
@@ -536,7 +578,7 @@ private fun PromptInputPanel(
                     value = input,
                     onValueChange = onInputChange,
                     placeholder = {
-                        Text("Ask Mr. Robot or attach images...")
+                        Text("Ask Mr. Robot or attach files...")
                     },
                     modifier = Modifier.weight(1f),
                     minLines = 1,
@@ -627,12 +669,6 @@ private fun AttachmentPill(
     removable: Boolean,
     onRemove: (Long) -> Unit
 ) {
-    val readyLabel = when {
-        attachment.imageDataUrl != null -> "Vision ready"
-        attachment.isImage -> "Image metadata only"
-        else -> attachment.mimeType
-    }
-
     Surface(
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
         border = BorderStroke(
@@ -643,7 +679,7 @@ private fun AttachmentPill(
     ) {
         Row(
             modifier = Modifier
-                .width(215.dp)
+                .width(235.dp)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -665,11 +701,7 @@ private fun AttachmentPill(
                 )
 
                 Text(
-                    text = if (attachment.sizeLabel.isNotBlank()) {
-                        "$readyLabel • ${attachment.sizeLabel}"
-                    } else {
-                        readyLabel
-                    },
+                    text = attachmentStatusLabel(attachment),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -785,24 +817,195 @@ private fun buildChatAttachment(
     }
 
     val mimeType = context.contentResolver.getType(uri)
-        ?: "application/octet-stream"
+        ?: guessMimeType(displayName)
 
     val imageDataUrl = if (mimeType.startsWith("image/")) {
-        buildImageDataUrl(
-            context = context,
-            uri = uri
-        )
+        buildImageDataUrl(context, uri)
     } else {
         null
     }
+
+    val extracted = extractAttachmentText(
+        context = context,
+        uri = uri,
+        displayName = displayName,
+        mimeType = mimeType
+    )
 
     return ChatAttachment(
         uri = uri.toString(),
         name = displayName,
         mimeType = mimeType,
         sizeLabel = formatFileSize(sizeBytes),
-        imageDataUrl = imageDataUrl
+        imageDataUrl = imageDataUrl,
+        extractedText = extracted.text,
+        extractionStatus = extracted.status
     )
+}
+
+private data class ExtractionResult(
+    val text: String,
+    val status: String
+)
+
+private fun extractAttachmentText(
+    context: Context,
+    uri: Uri,
+    displayName: String,
+    mimeType: String
+): ExtractionResult {
+    return when {
+        mimeType.startsWith("image/") -> {
+            ExtractionResult(
+                text = "",
+                status = if (buildImageDataUrl(context, uri) != null) {
+                    "vision image ready"
+                } else {
+                    "image metadata only"
+                }
+            )
+        }
+
+        isPlainTextLike(displayName, mimeType) -> {
+            val text = readPlainText(context, uri)
+            ExtractionResult(
+                text = text,
+                status = if (text.isBlank()) "empty text file" else "text extracted"
+            )
+        }
+
+        mimeType == "application/pdf" || displayName.endsWith(".pdf", ignoreCase = true) -> {
+            val text = readPdfText(context, uri)
+            ExtractionResult(
+                text = text,
+                status = if (text.isBlank()) "PDF has no extractable text" else "PDF text extracted"
+            )
+        }
+
+        mimeType.contains("wordprocessingml") || displayName.endsWith(".docx", ignoreCase = true) -> {
+            val text = readDocxText(context, uri)
+            ExtractionResult(
+                text = text,
+                status = if (text.isBlank()) "DOCX has no extractable text" else "DOCX text extracted"
+            )
+        }
+
+        mimeType.contains("zip") || displayName.endsWith(".zip", ignoreCase = true) -> {
+            val text = readZipIndex(context, uri)
+            ExtractionResult(
+                text = text,
+                status = if (text.isBlank()) "ZIP index unavailable" else "ZIP file list extracted"
+            )
+        }
+
+        else -> {
+            ExtractionResult(
+                text = "",
+                status = "unsupported binary file"
+            )
+        }
+    }
+}
+
+private fun readPlainText(
+    context: Context,
+    uri: Uri
+): String {
+    return runCatching {
+        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+            reader.readText()
+        }.orEmpty().take(MAX_TEXT_PER_FILE)
+    }.getOrDefault("")
+}
+
+private fun readPdfText(
+    context: Context,
+    uri: Uri
+): String {
+    return runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            PDDocument.load(input).use { document ->
+                PDFTextStripper()
+                    .getText(document)
+                    .take(MAX_TEXT_PER_FILE)
+            }
+        }.orEmpty()
+    }.getOrDefault("")
+}
+
+private fun readDocxText(
+    context: Context,
+    uri: Uri
+): String {
+    return runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            ZipInputStream(input).use { zip ->
+                val builder = StringBuilder()
+
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+
+                    if (entry.name == "word/document.xml") {
+                        val xml = zip.bufferedReader().readText()
+
+                        val text = xml
+                            .replace(Regex("<w:p[^>]*>"), "\n")
+                            .replace(Regex("<[^>]+>"), " ")
+                            .replace("&amp;", "&")
+                            .replace("&lt;", "<")
+                            .replace("&gt;", ">")
+                            .replace("&quot;", "\"")
+                            .replace("&apos;", "'")
+                            .replace(Regex("\\s+"), " ")
+                            .trim()
+
+                        builder.append(text)
+                        break
+                    }
+                }
+
+                builder.toString().take(MAX_TEXT_PER_FILE)
+            }
+        }.orEmpty()
+    }.getOrDefault("")
+}
+
+private fun readZipIndex(
+    context: Context,
+    uri: Uri
+): String {
+    return runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            ZipInputStream(input).use { zip ->
+                buildString {
+                    appendLine("ZIP contents:")
+
+                    var count = 0
+
+                    while (true) {
+                        val entry = zip.nextEntry ?: break
+                        count++
+
+                        append("- ")
+                        append(entry.name)
+
+                        if (entry.size > 0) {
+                            append(" (")
+                            append(formatFileSize(entry.size))
+                            append(")")
+                        }
+
+                        appendLine()
+
+                        if (count >= 300) {
+                            appendLine("...truncated after 300 entries")
+                            break
+                        }
+                    }
+                }.take(MAX_TEXT_PER_FILE)
+            }
+        }.orEmpty()
+    }.getOrDefault("")
 }
 
 private fun buildImageDataUrl(
@@ -853,6 +1056,60 @@ private fun scaleBitmapForVision(bitmap: Bitmap): Bitmap {
     )
 }
 
+private fun isPlainTextLike(
+    name: String,
+    mimeType: String
+): Boolean {
+    val lower = name.lowercase()
+
+    return mimeType.startsWith("text/") ||
+        mimeType.contains("json") ||
+        mimeType.contains("xml") ||
+        lower.endsWith(".txt") ||
+        lower.endsWith(".md") ||
+        lower.endsWith(".json") ||
+        lower.endsWith(".xml") ||
+        lower.endsWith(".yaml") ||
+        lower.endsWith(".yml") ||
+        lower.endsWith(".csv") ||
+        lower.endsWith(".log") ||
+        lower.endsWith(".kt") ||
+        lower.endsWith(".kts") ||
+        lower.endsWith(".java") ||
+        lower.endsWith(".gradle") ||
+        lower.endsWith(".py") ||
+        lower.endsWith(".js") ||
+        lower.endsWith(".ts") ||
+        lower.endsWith(".html") ||
+        lower.endsWith(".css") ||
+        lower.endsWith(".sh")
+}
+
+private fun guessMimeType(name: String): String {
+    val lower = name.lowercase()
+
+    return when {
+        lower.endsWith(".pdf") -> "application/pdf"
+        lower.endsWith(".docx") -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        lower.endsWith(".zip") -> "application/zip"
+        lower.endsWith(".json") -> "application/json"
+        lower.endsWith(".xml") -> "application/xml"
+        lower.endsWith(".txt") -> "text/plain"
+        lower.endsWith(".md") -> "text/markdown"
+        lower.endsWith(".kt") -> "text/x-kotlin"
+        lower.endsWith(".java") -> "text/x-java"
+        lower.endsWith(".py") -> "text/x-python"
+        lower.endsWith(".js") -> "text/javascript"
+        lower.endsWith(".ts") -> "text/typescript"
+        lower.endsWith(".html") -> "text/html"
+        lower.endsWith(".css") -> "text/css"
+        lower.endsWith(".png") -> "image/png"
+        lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
+        lower.endsWith(".webp") -> "image/webp"
+        else -> "application/octet-stream"
+    }
+}
+
 private fun formatFileSize(sizeBytes: Long?): String {
     if (sizeBytes == null || sizeBytes <= 0L) return ""
 
@@ -868,14 +1125,28 @@ private fun formatFileSize(sizeBytes: Long?): String {
 
 private fun attachmentIcon(attachment: ChatAttachment): String {
     return when {
-        attachment.imageDataUrl != null -> "🖼"
+        attachment.imageDataUrl != null -> "IMG"
         attachment.mimeType.startsWith("image/") -> "IMG"
         attachment.mimeType == "application/pdf" -> "PDF"
+        attachment.mimeType.contains("wordprocessingml") -> "DOCX"
         attachment.mimeType.contains("zip") -> "ZIP"
         attachment.mimeType.startsWith("text/") -> "TXT"
         attachment.mimeType.contains("json") -> "JSON"
         attachment.mimeType.contains("xml") -> "XML"
-        attachment.mimeType.contains("word") -> "DOC"
         else -> "FILE"
+    }
+}
+
+private fun attachmentStatusLabel(attachment: ChatAttachment): String {
+    val base = when {
+        attachment.imageDataUrl != null -> "Vision ready"
+        attachment.extractedText.isNotBlank() -> attachment.extractionStatus
+        else -> attachment.extractionStatus.ifBlank { attachment.mimeType }
+    }
+
+    return if (attachment.sizeLabel.isNotBlank()) {
+        "$base • ${attachment.sizeLabel}"
+    } else {
+        base
     }
 }
