@@ -6,8 +6,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.*
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.mrrobot.aiworkspace.data.AppSettings
 import com.mrrobot.aiworkspace.data.AppThemeMode
@@ -24,6 +30,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
+
         val settingsStore = SettingsStore(applicationContext)
 
         val initialSettings = runCatching {
@@ -32,41 +45,37 @@ class MainActivity : ComponentActivity() {
             }
         }.getOrDefault(AppSettings())
 
-        setContent {
-            val settings by settingsStore.settingsFlow.collectAsState(initial = initialSettings)
-            val systemDark = isSystemInDarkTheme()
-            var showSplash by remember { mutableStateOf(true) }
-            val view = LocalView.current
+        applySystemBars(
+            themeMode = initialSettings.themeMode,
+            systemDark = false,
+            splashMode = false
+        )
 
-            val isDarkUi = isDarkUi(
-                themeMode = settings.themeMode,
-                systemDark = systemDark
+        setContent {
+            val settings by settingsStore.settingsFlow.collectAsState(
+                initial = initialSettings
             )
 
+            val systemDark = isSystemInDarkTheme()
+            val view = LocalView.current
+            var showSplash by remember { mutableStateOf(true) }
+
             SideEffect {
-                val barColor = if (showSplash) {
-                    if (isDarkUi) Color.BLACK else Color.WHITE
-                } else {
-                    if (isDarkUi) Color.rgb(3, 7, 18) else Color.rgb(248, 250, 252)
-                }
-
-                window.statusBarColor = barColor
-                window.navigationBarColor = barColor
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    window.navigationBarDividerColor = barColor
-                }
-
-                val controller = WindowInsetsControllerCompat(window, view)
-                controller.isAppearanceLightStatusBars = !isDarkUi
-                controller.isAppearanceLightNavigationBars = !isDarkUi
+                applySystemBars(
+                    themeMode = settings.themeMode,
+                    systemDark = systemDark,
+                    splashMode = showSplash,
+                    view = view
+                )
             }
 
             if (showSplash) {
                 SplashScreen(
                     themeMode = settings.themeMode,
                     systemDark = systemDark,
-                    onFinished = { showSplash = false }
+                    onFinished = {
+                        showSplash = false
+                    }
                 )
             } else {
                 MrRobotTheme(themeMode = settings.themeMode) {
@@ -74,6 +83,44 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun applySystemBars(
+        themeMode: AppThemeMode,
+        systemDark: Boolean,
+        splashMode: Boolean,
+        view: android.view.View? = null
+    ) {
+        val darkUi = isDarkUi(
+            themeMode = themeMode,
+            systemDark = systemDark
+        )
+
+        val barColor = when {
+            splashMode && darkUi -> Color.BLACK
+            splashMode && !darkUi -> Color.WHITE
+            darkUi -> Color.rgb(3, 7, 18)
+            else -> Color.rgb(248, 250, 252)
+        }
+
+        window.statusBarColor = barColor
+        window.navigationBarColor = barColor
+        window.decorView.setBackgroundColor(barColor)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.navigationBarDividerColor = barColor
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
+
+        val targetView = view ?: window.decorView
+        val controller = WindowInsetsControllerCompat(window, targetView)
+
+        controller.isAppearanceLightStatusBars = !darkUi
+        controller.isAppearanceLightNavigationBars = !darkUi
     }
 
     private fun isDarkUi(
