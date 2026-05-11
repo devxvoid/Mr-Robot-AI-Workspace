@@ -208,7 +208,7 @@ private fun ThemeSelectorCard(
                 title = "Auto",
                 mode = AppThemeMode.Auto,
                 selected = selected,
-                iconRes = R.drawable.ic_lucide_sun_moon,
+                iconRes = R.drawable.ic_lucide_sun_moon_exact_exact,
                 onSelected = onSelected,
                 modifier = Modifier.weight(1f)
             )
