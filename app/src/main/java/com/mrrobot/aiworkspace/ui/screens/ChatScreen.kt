@@ -1,12 +1,15 @@
 package com.mrrobot.aiworkspace.ui.screens
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.speech.RecognizerIntent
 import android.util.Base64
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -36,6 +39,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -51,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mrrobot.aiworkspace.R
 import com.mrrobot.aiworkspace.ui.components.GlassCard
 import com.mrrobot.aiworkspace.ui.components.ScreenShell
 import com.mrrobot.aiworkspace.ui.components.Subtitle
@@ -69,10 +75,10 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.util.Locale
 import java.util.zip.ZipInputStream
 
 private const val MAX_TEXT_PER_FILE = 12_000
-private const val MAX_TOTAL_TEXT = 26_000
 
 private val PromptSuggestions = listOf(
     "Summarize this file",
@@ -111,6 +117,30 @@ fun ChatScreen(
         }
 
         viewModel.addAttachments(attachments)
+    }
+
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                .orEmpty()
+                .trim()
+
+            if (spokenText.isNotBlank()) {
+                val currentInput = state.input.trimEnd()
+
+                val nextInput = if (currentInput.isBlank()) {
+                    spokenText
+                } else {
+                    "$currentInput $spokenText"
+                }
+
+                viewModel.updateInput(nextInput)
+            }
+        }
     }
 
     LaunchedEffect(state.messages.size, state.isLoading) {
@@ -191,6 +221,32 @@ fun ChatScreen(
                     )
                 )
             },
+            onVoiceInput = {
+                val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                    )
+                    putExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE,
+                        Locale.getDefault()
+                    )
+                    putExtra(
+                        RecognizerIntent.EXTRA_PROMPT,
+                        "Speak to Mr. Robot"
+                    )
+                }
+
+                runCatching {
+                    speechLauncher.launch(speechIntent)
+                }.onFailure {
+                    Toast.makeText(
+                        context,
+                        "Voice input is not available on this device.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
             onRemoveAttachment = viewModel::removeAttachment,
             onSend = { viewModel.send() },
             onStop = { viewModel.stopGeneration() },
@@ -226,7 +282,7 @@ private fun ChatHeader(
                 Spacer(Modifier.height(4.dp))
 
                 Text(
-                    text = "Attach files, read content, analyze screenshots, and coordinate Android development work.",
+                    text = "Attach files, speak prompts, analyze screenshots, and coordinate Android development work.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
@@ -260,7 +316,7 @@ private fun ChatHeader(
 
                     Text(
                         text = if (apiKeyConfigured) {
-                            "OpenRouter connected. Text, PDF, DOCX, ZIP index, and image vision inputs are supported."
+                            "OpenRouter connected. File reading, image vision, and voice-to-text input are available."
                         } else {
                             "OpenRouter key required in Settings"
                         },
@@ -521,6 +577,7 @@ private fun PromptInputPanel(
     canRegenerate: Boolean,
     onInputChange: (String) -> Unit,
     onAddAttachment: () -> Unit,
+    onVoiceInput: () -> Unit,
     onRemoveAttachment: (Long) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
@@ -550,35 +607,26 @@ private fun PromptInputPanel(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                Surface(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clickable { onAddAttachment() },
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-                    ),
-                    shape = RoundedCornerShape(18.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "+",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 30.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                InputIconButton(
+                    label = "+",
+                    contentDescription = "Attach files",
+                    onClick = onAddAttachment
+                )
+
+                InputIconButton(
+                    iconRes = R.drawable.ic_lucide_mic,
+                    contentDescription = "Voice input",
+                    onClick = onVoiceInput
+                )
 
                 OutlinedTextField(
                     value = input,
                     onValueChange = onInputChange,
                     placeholder = {
-                        Text("Ask Mr. Robot or attach files...")
+                        Text("Ask, speak, or attach files...")
                     },
                     modifier = Modifier.weight(1f),
                     minLines = 1,
@@ -636,6 +684,44 @@ private fun PromptInputPanel(
                 ) {
                     Text("Regenerate")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InputIconButton(
+    label: String? = null,
+    iconRes: Int? = null,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .size(52.dp)
+            .clickable { onClick() },
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+        ),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (iconRes != null) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = contentDescription,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            } else {
+                Text(
+                    text = label.orEmpty(),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
