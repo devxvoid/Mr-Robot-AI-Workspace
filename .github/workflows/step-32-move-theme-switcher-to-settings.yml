@@ -1,0 +1,758 @@
+name: Step 32 Move Theme Switcher To Settings
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    name: Move Theme UI From Home To Settings
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Add Lucide theme icons and replace Settings theme UI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+          DRAWABLE_DIR="app/src/main/res/drawable"
+
+          mkdir -p "$APP_DIR/ui/screens"
+          mkdir -p "$DRAWABLE_DIR"
+
+          cat > "$DRAWABLE_DIR/ic_lucide_sun_moon.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M12,8A4,4 0,1 0,12 16A4,4 0,1 0,12 8"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path android:pathData="M12,2V4" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M12,20V22" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.93,4.93L6.34,6.34" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M17.66,17.66L19.07,19.07" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M2,12H4" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M20,12H22" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.93,19.07L6.34,17.66" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M17.66,6.34L19.07,4.93" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+
+              <path
+                  android:pathData="M21,14.5C20.1,18.3 16.7,21 12.7,21C15.4,19.5 17,16.7 17,13.6C17,11.3 16.1,9.2 14.6,7.7C18.4,8.5 21,11.4 21,14.5Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="1.8"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          cat > "$DRAWABLE_DIR/ic_lucide_sun.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M12,7A5,5 0,1 0,12 17A5,5 0,1 0,12 7"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path android:pathData="M12,1V3" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M12,21V23" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.22,4.22L5.64,5.64" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M18.36,18.36L19.78,19.78" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M1,12H3" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M21,12H23" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.22,19.78L5.64,18.36" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M18.36,5.64L19.78,4.22" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+          </vector>
+          EOF
+
+          cat > "$DRAWABLE_DIR/ic_lucide_moon.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M21,12.79A9,9 0,1 1,11.21 3A7,7 0,0 0,21 12.79Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          cat > "$DRAWABLE_DIR/ic_lucide_cpu.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M9,9H15V15H9V9Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M7,3V6M12,3V6M17,3V6M7,18V21M12,18V21M17,18V21M3,7H6M3,12H6M3,17H6M18,7H21M18,12H21M18,17H21"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M6,6H18V18H6V6Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          cat > "$DRAWABLE_DIR/ic_lucide_terminal_square.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M4,4H20V20H4V4Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M8,9L11,12L8,15"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M13,15H16"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round" />
+          </vector>
+          EOF
+
+          cat > "$APP_DIR/ui/screens/WelcomeScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.PaddingValues
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.navigation.NavController
+          import com.mrrobot.aiworkspace.navigation.Route
+          import com.mrrobot.aiworkspace.ui.components.CyberButton
+          import com.mrrobot.aiworkspace.ui.components.GlassCard
+          import com.mrrobot.aiworkspace.ui.components.PremiumMetric
+          import com.mrrobot.aiworkspace.ui.components.ScreenShell
+          import com.mrrobot.aiworkspace.ui.components.StatusPill
+          import com.mrrobot.aiworkspace.ui.components.Subtitle
+          import com.mrrobot.aiworkspace.ui.components.Title
+
+          @Composable
+          fun WelcomeScreen(nav: NavController) {
+              ScreenShell {
+                  LazyColumn(
+                      modifier = Modifier.fillMaxSize(),
+                      contentPadding = PaddingValues(bottom = 18.dp)
+                  ) {
+                      item {
+                          HomeHeader()
+
+                          Spacer(Modifier.height(16.dp))
+
+                          GlassCard {
+                              Row(
+                                  modifier = Modifier.fillMaxWidth(),
+                                  horizontalArrangement = Arrangement.spacedBy(8.dp)
+                              ) {
+                                  StatusPill("Cyber")
+                                  StatusPill("Hacker")
+                                  StatusPill("Assets")
+                              }
+
+                              Spacer(Modifier.height(14.dp))
+
+                              Title("Command Center")
+
+                              Subtitle(
+                                  "Launch AI chat, manage agents, build workflows, inspect terminal activity, and tune the workspace from Settings."
+                              )
+
+                              Spacer(Modifier.height(14.dp))
+
+                              CyberButton("Launch AI Chat") {
+                                  nav.navigate(Route.Chat.path)
+                              }
+
+                              Spacer(Modifier.height(10.dp))
+
+                              OutlinedButton(
+                                  onClick = { nav.navigate(Route.Agents.path) },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .height(50.dp)
+                              ) {
+                                  Text("Open Agent System")
+                              }
+
+                              Spacer(Modifier.height(10.dp))
+
+                              OutlinedButton(
+                                  onClick = { nav.navigate(Route.Workflow.path) },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .height(50.dp)
+                              ) {
+                                  Text("Build Workflow")
+                              }
+                          }
+
+                          Spacer(Modifier.height(14.dp))
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "Screens",
+                                      value = "20+",
+                                      description = "Workspace tools"
+                                  )
+                              }
+
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "Themes",
+                                      value = "5",
+                                      description = "Configured in Settings"
+                                  )
+                              }
+                          }
+
+                          Spacer(Modifier.height(10.dp))
+
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.spacedBy(10.dp)
+                          ) {
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "AI",
+                                      value = "OR",
+                                      description = "OpenRouter"
+                                  )
+                              }
+
+                              Box(modifier = Modifier.weight(1f)) {
+                                  PremiumMetric(
+                                      label = "Agents",
+                                      value = "5",
+                                      description = "Role prompts"
+                                  )
+                              }
+                          }
+
+                          Spacer(Modifier.height(14.dp))
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun HomeHeader() {
+              Column(modifier = Modifier.fillMaxWidth()) {
+                  Text(
+                      text = "Mr. Robot AI\nWorkspace",
+                      color = MaterialTheme.colorScheme.onBackground,
+                      fontSize = 30.sp,
+                      fontWeight = FontWeight.ExtraBold,
+                      lineHeight = 34.sp
+                  )
+
+                  Spacer(Modifier.height(10.dp))
+
+                  Text(
+                      text = "A professional Android command center for AI chat, agents, workflows, terminal logs, marketplace tools, and OpenRouter models.",
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      fontSize = 14.sp,
+                      lineHeight = 21.sp
+                  )
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/ui/screens/SettingsScreen.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.ui.screens
+
+          import androidx.annotation.DrawableRes
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.layout.Arrangement
+          import androidx.compose.foundation.layout.Column
+          import androidx.compose.foundation.layout.PaddingValues
+          import androidx.compose.foundation.layout.Row
+          import androidx.compose.foundation.layout.Spacer
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.padding
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.foundation.lazy.LazyColumn
+          import androidx.compose.material3.DropdownMenuItem
+          import androidx.compose.material3.ExperimentalMaterial3Api
+          import androidx.compose.material3.ExposedDropdownMenuBox
+          import androidx.compose.material3.ExposedDropdownMenuDefaults
+          import androidx.compose.material3.HorizontalDivider
+          import androidx.compose.material3.Icon
+          import androidx.compose.material3.MaterialTheme
+          import androidx.compose.material3.OutlinedButton
+          import androidx.compose.material3.OutlinedTextField
+          import androidx.compose.material3.Surface
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.collectAsState
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.remember
+          import androidx.compose.runtime.setValue
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.res.painterResource
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.input.PasswordVisualTransformation
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.lifecycle.viewmodel.compose.viewModel
+          import com.mrrobot.aiworkspace.R
+          import com.mrrobot.aiworkspace.data.AiModels
+          import com.mrrobot.aiworkspace.data.AppThemeMode
+          import com.mrrobot.aiworkspace.ui.components.CyberButton
+          import com.mrrobot.aiworkspace.ui.components.GlassCard
+          import com.mrrobot.aiworkspace.ui.components.ScreenShell
+          import com.mrrobot.aiworkspace.ui.components.Subtitle
+          import com.mrrobot.aiworkspace.ui.components.Title
+          import com.mrrobot.aiworkspace.viewmodel.SettingsViewModel
+
+          @Composable
+          fun SettingsScreen(
+              viewModel: SettingsViewModel = viewModel()
+          ) {
+              val state by viewModel.uiState.collectAsState()
+              val selectedModel = AiModels.findById(state.model)
+
+              ScreenShell {
+                  LazyColumn(
+                      modifier = Modifier.fillMaxSize(),
+                      contentPadding = PaddingValues(bottom = 18.dp)
+                  ) {
+                      item {
+                          Text(
+                              text = "Settings",
+                              color = MaterialTheme.colorScheme.onBackground,
+                              fontSize = 30.sp,
+                              fontWeight = FontWeight.ExtraBold,
+                              lineHeight = 34.sp
+                          )
+
+                          Spacer(Modifier.height(8.dp))
+
+                          Subtitle("Configure OpenRouter, model selection, Cyber/Hacker design themes, and workspace preferences.")
+
+                          Spacer(Modifier.height(14.dp))
+
+                          GlassCard {
+                              Subtitle("OpenRouter API Key")
+
+                              Spacer(Modifier.height(8.dp))
+
+                              OutlinedTextField(
+                                  value = state.apiKey,
+                                  onValueChange = viewModel::updateApiKey,
+                                  placeholder = { Text("sk-or-v1-...") },
+                                  visualTransformation = PasswordVisualTransformation(),
+                                  singleLine = true,
+                                  modifier = Modifier.fillMaxWidth()
+                              )
+
+                              Spacer(Modifier.height(18.dp))
+
+                              ThemeSelectorCard(
+                                  selected = state.themeMode,
+                                  onSelected = viewModel::updateThemeMode
+                              )
+
+                              Spacer(Modifier.height(18.dp))
+
+                              Subtitle("Selected Model")
+
+                              Spacer(Modifier.height(8.dp))
+
+                              ModelSelector(
+                                  selectedModelId = state.model,
+                                  onModelSelected = viewModel::updateModel
+                              )
+
+                              Spacer(Modifier.height(14.dp))
+
+                              GlassCard {
+                                  Title(selectedModel.name)
+                                  Subtitle("${selectedModel.provider} • ${selectedModel.id}")
+
+                                  Spacer(Modifier.height(6.dp))
+
+                                  Subtitle(selectedModel.description)
+                              }
+
+                              Spacer(Modifier.height(16.dp))
+
+                              CyberButton("Save Settings") {
+                                  viewModel.save()
+                              }
+
+                              Spacer(Modifier.height(10.dp))
+
+                              OutlinedButton(
+                                  onClick = { viewModel.clear() },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .height(50.dp)
+                              ) {
+                                  Text("Clear Settings")
+                              }
+
+                              if (state.savedMessage.isNotBlank()) {
+                                  Spacer(Modifier.height(12.dp))
+                                  Subtitle(state.savedMessage)
+                              }
+                          }
+
+                          Spacer(Modifier.height(16.dp))
+
+                          GlassCard {
+                              Title("Theme Guide")
+
+                              Spacer(Modifier.height(8.dp))
+
+                              Subtitle("Auto follows your Android system theme.")
+                              Subtitle("Light keeps a clean bright interface.")
+                              Subtitle("Dark keeps the premium dark interface.")
+                              Subtitle("Cyber uses the imported Mr. Robot Cyberpunk System style.")
+                              Subtitle("Hacker uses the imported red/black Hacker Mode style.")
+
+                              Spacer(Modifier.height(12.dp))
+
+                              HorizontalDivider()
+
+                              Spacer(Modifier.height(12.dp))
+
+                              Title("Model Catalog")
+
+                              Spacer(Modifier.height(8.dp))
+
+                              AiModels.supported.forEach { model ->
+                                  Column(
+                                      modifier = Modifier
+                                          .fillMaxWidth()
+                                          .clickable {
+                                              viewModel.updateModel(model.id)
+                                          }
+                                          .padding(vertical = 10.dp)
+                                  ) {
+                                      Subtitle("${model.name} — ${model.provider}")
+                                      Subtitle(model.id)
+                                  }
+
+                                  HorizontalDivider()
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun ThemeSelectorCard(
+              selected: AppThemeMode,
+              onSelected: (AppThemeMode) -> Unit
+          ) {
+              Column(modifier = Modifier.fillMaxWidth()) {
+                  Title("Theme")
+
+                  Spacer(Modifier.height(6.dp))
+
+                  Subtitle("Choose the app appearance and design mode.")
+
+                  Spacer(Modifier.height(14.dp))
+
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(10.dp)
+                  ) {
+                      ThemeTile(
+                          title = "Auto",
+                          mode = AppThemeMode.Auto,
+                          selected = selected,
+                          iconRes = R.drawable.ic_lucide_sun_moon,
+                          onSelected = onSelected,
+                          modifier = Modifier.weight(1f)
+                      )
+
+                      ThemeTile(
+                          title = "Light",
+                          mode = AppThemeMode.Light,
+                          selected = selected,
+                          iconRes = R.drawable.ic_lucide_sun,
+                          onSelected = onSelected,
+                          modifier = Modifier.weight(1f)
+                      )
+
+                      ThemeTile(
+                          title = "Dark",
+                          mode = AppThemeMode.Dark,
+                          selected = selected,
+                          iconRes = R.drawable.ic_lucide_moon,
+                          onSelected = onSelected,
+                          modifier = Modifier.weight(1f)
+                      )
+                  }
+
+                  Spacer(Modifier.height(10.dp))
+
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.spacedBy(10.dp)
+                  ) {
+                      ThemeTile(
+                          title = "Cyber",
+                          mode = AppThemeMode.Cyberpunk,
+                          selected = selected,
+                          iconRes = R.drawable.ic_lucide_cpu,
+                          onSelected = onSelected,
+                          modifier = Modifier.weight(1f)
+                      )
+
+                      ThemeTile(
+                          title = "Hacker",
+                          mode = AppThemeMode.Hacker,
+                          selected = selected,
+                          iconRes = R.drawable.ic_lucide_terminal_square,
+                          onSelected = onSelected,
+                          modifier = Modifier.weight(1f)
+                      )
+                  }
+              }
+          }
+
+          @Composable
+          private fun ThemeTile(
+              title: String,
+              mode: AppThemeMode,
+              selected: AppThemeMode,
+              @DrawableRes iconRes: Int,
+              onSelected: (AppThemeMode) -> Unit,
+              modifier: Modifier = Modifier
+          ) {
+              val isSelected = selected == mode
+
+              val iconColor = if (isSelected) {
+                  MaterialTheme.colorScheme.primary
+              } else {
+                  MaterialTheme.colorScheme.onSurfaceVariant
+              }
+
+              val borderColor = if (isSelected) {
+                  MaterialTheme.colorScheme.primary
+              } else {
+                  MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+              }
+
+              val containerColor = if (isSelected) {
+                  MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+              } else {
+                  MaterialTheme.colorScheme.surface.copy(alpha = 0.76f)
+              }
+
+              Surface(
+                  modifier = modifier.clickable {
+                      onSelected(mode)
+                  },
+                  color = containerColor,
+                  border = BorderStroke(1.dp, borderColor),
+                  shape = MaterialTheme.shapes.large
+              ) {
+                  Column(
+                      modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(vertical = 16.dp, horizontal = 8.dp),
+                      horizontalAlignment = Alignment.CenterHorizontally,
+                      verticalArrangement = Arrangement.spacedBy(8.dp)
+                  ) {
+                      Icon(
+                          painter = painterResource(id = iconRes),
+                          contentDescription = title,
+                          tint = iconColor,
+                          modifier = Modifier.size(26.dp)
+                      )
+
+                      Text(
+                          text = title,
+                          color = if (isSelected) {
+                              MaterialTheme.colorScheme.primary
+                          } else {
+                              MaterialTheme.colorScheme.onSurface
+                          },
+                          fontWeight = FontWeight.Bold,
+                          fontSize = 13.sp,
+                          maxLines = 1
+                      )
+                  }
+              }
+          }
+
+          @OptIn(ExperimentalMaterial3Api::class)
+          @Composable
+          private fun ModelSelector(
+              selectedModelId: String,
+              onModelSelected: (String) -> Unit
+          ) {
+              var expanded by remember { mutableStateOf(false) }
+              val selected = AiModels.findById(selectedModelId)
+
+              ExposedDropdownMenuBox(
+                  expanded = expanded,
+                  onExpandedChange = { expanded = !expanded }
+              ) {
+                  OutlinedTextField(
+                      value = "${selected.name} • ${selected.provider}",
+                      onValueChange = {},
+                      readOnly = true,
+                      label = { Text("AI Model") },
+                      trailingIcon = {
+                          ExposedDropdownMenuDefaults.TrailingIcon(
+                              expanded = expanded
+                          )
+                      },
+                      modifier = Modifier
+                          .menuAnchor()
+                          .fillMaxWidth()
+                  )
+
+                  ExposedDropdownMenu(
+                      expanded = expanded,
+                      onDismissRequest = { expanded = false }
+                  ) {
+                      AiModels.supported.forEach { model ->
+                          DropdownMenuItem(
+                              text = {
+                                  Column {
+                                      Text(model.name)
+                                      Text(model.provider)
+                                  }
+                              },
+                              onClick = {
+                                  onModelSelected(model.id)
+                                  expanded = false
+                              }
+                          )
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Verify home theme switch removed and settings theme UI added
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if grep -R "Quick Theme" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/WelcomeScreen.kt; then
+            echo "Home still contains Quick Theme."
+            exit 1
+          fi
+
+          if grep -R "Imported Design System" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/WelcomeScreen.kt; then
+            echo "Home still contains old Imported Design System text."
+            exit 1
+          fi
+
+          grep -R "private fun ThemeSelectorCard" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt
+          grep -R "R.drawable.ic_lucide_sun_moon" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt
+          grep -R "AppThemeMode.Cyberpunk" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt
+          grep -R "AppThemeMode.Hacker" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt
+
+          echo "Theme UI moved to Settings successfully."
+
+      - name: Commit Step 32
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 32 move theme switcher to settings"
+
+          git pull --rebase origin main
+          git push origin main
