@@ -7,62 +7,14 @@ enum class ApiProvider(
     val keyPlaceholder: String,
     val helpText: String
 ) {
-    OpenRouter(
-        displayName = "OpenRouter",
-        shortName = "OR",
-        keyLabel = "OpenRouter API Key",
-        keyPlaceholder = "sk-or-v1-...",
-        helpText = "One key for many hosted models."
-    ),
-    OpenAI(
-        displayName = "OpenAI",
-        shortName = "OpenAI",
-        keyLabel = "OpenAI API Key",
-        keyPlaceholder = "sk-...",
-        helpText = "Use official OpenAI models directly."
-    ),
-    Anthropic(
-        displayName = "Anthropic",
-        shortName = "Claude",
-        keyLabel = "Anthropic API Key",
-        keyPlaceholder = "sk-ant-...",
-        helpText = "Use Claude models directly."
-    ),
-    Gemini(
-        displayName = "Google",
-        shortName = "Gemini",
-        keyLabel = "Gemini API Key",
-        keyPlaceholder = "AIza...",
-        helpText = "Use Google Gemini models directly."
-    ),
-    Groq(
-        displayName = "Groq",
-        shortName = "Groq",
-        keyLabel = "Groq API Key",
-        keyPlaceholder = "gsk_...",
-        helpText = "Fast OpenAI-compatible inference."
-    ),
-    Mistral(
-        displayName = "Mistral",
-        shortName = "Mistral",
-        keyLabel = "Mistral API Key",
-        keyPlaceholder = "Enter Mistral API key",
-        helpText = "Use Mistral and Codestral models."
-    ),
-    DeepSeek(
-        displayName = "DeepSeek",
-        shortName = "DeepSeek",
-        keyLabel = "DeepSeek API Key",
-        keyPlaceholder = "sk-...",
-        helpText = "Use DeepSeek chat and reasoning models."
-    ),
-    XAI(
-        displayName = "xAI",
-        shortName = "Grok",
-        keyLabel = "xAI API Key",
-        keyPlaceholder = "xai-...",
-        helpText = "Use Grok models directly."
-    )
+    OpenRouter("OpenRouter", "OR", "OpenRouter API Key", "sk-or-v1-...", "One key for many hosted models."),
+    OpenAI("OpenAI", "OpenAI", "OpenAI API Key", "sk-...", "Official OpenAI models."),
+    Anthropic("Anthropic", "Claude", "Anthropic API Key", "sk-ant-...", "Claude models from Anthropic."),
+    Gemini("Google Gemini", "Gemini", "Gemini API Key", "AIza...", "Google Gemini models."),
+    Groq("Groq", "Groq", "Groq API Key", "gsk_...", "Fast OpenAI-compatible inference."),
+    Mistral("Mistral", "Mistral", "Mistral API Key", "Enter Mistral API key", "Mistral and Codestral models."),
+    DeepSeek("DeepSeek", "DeepSeek", "DeepSeek API Key", "sk-...", "DeepSeek chat and reasoning models."),
+    XAI("xAI", "Grok", "xAI API Key", "xai-...", "Grok models from xAI.")
 }
 
 data class AiModel(
@@ -73,21 +25,29 @@ data class AiModel(
     val apiProvider: ApiProvider
 )
 
-object AiModels {
+data class ProviderModelConfig(
+    val provider: ApiProvider,
+    val modelId: String,
+    val apiKey: String
+) {
+    val hasKey: Boolean
+        get() = apiKey.isNotBlank()
+}
 
+object AiModels {
     val supported = listOf(
         AiModel("openai/gpt-4o-mini", "GPT-4o Mini", "OpenRouter", "Fast general model through OpenRouter.", ApiProvider.OpenRouter),
         AiModel("anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet", "OpenRouter", "Claude through OpenRouter.", ApiProvider.OpenRouter),
-        AiModel("google/gemini-2.0-flash-001", "Gemini Flash", "OpenRouter", "Fast Gemini model through OpenRouter.", ApiProvider.OpenRouter),
-        AiModel("meta-llama/llama-3.1-70b-instruct", "Llama 3.1 70B", "OpenRouter", "Open model through OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("google/gemini-2.0-flash-001", "Gemini Flash", "OpenRouter", "Gemini through OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("meta-llama/llama-3.1-70b-instruct", "Llama 3.1 70B", "OpenRouter", "Llama through OpenRouter.", ApiProvider.OpenRouter),
         AiModel("deepseek/deepseek-chat", "DeepSeek Chat", "OpenRouter", "DeepSeek through OpenRouter.", ApiProvider.OpenRouter),
 
-        AiModel("gpt-4o-mini", "GPT-4o Mini", "OpenAI", "Fast official OpenAI model.", ApiProvider.OpenAI),
+        AiModel("gpt-4o-mini", "GPT-4o Mini", "OpenAI", "Fast OpenAI model.", ApiProvider.OpenAI),
         AiModel("gpt-4o", "GPT-4o", "OpenAI", "Flagship OpenAI model.", ApiProvider.OpenAI),
         AiModel("o3-mini", "o3 Mini", "OpenAI", "Reasoning-focused OpenAI model.", ApiProvider.OpenAI),
 
-        AiModel("claude-3-5-sonnet-latest", "Claude 3.5 Sonnet", "Anthropic", "Strong Claude model for coding and reasoning.", ApiProvider.Anthropic),
-        AiModel("claude-3-5-haiku-latest", "Claude 3.5 Haiku", "Anthropic", "Fast Claude model for everyday tasks.", ApiProvider.Anthropic),
+        AiModel("claude-3-5-sonnet-latest", "Claude 3.5 Sonnet", "Anthropic", "Strong Claude model for coding and analysis.", ApiProvider.Anthropic),
+        AiModel("claude-3-5-haiku-latest", "Claude 3.5 Haiku", "Anthropic", "Fast Claude model.", ApiProvider.Anthropic),
 
         AiModel("gemini-1.5-flash", "Gemini 1.5 Flash", "Google", "Fast Gemini model.", ApiProvider.Gemini),
         AiModel("gemini-1.5-pro", "Gemini 1.5 Pro", "Google", "Advanced Gemini model.", ApiProvider.Gemini),
