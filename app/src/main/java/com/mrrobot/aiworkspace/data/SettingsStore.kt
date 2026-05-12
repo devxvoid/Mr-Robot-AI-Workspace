@@ -84,14 +84,6 @@ data class AppSettings(
         return activeApiKey().isNotBlank()
     }
 
-    fun activeProviderLabel(): String {
-        return if (hasActiveConfiguration()) {
-            "${selectedProvider.displayName} • ${AiModels.findById(activeModel()).name}"
-        } else {
-            "No active model"
-        }
-    }
-
     fun configuredProviderModels(): List<ProviderModelConfig> {
         return ApiProvider.values()
             .map { provider ->

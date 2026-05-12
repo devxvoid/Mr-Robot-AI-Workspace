@@ -113,6 +113,7 @@ object ProviderChatClient {
             .put("model", model)
             .put("messages", jsonMessages)
             .put("temperature", 0.7)
+            .put("max_tokens", 1200)
 
         val response = postJson(
             url = url,
