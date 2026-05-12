@@ -201,9 +201,7 @@ object ProviderChatClient {
         val response = postJson(
             url = endpoint,
             body = payload,
-            headers = mapOf(
-                "Content-Type" to "application/json"
-            )
+            headers = mapOf("Content-Type" to "application/json")
         )
 
         return JSONObject(response)
@@ -237,11 +235,7 @@ object ProviderChatClient {
         }
 
         val status = connection.responseCode
-        val stream = if (status in 200..299) {
-            connection.inputStream
-        } else {
-            connection.errorStream
-        }
+        val stream = if (status in 200..299) connection.inputStream else connection.errorStream
 
         val response = BufferedReader(InputStreamReader(stream)).use { reader ->
             reader.readText()

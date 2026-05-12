@@ -13,7 +13,7 @@ enum class AppThemeMode {
     Auto,
     Dark,
     Light,
-    Cyber,
+    Cyberpunk,
     Hacker
 }
 
@@ -133,6 +133,8 @@ class SettingsStore(private val context: Context) {
                 ApiProvider.valueOf(prefs[Keys.SELECTED_PROVIDER] ?: ApiProvider.OpenRouter.name)
             }.getOrDefault(ApiProvider.OpenRouter)
 
+            val themeMode = parseThemeMode(prefs[Keys.THEME_MODE])
+
             val openRouterModel = normalizeModel(ApiProvider.OpenRouter, prefs[Keys.OPENROUTER_MODEL] ?: prefs[Keys.MODEL])
             val openAiModel = normalizeModel(ApiProvider.OpenAI, prefs[Keys.OPENAI_MODEL])
             val anthropicModel = normalizeModel(ApiProvider.Anthropic, prefs[Keys.ANTHROPIC_MODEL])
@@ -156,9 +158,7 @@ class SettingsStore(private val context: Context) {
             AppSettings(
                 apiKey = openRouterKey,
                 model = activeModel,
-                themeMode = runCatching {
-                    AppThemeMode.valueOf(prefs[Keys.THEME_MODE] ?: AppThemeMode.Auto.name)
-                }.getOrDefault(AppThemeMode.Auto),
+                themeMode = themeMode,
                 selectedProvider = selectedProvider,
 
                 openRouterApiKey = openRouterKey,
@@ -279,6 +279,15 @@ class SettingsStore(private val context: Context) {
     suspend fun clearSettings() {
         context.settingsDataStore.edit { prefs ->
             prefs.clear()
+        }
+    }
+
+    private fun parseThemeMode(value: String?): AppThemeMode {
+        return when (value) {
+            "Cyber" -> AppThemeMode.Cyberpunk
+            else -> runCatching {
+                AppThemeMode.valueOf(value ?: AppThemeMode.Auto.name)
+            }.getOrDefault(AppThemeMode.Auto)
         }
     }
 

@@ -1,22 +1,14 @@
 package com.mrrobot.aiworkspace.ui.screens
 
-import android.app.Activity
 import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
-import android.speech.RecognizerIntent
-import android.util.Base64
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,21 +22,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -55,38 +45,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mrrobot.aiworkspace.R
 import com.mrrobot.aiworkspace.ui.components.GlassCard
+import com.mrrobot.aiworkspace.ui.components.NeonCyan
+import com.mrrobot.aiworkspace.ui.components.NeonPurple
+import com.mrrobot.aiworkspace.ui.components.Panel
 import com.mrrobot.aiworkspace.ui.components.ScreenShell
+import com.mrrobot.aiworkspace.ui.components.SoftText
 import com.mrrobot.aiworkspace.ui.components.Subtitle
 import com.mrrobot.aiworkspace.ui.components.Title
 import com.mrrobot.aiworkspace.viewmodel.ChatAttachment
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
-import com.tom_roush.pdfbox.pdmodel.PDDocument
-import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
-import java.util.Locale
-import java.util.zip.ZipInputStream
-
-private const val MAX_TEXT_PER_FILE = 12_000
-
-private val PromptSuggestions = listOf(
-    "Summarize this file",
-    "What is inside this file?",
-    "Find problems in this code",
-    "Explain this image",
-    "Extract important points"
-)
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 @Composable
 fun ChatScreen(
@@ -100,47 +77,14 @@ fun ChatScreen(
     val attachmentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
-        uris.forEach { uri ->
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-        }
-
         val attachments = uris.map { uri ->
-            buildChatAttachment(
+            createAttachmentFromUri(
                 context = context,
                 uri = uri
             )
         }
 
         viewModel.addAttachments(attachments)
-    }
-
-    val speechLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val spokenText = result.data
-                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                ?.firstOrNull()
-                .orEmpty()
-                .trim()
-
-            if (spokenText.isNotBlank()) {
-                val currentInput = state.input.trimEnd()
-
-                val nextInput = if (currentInput.isBlank()) {
-                    spokenText
-                } else {
-                    "$currentInput $spokenText"
-                }
-
-                viewModel.updateInput(nextInput)
-            }
-        }
     }
 
     LaunchedEffect(state.messages.size, state.isLoading) {
@@ -152,32 +96,42 @@ fun ChatScreen(
     }
 
     ScreenShell {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Title("AI Chat")
+                Subtitle("Provider-aware workspace chat with files, prompts, and Android development context.")
+            }
+
+            TextButton(onClick = { viewModel.clearChat() }) {
+                Text("Clear")
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        AssistantStatusCard(
+            provider = state.provider,
+            model = state.model,
+            ready = state.isProviderReady,
+            userMessages = state.userMessages,
+            queuedFiles = state.queuedFiles,
+            readableFiles = state.readableFiles,
+            visionImages = state.visionImages
+        )
+
+        Spacer(Modifier.height(12.dp))
+
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .fillMaxSize()
-                .weight(1f),
-            contentPadding = PaddingValues(bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(bottom = 12.dp)
         ) {
-            item {
-                ChatHeader(
-                    model = state.model,
-                    apiKeyConfigured = state.apiKey.isNotBlank(),
-                    attachmentCount = state.selectedAttachments.size,
-                    readableCount = state.selectedAttachments.count { it.extractedText.isNotBlank() },
-                    imageCount = state.selectedAttachments.count { it.imageDataUrl != null },
-                    messageCount = state.messages.count { it.role == "user" },
-                    onClear = { viewModel.clearChat() }
-                )
-            }
-
-            item {
-                PromptSuggestionRow(
-                    onSuggestionClick = viewModel::useSuggestion
-                )
-            }
-
             items(
                 items = state.messages,
                 key = { it.id }
@@ -201,333 +155,228 @@ fun ChatScreen(
             Spacer(Modifier.height(10.dp))
         }
 
-        PromptInputPanel(
+        PromptInputBar(
             input = state.input,
-            selectedAttachments = state.selectedAttachments,
             isLoading = state.isLoading,
-            canRegenerate = state.messages.any { it.role == "user" },
+            selectedAttachments = state.selectedAttachments,
             onInputChange = viewModel::updateInput,
-            onAddAttachment = {
+            onPickFiles = {
                 attachmentLauncher.launch(
                     arrayOf(
+                        "text/*",
                         "image/*",
                         "application/pdf",
-                        "text/*",
                         "application/json",
                         "application/xml",
                         "application/zip",
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         "*/*"
                     )
                 )
             },
-            onVoiceInput = {
-                val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(
-                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                    )
-                    putExtra(
-                        RecognizerIntent.EXTRA_LANGUAGE,
-                        Locale.getDefault()
-                    )
-                    putExtra(
-                        RecognizerIntent.EXTRA_PROMPT,
-                        "Speak to Mr. Robot"
-                    )
-                }
-
-                runCatching {
-                    speechLauncher.launch(speechIntent)
-                }.onFailure {
-                    Toast.makeText(
-                        context,
-                        "Voice input is not available on this device.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+            onRemoveAttachment = { attachment ->
+                viewModel.removeAttachment(attachment)
             },
-            onRemoveAttachment = { attachment -> viewModel.removeAttachment(attachment) },
             onSend = { viewModel.send() },
             onStop = { viewModel.stopGeneration() },
-            onRegenerate = { viewModel.regenerateLastAnswer() }
+            onRegenerate = { viewModel.regenerateLastAnswer() },
+            canRegenerate = state.messages.any { it.role == "user" }
         )
     }
 }
 
 @Composable
-private fun ChatHeader(
+private fun AssistantStatusCard(
+    provider: String,
     model: String,
-    apiKeyConfigured: Boolean,
-    attachmentCount: Int,
-    readableCount: Int,
-    imageCount: Int,
-    messageCount: Int,
-    onClear: () -> Unit
+    ready: Boolean,
+    userMessages: Int,
+    queuedFiles: Int,
+    readableFiles: Int,
+    visionImages: Int
 ) {
-    Column {
+    GlassCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "AI Chat",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    text = "Assistant Status",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
                 )
 
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
 
-                Text(
-                    text = "Attach files, speak prompts, analyze screenshots, and coordinate Android development work.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
+                Subtitle(
+                    if (ready) {
+                        "$provider ready"
+                    } else {
+                        "No active model configured"
+                    }
                 )
             }
 
-            Text(
-                text = "Clear",
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { onClear() }
-            )
+            Surface(
+                color = if (ready) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                } else {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                ),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = if (ready) "READY" else "SETUP",
+                    color = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(12.dp))
 
-        GlassCard {
+        StatusLine("Model", model)
+        StatusLine("User messages", userMessages.toString())
+        StatusLine("Queued files", queuedFiles.toString())
+        StatusLine("Readable files", readableFiles.toString())
+        StatusLine("Vision images", visionImages.toString())
+    }
+}
+
+@Composable
+private fun StatusLine(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Subtitle(label)
+
+        Text(
+            text = value,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun ChatBubble(message: ChatUiMessage) {
+    val clipboard = LocalClipboardManager.current
+    val isUser = message.role == "user"
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(if (isUser) 0.90f else 0.96f)
+                .background(
+                    color = if (isUser) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                    } else {
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                    },
+                    shape = RoundedCornerShape(
+                        topStart = 24.dp,
+                        topEnd = 24.dp,
+                        bottomStart = if (isUser) 24.dp else 6.dp,
+                        bottomEnd = if (isUser) 6.dp else 24.dp
+                    )
+                )
+                .padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Assistant Status",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Text(
-                        text = if (apiKeyConfigured) {
-                            "OpenRouter connected. File reading, image vision, and voice-to-text input are available."
-                        } else {
-                            "No active model configured"
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                StatusBadge(
-                    text = if (apiKeyConfigured) "ONLINE" else "SETUP",
-                    active = apiKeyConfigured
+                Text(
+                    text = if (isUser) "You" else "ALPHA",
+                    color = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.Bold
                 )
-            }
 
-            Spacer(Modifier.height(12.dp))
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            MetadataRow("Model", model)
-            MetadataRow("User messages", messageCount.toString())
-            MetadataRow("Queued files", attachmentCount.toString())
-            MetadataRow("Readable files", readableCount.toString())
-            MetadataRow("Vision images", imageCount.toString())
-        }
-    }
-}
-
-@Composable
-private fun PromptSuggestionRow(
-    onSuggestionClick: (String) -> Unit
-) {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Title("Prompt Starters")
-            Subtitle("Tap one")
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            PromptSuggestions.forEach { prompt ->
-                AssistChip(
-                    onClick = { onSuggestionClick(prompt) },
-                    label = {
-                        Text(prompt)
+                Text(
+                    text = "Copy",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.clickable {
+                        clipboard.setText(AnnotatedString(message.content))
                     }
                 )
             }
-        }
-    }
-}
 
-@Composable
-private fun ChatBubble(
-    message: ChatUiMessage
-) {
-    val clipboard = LocalClipboardManager.current
-    val isUser = message.role == "user"
+            if (message.attachments.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(if (isUser) 0.88f else 0.96f),
-            color = if (isUser) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-            } else {
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
-            },
-            border = BorderStroke(
-                width = 1.dp,
-                color = if (isUser) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
-                } else {
-                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.20f)
-                }
-            ),
-            shape = RoundedCornerShape(
-                topStart = 24.dp,
-                topEnd = 24.dp,
-                bottomStart = if (isUser) 24.dp else 6.dp,
-                bottomEnd = if (isUser) 6.dp else 24.dp
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (isUser) "You" else "Mr. Robot",
-                        color = if (isUser) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.secondary
-                        },
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Text(
-                        text = "Copy",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable {
-                            clipboard.setText(
-                                AnnotatedString(message.content)
-                            )
-                        }
-                    )
-                }
-
-                Spacer(Modifier.height(10.dp))
-
-                MessageText(
-                    content = message.content,
-                    textColor = MaterialTheme.colorScheme.onSurface
-                )
-
-                if (message.attachments.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
-
-                    AttachmentTray(
-                        attachments = message.attachments,
-                        removable = false,
-                        onRemove = {}
+                message.attachments.forEach { attachment ->
+                    AttachmentChip(
+                        attachment = attachment,
+                        onRemove = null
                     )
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
+
+            MessageText(message.content)
         }
     }
 }
 
 @Composable
-private fun MessageText(
-    content: String,
-    textColor: Color
-) {
+private fun MessageText(content: String) {
     val isCodeLike =
         content.contains("```") ||
             content.lines().any {
-                val line = it.trim()
-                line.startsWith("fun ") ||
-                    line.startsWith("class ") ||
-                    line.startsWith("val ") ||
-                    line.startsWith("var ") ||
-                    line.startsWith("import ") ||
-                    line.startsWith("package ") ||
-                    line.startsWith("plugins ") ||
-                    line.startsWith("implementation(") ||
-                    line.startsWith("android {") ||
-                    line.startsWith("name:")
+                it.trim().startsWith("fun ") ||
+                    it.trim().startsWith("class ") ||
+                    it.trim().startsWith("val ") ||
+                    it.trim().startsWith("var ") ||
+                    it.trim().startsWith("import ") ||
+                    it.trim().startsWith("package ")
             }
 
-    Text(
-        text = content.replace("```", ""),
-        color = textColor,
-        fontFamily = if (isCodeLike) FontFamily.Monospace else FontFamily.Default,
-        fontSize = 16.sp,
-        lineHeight = 24.sp
-    )
+    if (isCodeLike) {
+        Text(
+            text = content.replace("```", ""),
+            color = MaterialTheme.colorScheme.onSurface,
+            fontFamily = FontFamily.Monospace
+        )
+    } else {
+        Text(
+            text = content,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }
 
 @Composable
 private fun ThinkingBubble() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(0.96f),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
-        ),
-        shape = RoundedCornerShape(
-            topStart = 24.dp,
-            topEnd = 24.dp,
-            bottomStart = 6.dp,
-            bottomEnd = 24.dp
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    GlassCard(modifier = Modifier.padding(bottom = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             CircularProgressIndicator(
                 modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary
+                strokeWidth = 2.dp
             )
 
             Spacer(Modifier.width(12.dp))
 
-            Text(
-                text = "Mr. Robot is analyzing...",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
-            )
+            Subtitle("ALPHA is thinking...")
         }
     }
 }
@@ -541,23 +390,21 @@ private fun ErrorPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
+            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.18f)
         )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = "Request failed",
-                color = MaterialTheme.colorScheme.onErrorContainer,
+                color = MaterialTheme.colorScheme.error,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
 
             Text(
                 text = message,
-                color = MaterialTheme.colorScheme.onErrorContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(Modifier.height(10.dp))
@@ -570,669 +417,239 @@ private fun ErrorPanel(
 }
 
 @Composable
-private fun PromptInputPanel(
+private fun PromptInputBar(
     input: String,
-    selectedAttachments: List<ChatAttachment>,
     isLoading: Boolean,
+    selectedAttachments: List<ChatAttachment>,
     canRegenerate: Boolean,
     onInputChange: (String) -> Unit,
-    onAddAttachment: () -> Unit,
-    onVoiceInput: () -> Unit,
-    onRemoveAttachment: (Long) -> Unit,
+    onPickFiles: () -> Unit,
+    onRemoveAttachment: (ChatAttachment) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
     onRegenerate: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp)
-        ) {
-            if (selectedAttachments.isNotEmpty()) {
-                AttachmentTray(
-                    attachments = selectedAttachments,
-                    removable = true,
-                    onRemove = onRemoveAttachment
-                )
-
-                Spacer(Modifier.height(10.dp))
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                InputIconButton(
-                    label = "+",
-                    contentDescription = "Attach files",
-                    onClick = onAddAttachment
-                )
-
-                InputIconButton(
-                    iconRes = R.drawable.ic_lucide_mic,
-                    contentDescription = "Voice input",
-                    onClick = onVoiceInput
-                )
-
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = onInputChange,
-                    placeholder = {
-                        Text("Ask, speak, or attach files...")
-                    },
-                    modifier = Modifier.weight(1f),
-                    minLines = 1,
-                    maxLines = 5,
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = {
-                        if (isLoading) {
-                            onStop()
-                        } else {
-                            onSend()
-                        }
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isLoading) {
-                            MaterialTheme.colorScheme.tertiary
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                        contentColor = if (isLoading) {
-                            MaterialTheme.colorScheme.onTertiary
-                        } else {
-                            MaterialTheme.colorScheme.onPrimary
-                        }
-                    ),
-                    shape = RoundedCornerShape(18.dp)
-                ) {
-                    Text(
-                        text = if (isLoading) "Stop" else "Send",
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                OutlinedButton(
-                    onClick = onRegenerate,
-                    enabled = canRegenerate && !isLoading,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp),
-                    shape = RoundedCornerShape(18.dp)
-                ) {
-                    Text("Regenerate")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun InputIconButton(
-    label: String? = null,
-    iconRes: Int? = null,
-    contentDescription: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .size(52.dp)
-            .clickable { onClick() },
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-        ),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            if (iconRes != null) {
-                Icon(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = contentDescription,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
-                )
-            } else {
-                Text(
-                    text = label.orEmpty(),
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AttachmentTray(
-    attachments: List<ChatAttachment>,
-    removable: Boolean,
-    onRemove: (Long) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        attachments.forEach { attachment ->
-            AttachmentPill(
-                attachment = attachment,
-                removable = removable,
-                onRemove = onRemove
-            )
-        }
-    }
-}
-
-@Composable
-private fun AttachmentPill(
-    attachment: ChatAttachment,
-    removable: Boolean,
-    onRemove: (Long) -> Unit
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-        ),
-        shape = RoundedCornerShape(999.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .width(235.dp)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = attachmentIcon(attachment),
-                fontSize = 14.sp
-            )
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = attachment.name,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Text(
-                    text = attachmentStatusLabel(attachment),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            if (removable) {
-                Text(
-                    text = "×",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable {
-                        onRemove(attachment.id)
+    GlassCard {
+        if (selectedAttachments.isNotEmpty()) {
+            selectedAttachments.forEach { attachment ->
+                AttachmentChip(
+                    attachment = attachment,
+                    onRemove = {
+                        onRemoveAttachment(attachment)
                     }
                 )
             }
+
+            Spacer(Modifier.height(8.dp))
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onPickFiles,
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(18.dp)
+                    )
+            ) {
+                Text(
+                    text = "+",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            IconButton(
+                onClick = {},
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(18.dp)
+                    )
+            ) {
+                Text(
+                    text = "🎙",
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            OutlinedTextField(
+                value = input,
+                onValueChange = onInputChange,
+                placeholder = { Text("Ask ALPHA...") },
+                modifier = Modifier.weight(1f),
+                minLines = 1,
+                maxLines = 5
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = {
+                    if (isLoading) onStop() else onSend()
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isLoading) Color(0xFFFFB020) else MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Text(
+                    text = if (isLoading) "Stop" else "Send",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            OutlinedButton(
+                onClick = onRegenerate,
+                enabled = canRegenerate && !isLoading,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Text("Regenerate")
+            }
         }
     }
 }
 
 @Composable
-private fun MetadataRow(
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp
-        )
-
-        Text(
-            text = value,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun StatusBadge(
-    text: String,
-    active: Boolean
+private fun AttachmentChip(
+    attachment: ChatAttachment,
+    onRemove: (() -> Unit)?
 ) {
     Surface(
-        color = if (active) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-        } else {
-            MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
-        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
         border = BorderStroke(
-            width = 1.dp,
-            color = if (active) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
-            } else {
-                MaterialTheme.colorScheme.error.copy(alpha = 0.30f)
-            }
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
         ),
-        shape = RoundedCornerShape(999.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Text(
-            text = text,
-            color = if (active) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.error
-            },
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = attachment.displayName.ifBlank { attachment.name },
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = listOfNotNull(
+                        attachment.mimeType?.takeIf { it.isNotBlank() },
+                        attachment.sizeLabel.takeIf { it.isNotBlank() },
+                        attachment.extractionStatus.takeIf { it.isNotBlank() }
+                    ).joinToString(" • ").ifBlank { "Attached file" },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (onRemove != null) {
+                Text(
+                    text = "Remove",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clickable { onRemove() }
+                        .padding(start = 10.dp)
+                )
+            }
+        }
     }
 }
 
-private fun buildChatAttachment(
+private fun createAttachmentFromUri(
     context: Context,
     uri: Uri
 ): ChatAttachment {
-    var displayName = uri.lastPathSegment ?: "attachment"
-    var sizeBytes: Long? = null
+    val resolver = context.contentResolver
+    val mimeType = resolver.getType(uri).orEmpty()
+    var name = uri.lastPathSegment ?: "Attachment"
+    var sizeBytes = 0L
 
-    context.contentResolver.query(
-        uri,
-        null,
-        null,
-        null,
-        null
-    )?.use { cursor ->
+    resolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+
         if (cursor.moveToFirst()) {
-            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-
             if (nameIndex >= 0) {
-                displayName = cursor.getString(nameIndex) ?: displayName
+                name = cursor.getString(nameIndex) ?: name
             }
 
-            if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+            if (sizeIndex >= 0) {
                 sizeBytes = cursor.getLong(sizeIndex)
             }
         }
     }
 
-    val mimeType = context.contentResolver.getType(uri)
-        ?: guessMimeType(displayName)
-
-    val imageDataUrl = if (mimeType.startsWith("image/")) {
-        buildImageDataUrl(context, uri)
+    val extractedText = if (
+        mimeType.startsWith("text/") ||
+        name.endsWith(".kt", true) ||
+        name.endsWith(".java", true) ||
+        name.endsWith(".xml", true) ||
+        name.endsWith(".json", true) ||
+        name.endsWith(".gradle", true) ||
+        name.endsWith(".md", true) ||
+        name.endsWith(".txt", true)
+    ) {
+        runCatching {
+            resolver.openInputStream(uri)?.use { input ->
+                BufferedReader(InputStreamReader(input)).use { reader ->
+                    reader.readText().take(12000)
+                }
+            }
+        }.getOrNull()
     } else {
         null
     }
 
-    val extracted = extractAttachmentText(
-        context = context,
-        uri = uri,
-        displayName = displayName,
-        mimeType = mimeType
-    )
+    val status = when {
+        mimeType.startsWith("image/") -> "Image ready"
+        !extractedText.isNullOrBlank() -> "Text extracted"
+        else -> "Queued"
+    }
 
     return ChatAttachment(
-        uri = uri.toString(),
-        name = displayName,
+        uri = uri,
+        name = name,
         mimeType = mimeType,
-        sizeLabel = formatFileSize(sizeBytes),
-        imageDataUrl = imageDataUrl,
-        extractedText = extracted.text,
-        extractionStatus = extracted.status
+        sizeBytes = sizeBytes,
+        sizeLabel = formatSize(sizeBytes),
+        extractedText = extractedText,
+        extractionStatus = status
     )
 }
 
-private data class ExtractionResult(
-    val text: String,
-    val status: String
-)
+private fun formatSize(bytes: Long): String {
+    if (bytes <= 0L) return ""
 
-private fun extractAttachmentText(
-    context: Context,
-    uri: Uri,
-    displayName: String,
-    mimeType: String
-): ExtractionResult {
-    return when {
-        mimeType.startsWith("image/") -> {
-            ExtractionResult(
-                text = "",
-                status = if (buildImageDataUrl(context, uri) != null) {
-                    "vision image ready"
-                } else {
-                    "image metadata only"
-                }
-            )
-        }
-
-        isPlainTextLike(displayName, mimeType) -> {
-            val text = readPlainText(context, uri)
-            ExtractionResult(
-                text = text,
-                status = if (text.isBlank()) "empty text file" else "text extracted"
-            )
-        }
-
-        mimeType == "application/pdf" || displayName.endsWith(".pdf", ignoreCase = true) -> {
-            val text = readPdfText(context, uri)
-            ExtractionResult(
-                text = text,
-                status = if (text.isBlank()) "PDF has no extractable text" else "PDF text extracted"
-            )
-        }
-
-        mimeType.contains("wordprocessingml") || displayName.endsWith(".docx", ignoreCase = true) -> {
-            val text = readDocxText(context, uri)
-            ExtractionResult(
-                text = text,
-                status = if (text.isBlank()) "DOCX has no extractable text" else "DOCX text extracted"
-            )
-        }
-
-        mimeType.contains("zip") || displayName.endsWith(".zip", ignoreCase = true) -> {
-            val text = readZipIndex(context, uri)
-            ExtractionResult(
-                text = text,
-                status = if (text.isBlank()) "ZIP index unavailable" else "ZIP file list extracted"
-            )
-        }
-
-        else -> {
-            ExtractionResult(
-                text = "",
-                status = "unsupported binary file"
-            )
-        }
-    }
-}
-
-private fun readPlainText(
-    context: Context,
-    uri: Uri
-): String {
-    return runCatching {
-        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
-            reader.readText()
-        }.orEmpty().take(MAX_TEXT_PER_FILE)
-    }.getOrDefault("")
-}
-
-private fun readPdfText(
-    context: Context,
-    uri: Uri
-): String {
-    return runCatching {
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            PDDocument.load(input).use { document ->
-                PDFTextStripper()
-                    .getText(document)
-                    .take(MAX_TEXT_PER_FILE)
-            }
-        }.orEmpty()
-    }.getOrDefault("")
-}
-
-private fun readDocxText(
-    context: Context,
-    uri: Uri
-): String {
-    return runCatching {
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            ZipInputStream(input).use { zip ->
-                val builder = StringBuilder()
-
-                while (true) {
-                    val entry = zip.nextEntry ?: break
-
-                    if (entry.name == "word/document.xml") {
-                        val xml = zip.bufferedReader().readText()
-
-                        val text = xml
-                            .replace(Regex("<w:p[^>]*>"), "\n")
-                            .replace(Regex("<[^>]+>"), " ")
-                            .replace("&amp;", "&")
-                            .replace("&lt;", "<")
-                            .replace("&gt;", ">")
-                            .replace("&quot;", "\"")
-                            .replace("&apos;", "'")
-                            .replace(Regex("\\s+"), " ")
-                            .trim()
-
-                        builder.append(text)
-                        break
-                    }
-                }
-
-                builder.toString().take(MAX_TEXT_PER_FILE)
-            }
-        }.orEmpty()
-    }.getOrDefault("")
-}
-
-private fun readZipIndex(
-    context: Context,
-    uri: Uri
-): String {
-    return runCatching {
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            ZipInputStream(input).use { zip ->
-                buildString {
-                    appendLine("ZIP contents:")
-
-                    var count = 0
-
-                    while (true) {
-                        val entry = zip.nextEntry ?: break
-                        count++
-
-                        append("- ")
-                        append(entry.name)
-
-                        if (entry.size > 0) {
-                            append(" (")
-                            append(formatFileSize(entry.size))
-                            append(")")
-                        }
-
-                        appendLine()
-
-                        if (count >= 300) {
-                            appendLine("...truncated after 300 entries")
-                            break
-                        }
-                    }
-                }.take(MAX_TEXT_PER_FILE)
-            }
-        }.orEmpty()
-    }.getOrDefault("")
-}
-
-private fun buildImageDataUrl(
-    context: Context,
-    uri: Uri
-): String? {
-    return runCatching {
-        val bitmap = context.contentResolver.openInputStream(uri).use { input ->
-            BitmapFactory.decodeStream(input)
-        } ?: return null
-
-        val scaledBitmap = scaleBitmapForVision(bitmap)
-
-        val output = ByteArrayOutputStream()
-        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 82, output)
-
-        val base64 = Base64.encodeToString(
-            output.toByteArray(),
-            Base64.NO_WRAP
-        )
-
-        "data:image/jpeg;base64,$base64"
-    }.getOrNull()
-}
-
-private fun scaleBitmapForVision(bitmap: Bitmap): Bitmap {
-    val maxDimension = 1280
-    val width = bitmap.width
-    val height = bitmap.height
-
-    if (width <= maxDimension && height <= maxDimension) {
-        return bitmap
-    }
-
-    val scale = minOf(
-        maxDimension.toFloat() / width.toFloat(),
-        maxDimension.toFloat() / height.toFloat()
-    )
-
-    val newWidth = (width * scale).toInt().coerceAtLeast(1)
-    val newHeight = (height * scale).toInt().coerceAtLeast(1)
-
-    return Bitmap.createScaledBitmap(
-        bitmap,
-        newWidth,
-        newHeight,
-        true
-    )
-}
-
-private fun isPlainTextLike(
-    name: String,
-    mimeType: String
-): Boolean {
-    val lower = name.lowercase()
-
-    return mimeType.startsWith("text/") ||
-        mimeType.contains("json") ||
-        mimeType.contains("xml") ||
-        lower.endsWith(".txt") ||
-        lower.endsWith(".md") ||
-        lower.endsWith(".json") ||
-        lower.endsWith(".xml") ||
-        lower.endsWith(".yaml") ||
-        lower.endsWith(".yml") ||
-        lower.endsWith(".csv") ||
-        lower.endsWith(".log") ||
-        lower.endsWith(".kt") ||
-        lower.endsWith(".kts") ||
-        lower.endsWith(".java") ||
-        lower.endsWith(".gradle") ||
-        lower.endsWith(".py") ||
-        lower.endsWith(".js") ||
-        lower.endsWith(".ts") ||
-        lower.endsWith(".html") ||
-        lower.endsWith(".css") ||
-        lower.endsWith(".sh")
-}
-
-private fun guessMimeType(name: String): String {
-    val lower = name.lowercase()
-
-    return when {
-        lower.endsWith(".pdf") -> "application/pdf"
-        lower.endsWith(".docx") -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        lower.endsWith(".zip") -> "application/zip"
-        lower.endsWith(".json") -> "application/json"
-        lower.endsWith(".xml") -> "application/xml"
-        lower.endsWith(".txt") -> "text/plain"
-        lower.endsWith(".md") -> "text/markdown"
-        lower.endsWith(".kt") -> "text/x-kotlin"
-        lower.endsWith(".java") -> "text/x-java"
-        lower.endsWith(".py") -> "text/x-python"
-        lower.endsWith(".js") -> "text/javascript"
-        lower.endsWith(".ts") -> "text/typescript"
-        lower.endsWith(".html") -> "text/html"
-        lower.endsWith(".css") -> "text/css"
-        lower.endsWith(".png") -> "image/png"
-        lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
-        lower.endsWith(".webp") -> "image/webp"
-        else -> "application/octet-stream"
-    }
-}
-
-private fun formatFileSize(sizeBytes: Long?): String {
-    if (sizeBytes == null || sizeBytes <= 0L) return ""
-
-    val kb = sizeBytes / 1024.0
+    val kb = bytes / 1024.0
     val mb = kb / 1024.0
 
     return if (mb >= 1.0) {
         String.format("%.1f MB", mb)
     } else {
         String.format("%.1f KB", kb)
-    }
-}
-
-private fun attachmentIcon(attachment: ChatAttachment): String {
-    return when {
-        attachment.imageDataUrl != null -> "IMG"
-        attachment.mimeType.startsWith("image/") -> "IMG"
-        attachment.mimeType == "application/pdf" -> "PDF"
-        attachment.mimeType.contains("wordprocessingml") -> "DOCX"
-        attachment.mimeType.contains("zip") -> "ZIP"
-        attachment.mimeType.startsWith("text/") -> "TXT"
-        attachment.mimeType.contains("json") -> "JSON"
-        attachment.mimeType.contains("xml") -> "XML"
-        else -> "FILE"
-    }
-}
-
-private fun attachmentStatusLabel(attachment: ChatAttachment): String {
-    val base = when {
-        attachment.imageDataUrl != null -> "Vision ready"
-        attachment.extractedText.isNotBlank() -> attachment.extractionStatus
-        else -> attachment.extractionStatus.ifBlank { attachment.mimeType }
-    }
-
-    return if (attachment.sizeLabel.isNotBlank()) {
-        "$base • ${attachment.sizeLabel}"
-    } else {
-        base
     }
 }

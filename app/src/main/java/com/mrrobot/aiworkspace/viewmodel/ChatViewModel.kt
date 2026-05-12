@@ -17,43 +17,76 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 data class ChatAttachment(
-    val id: String = UUID.randomUUID().toString(),
+    val id: Long = System.nanoTime(),
     val uri: Uri? = null,
     val name: String = "Attachment",
     val displayName: String = name,
-    val mimeType: String = "",
+    val mimeType: String? = "",
     val sizeBytes: Long = 0L,
     val sizeLabel: String = "",
     val type: String = "",
     val readableText: String = "",
-    val extractedText: String = "",
+    val extractedText: String? = null,
     val description: String = "",
-    val imageDataUrl: String = "",
+    val imageDataUrl: String? = null,
     val extractionStatus: String = "",
-    val isImage: Boolean = mimeType.startsWith("image/") || imageDataUrl.isNotBlank(),
-    val isReadable: Boolean = readableText.isNotBlank() || extractedText.isNotBlank()
+    val stableKey: String = UUID.randomUUID().toString()
 ) {
+    val isImage: Boolean
+        get() = mimeType.orEmpty().startsWith("image/") || !imageDataUrl.isNullOrBlank()
+
+    val isReadable: Boolean
+        get() = readableText.isNotBlank() || !extractedText.isNullOrBlank()
+
+    constructor(
+        name: String,
+        displayName: String = name,
+        mimeType: String? = "",
+        sizeBytes: Long = 0L,
+        sizeLabel: String = "",
+        extractedText: String? = null,
+        imageDataUrl: String? = null,
+        extractionStatus: String = ""
+    ) : this(
+        id = System.nanoTime(),
+        uri = null,
+        name = name,
+        displayName = displayName,
+        mimeType = mimeType,
+        sizeBytes = sizeBytes,
+        sizeLabel = sizeLabel,
+        extractedText = extractedText,
+        readableText = extractedText.orEmpty(),
+        imageDataUrl = imageDataUrl,
+        extractionStatus = extractionStatus
+    )
+
     constructor(
         uri: Uri?,
         name: String,
-        mimeType: String = "",
+        mimeType: String? = "",
         sizeBytes: Long = 0L,
-        imageDataUrl: String = "",
+        sizeLabel: String = "",
+        extractedText: String? = null,
+        imageDataUrl: String? = null,
         extractionStatus: String = ""
     ) : this(
-        id = UUID.randomUUID().toString(),
+        id = System.nanoTime(),
         uri = uri,
         name = name,
         displayName = name,
         mimeType = mimeType,
         sizeBytes = sizeBytes,
+        sizeLabel = sizeLabel,
+        extractedText = extractedText,
+        readableText = extractedText.orEmpty(),
         imageDataUrl = imageDataUrl,
         extractionStatus = extractionStatus
     )
 }
 
 data class ChatUiMessage(
-    val id: String = UUID.randomUUID().toString(),
+    val id: Long = System.nanoTime(),
     val role: String,
     val content: String,
     val attachments: List<ChatAttachment> = emptyList()
@@ -139,7 +172,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun addAttachments(items: List<ChatAttachment>) {
         if (items.isEmpty()) return
 
-        val merged = (_uiState.value.selectedAttachments + items).distinctBy { it.id }
+        val merged = (_uiState.value.selectedAttachments + items)
+            .distinctBy { it.stableKey }
 
         _uiState.value = _uiState.value.copy(
             selectedAttachments = merged,
@@ -151,18 +185,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeAttachment(attachment: ChatAttachment) {
-        val updated = _uiState.value.selectedAttachments.filterNot { it.id == attachment.id }
-
-        _uiState.value = _uiState.value.copy(
-            selectedAttachments = updated,
-            queuedFiles = updated.size,
-            readableFiles = updated.count { it.isReadable },
-            visionImages = updated.count { it.isImage }
-        )
+        removeAttachment(attachment.id)
     }
 
-    fun removeAttachmentById(id: String) {
-        val updated = _uiState.value.selectedAttachments.filterNot { it.id == id }
+    fun removeAttachment(id: Long) {
+        val updated = _uiState.value.selectedAttachments
+            .filterNot { it.id == id }
 
         _uiState.value = _uiState.value.copy(
             selectedAttachments = updated,
@@ -202,11 +230,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (current.isLoading) return
 
-        val lastUser = current.messages.lastOrNull { it.role == "user" }?.content.orEmpty()
+        val lastUser = current.messages
+            .lastOrNull { it.role == "user" }
+            ?.content
+            .orEmpty()
 
         if (lastUser.isBlank()) return
 
-        val trimmedMessages = current.messages.dropLastWhile { it.role == "assistant" }
+        val trimmedMessages = current.messages.dropLastWhile {
+            it.role == "assistant"
+        }
 
         _uiState.value = current.copy(
             messages = trimmedMessages,
@@ -325,19 +358,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun buildAttachmentContext(attachments: List<ChatAttachment>): String {
+    private fun buildAttachmentContext(
+        attachments: List<ChatAttachment>
+    ): String {
         if (attachments.isEmpty()) return ""
 
         return attachments.joinToString(separator = "\n\n") { attachment ->
             val text = attachment.readableText
-                .ifBlank { attachment.extractedText }
+                .ifBlank { attachment.extractedText.orEmpty() }
                 .ifBlank { attachment.description }
 
             buildString {
                 append("- Name: ")
                 append(attachment.displayName.ifBlank { attachment.name })
 
-                if (attachment.mimeType.isNotBlank()) {
+                if (!attachment.mimeType.isNullOrBlank()) {
                     append("\n  MIME: ")
                     append(attachment.mimeType)
                 }
@@ -348,7 +383,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     append(" bytes")
                 }
 
-                if (attachment.imageDataUrl.isNotBlank()) {
+                if (!attachment.imageDataUrl.isNullOrBlank()) {
                     append("\n  Image: attached")
                 }
 
