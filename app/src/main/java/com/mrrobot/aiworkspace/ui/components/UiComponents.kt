@@ -41,6 +41,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+
+// Backward-compatible shared colors.
+// Older screens still import these symbols directly, so keep them available.
+val NeonCyan = Color(0xFF00DFF7)
+val NeonPurple = Color(0xFF8B5CF6)
+val NeonGreen = Color(0xFF22C55E)
+val DeepBg = Color(0xFF030712)
+val Panel = Color(0xFF111827)
+val PanelSoft = Color(0xFF0B1020)
+val SoftText = Color(0xFFB8C0CC)
+val Danger = Color(0xFFFF6B6B)
+
 @Composable
 fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
     val scheme = MaterialTheme.colorScheme
