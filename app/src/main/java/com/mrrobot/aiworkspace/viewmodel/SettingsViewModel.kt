@@ -7,6 +7,7 @@ import com.mrrobot.aiworkspace.data.AiModels
 import com.mrrobot.aiworkspace.data.ApiProvider
 import com.mrrobot.aiworkspace.data.AppSettings
 import com.mrrobot.aiworkspace.data.AppThemeMode
+import com.mrrobot.aiworkspace.data.ProviderModelConfig
 import com.mrrobot.aiworkspace.data.SettingsStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +19,7 @@ data class SettingsUiState(
     val model: String = "openai/gpt-4o-mini",
     val themeMode: AppThemeMode = AppThemeMode.Auto,
     val selectedProvider: ApiProvider = ApiProvider.OpenRouter,
+
     val openRouterApiKey: String = "",
     val openAiApiKey: String = "",
     val anthropicApiKey: String = "",
@@ -26,6 +28,16 @@ data class SettingsUiState(
     val mistralApiKey: String = "",
     val deepSeekApiKey: String = "",
     val xAiApiKey: String = "",
+
+    val openRouterModel: String = "openai/gpt-4o-mini",
+    val openAiModel: String = "gpt-4o-mini",
+    val anthropicModel: String = "claude-3-5-sonnet-latest",
+    val geminiModel: String = "gemini-1.5-flash",
+    val groqModel: String = "llama-3.3-70b-versatile",
+    val mistralModel: String = "mistral-large-latest",
+    val deepSeekModel: String = "deepseek-chat",
+    val xAiModel: String = "grok-2-latest",
+
     val savedMessage: String = "",
     val isLoaded: Boolean = false
 ) {
@@ -42,8 +54,39 @@ data class SettingsUiState(
         }
     }
 
-    val configuredProviders: List<ApiProvider>
-        get() = ApiProvider.values().filter { keyFor(it).isNotBlank() }
+    fun modelFor(provider: ApiProvider): String {
+        val saved = when (provider) {
+            ApiProvider.OpenRouter -> openRouterModel
+            ApiProvider.OpenAI -> openAiModel
+            ApiProvider.Anthropic -> anthropicModel
+            ApiProvider.Gemini -> geminiModel
+            ApiProvider.Groq -> groqModel
+            ApiProvider.Mistral -> mistralModel
+            ApiProvider.DeepSeek -> deepSeekModel
+            ApiProvider.XAI -> xAiModel
+        }
+
+        return AiModels.byIdOrNull(saved)
+            ?.takeIf { it.apiProvider == provider }
+            ?.id
+            ?: AiModels.defaultForProvider(provider).id
+    }
+
+    fun hasActiveConfiguration(): Boolean {
+        return keyFor(selectedProvider).isNotBlank()
+    }
+
+    fun configuredProviderModels(): List<ProviderModelConfig> {
+        return ApiProvider.values()
+            .map { provider ->
+                ProviderModelConfig(
+                    provider = provider,
+                    modelId = modelFor(provider),
+                    apiKey = keyFor(provider)
+                )
+            }
+            .filter { it.hasKey }
+    }
 }
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -61,6 +104,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     model = settings.model,
                     themeMode = settings.themeMode,
                     selectedProvider = settings.selectedProvider,
+
                     openRouterApiKey = settings.openRouterApiKey,
                     openAiApiKey = settings.openAiApiKey,
                     anthropicApiKey = settings.anthropicApiKey,
@@ -69,6 +113,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     mistralApiKey = settings.mistralApiKey,
                     deepSeekApiKey = settings.deepSeekApiKey,
                     xAiApiKey = settings.xAiApiKey,
+
+                    openRouterModel = settings.openRouterModel,
+                    openAiModel = settings.openAiModel,
+                    anthropicModel = settings.anthropicModel,
+                    geminiModel = settings.geminiModel,
+                    groqModel = settings.groqModel,
+                    mistralModel = settings.mistralModel,
+                    deepSeekModel = settings.deepSeekModel,
+                    xAiModel = settings.xAiModel,
+
                     isLoaded = true
                 )
             }
@@ -82,72 +136,43 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    fun updateModel(value: String) {
-        _uiState.value = _uiState.value.copy(
-            model = value,
-            savedMessage = ""
-        )
-    }
-
-    fun updateSelectedProvider(value: ApiProvider) {
-        val current = _uiState.value
-        val safeModel = AiModels.defaultForProvider(value).id
-
-        _uiState.value = current.copy(
-            selectedProvider = value,
-            model = safeModel,
-            savedMessage = ""
-        )
-    }
-
-    fun updateApiKey(value: String) {
-        val current = _uiState.value
-
-        _uiState.value = when (current.selectedProvider) {
-            ApiProvider.OpenRouter -> current.copy(apiKey = value, openRouterApiKey = value, savedMessage = "")
-            ApiProvider.OpenAI -> current.copy(openAiApiKey = value, savedMessage = "")
-            ApiProvider.Anthropic -> current.copy(anthropicApiKey = value, savedMessage = "")
-            ApiProvider.Gemini -> current.copy(geminiApiKey = value, savedMessage = "")
-            ApiProvider.Groq -> current.copy(groqApiKey = value, savedMessage = "")
-            ApiProvider.Mistral -> current.copy(mistralApiKey = value, savedMessage = "")
-            ApiProvider.DeepSeek -> current.copy(deepSeekApiKey = value, savedMessage = "")
-            ApiProvider.XAI -> current.copy(xAiApiKey = value, savedMessage = "")
-        }
-    }
-
     fun saveProviderConfiguration(
         provider: ApiProvider,
         model: String,
         apiKey: String,
         activate: Boolean
     ) {
+        val safeKey = apiKey.trim()
+
+        if (safeKey.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                savedMessage = "Add a valid API key before saving."
+            )
+            return
+        }
+
         viewModelScope.launch {
-            val current = applyProviderKey(
+            val updated = applyProviderConfig(
                 state = _uiState.value,
                 provider = provider,
-                apiKey = apiKey
+                apiKey = safeKey,
+                model = model
             )
 
-            val targetProvider = if (activate) provider else current.selectedProvider
-            val targetModel = if (activate) model else current.model
+            val activeProvider = if (activate) {
+                provider
+            } else {
+                updated.selectedProvider
+            }
 
-            store.saveAllSettings(
-                selectedProvider = targetProvider,
-                model = targetModel,
-                themeMode = current.themeMode,
-                openRouterApiKey = current.openRouterApiKey,
-                openAiApiKey = current.openAiApiKey,
-                anthropicApiKey = current.anthropicApiKey,
-                geminiApiKey = current.geminiApiKey,
-                groqApiKey = current.groqApiKey,
-                mistralApiKey = current.mistralApiKey,
-                deepSeekApiKey = current.deepSeekApiKey,
-                xAiApiKey = current.xAiApiKey
+            saveState(
+                state = updated,
+                selectedProvider = activeProvider
             )
 
-            _uiState.value = current.copy(
-                selectedProvider = targetProvider,
-                model = targetModel,
+            _uiState.value = updated.copy(
+                selectedProvider = activeProvider,
+                model = updated.modelFor(activeProvider),
                 savedMessage = if (activate) {
                     "${provider.displayName} saved and activated"
                 } else {
@@ -157,50 +182,41 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun save() {
-        viewModelScope.launch {
-            val current = _uiState.value
+    fun activateProvider(provider: ApiProvider) {
+        val current = _uiState.value
 
-            store.saveAllSettings(
-                selectedProvider = current.selectedProvider,
-                model = current.model,
-                themeMode = current.themeMode,
-                openRouterApiKey = current.openRouterApiKey,
-                openAiApiKey = current.openAiApiKey,
-                anthropicApiKey = current.anthropicApiKey,
-                geminiApiKey = current.geminiApiKey,
-                groqApiKey = current.groqApiKey,
-                mistralApiKey = current.mistralApiKey,
-                deepSeekApiKey = current.deepSeekApiKey,
-                xAiApiKey = current.xAiApiKey
+        if (current.keyFor(provider).isBlank()) {
+            _uiState.value = current.copy(
+                savedMessage = "No API key saved for ${provider.displayName}."
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            saveState(
+                state = current,
+                selectedProvider = provider
             )
 
             _uiState.value = current.copy(
-                savedMessage = "Settings saved successfully"
+                selectedProvider = provider,
+                model = current.modelFor(provider),
+                savedMessage = "${provider.displayName} activated"
             )
         }
     }
 
-    fun saveThemeOnly(themeMode: AppThemeMode) {
+    fun save() {
         viewModelScope.launch {
-            val current = _uiState.value.copy(themeMode = themeMode)
+            val current = _uiState.value
 
-            store.saveAllSettings(
-                selectedProvider = current.selectedProvider,
-                model = current.model,
-                themeMode = current.themeMode,
-                openRouterApiKey = current.openRouterApiKey,
-                openAiApiKey = current.openAiApiKey,
-                anthropicApiKey = current.anthropicApiKey,
-                geminiApiKey = current.geminiApiKey,
-                groqApiKey = current.groqApiKey,
-                mistralApiKey = current.mistralApiKey,
-                deepSeekApiKey = current.deepSeekApiKey,
-                xAiApiKey = current.xAiApiKey
+            saveState(
+                state = current,
+                selectedProvider = current.selectedProvider
             )
 
             _uiState.value = current.copy(
-                savedMessage = "Theme updated"
+                savedMessage = "Settings saved"
             )
         }
     }
@@ -216,20 +232,86 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun applyProviderKey(
+    private suspend fun saveState(
+        state: SettingsUiState,
+        selectedProvider: ApiProvider
+    ) {
+        store.saveAllSettings(
+            selectedProvider = selectedProvider,
+            themeMode = state.themeMode,
+
+            openRouterApiKey = state.openRouterApiKey,
+            openAiApiKey = state.openAiApiKey,
+            anthropicApiKey = state.anthropicApiKey,
+            geminiApiKey = state.geminiApiKey,
+            groqApiKey = state.groqApiKey,
+            mistralApiKey = state.mistralApiKey,
+            deepSeekApiKey = state.deepSeekApiKey,
+            xAiApiKey = state.xAiApiKey,
+
+            openRouterModel = state.openRouterModel,
+            openAiModel = state.openAiModel,
+            anthropicModel = state.anthropicModel,
+            geminiModel = state.geminiModel,
+            groqModel = state.groqModel,
+            mistralModel = state.mistralModel,
+            deepSeekModel = state.deepSeekModel,
+            xAiModel = state.xAiModel
+        )
+    }
+
+    private fun applyProviderConfig(
         state: SettingsUiState,
         provider: ApiProvider,
-        apiKey: String
+        apiKey: String,
+        model: String
     ): SettingsUiState {
+        val safeModel = AiModels.byIdOrNull(model)
+            ?.takeIf { it.apiProvider == provider }
+            ?.id
+            ?: AiModels.defaultForProvider(provider).id
+
         return when (provider) {
-            ApiProvider.OpenRouter -> state.copy(apiKey = apiKey, openRouterApiKey = apiKey)
-            ApiProvider.OpenAI -> state.copy(openAiApiKey = apiKey)
-            ApiProvider.Anthropic -> state.copy(anthropicApiKey = apiKey)
-            ApiProvider.Gemini -> state.copy(geminiApiKey = apiKey)
-            ApiProvider.Groq -> state.copy(groqApiKey = apiKey)
-            ApiProvider.Mistral -> state.copy(mistralApiKey = apiKey)
-            ApiProvider.DeepSeek -> state.copy(deepSeekApiKey = apiKey)
-            ApiProvider.XAI -> state.copy(xAiApiKey = apiKey)
+            ApiProvider.OpenRouter -> state.copy(
+                apiKey = apiKey,
+                openRouterApiKey = apiKey,
+                openRouterModel = safeModel
+            )
+
+            ApiProvider.OpenAI -> state.copy(
+                openAiApiKey = apiKey,
+                openAiModel = safeModel
+            )
+
+            ApiProvider.Anthropic -> state.copy(
+                anthropicApiKey = apiKey,
+                anthropicModel = safeModel
+            )
+
+            ApiProvider.Gemini -> state.copy(
+                geminiApiKey = apiKey,
+                geminiModel = safeModel
+            )
+
+            ApiProvider.Groq -> state.copy(
+                groqApiKey = apiKey,
+                groqModel = safeModel
+            )
+
+            ApiProvider.Mistral -> state.copy(
+                mistralApiKey = apiKey,
+                mistralModel = safeModel
+            )
+
+            ApiProvider.DeepSeek -> state.copy(
+                deepSeekApiKey = apiKey,
+                deepSeekModel = safeModel
+            )
+
+            ApiProvider.XAI -> state.copy(
+                xAiApiKey = apiKey,
+                xAiModel = safeModel
+            )
         }
     }
 }

@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -60,20 +62,23 @@ fun SettingsScreen(
 
     var editorProvider by remember { mutableStateOf(ApiProvider.OpenRouter) }
     var editorApiKey by remember { mutableStateOf("") }
-    var editorModel by remember { mutableStateOf(AiModels.defaultForProvider(ApiProvider.OpenRouter).id) }
+    var editorModel by remember {
+        mutableStateOf(AiModels.defaultForProvider(ApiProvider.OpenRouter).id)
+    }
 
     LaunchedEffect(state.isLoaded) {
         if (state.isLoaded) {
-            editorProvider = state.selectedProvider
-            editorApiKey = state.keyFor(state.selectedProvider)
-            editorModel = state.model
+            val firstSaved = state.configuredProviderModels().firstOrNull()
+            editorProvider = firstSaved?.provider ?: ApiProvider.OpenRouter
+            editorApiKey = state.keyFor(editorProvider)
+            editorModel = firstSaved?.modelId ?: AiModels.defaultForProvider(editorProvider).id
         }
     }
 
     ScreenShell {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 18.dp)
+            contentPadding = PaddingValues(bottom = 20.dp)
         ) {
             item {
                 Text(
@@ -96,17 +101,9 @@ fun SettingsScreen(
                         onEditProvider = { provider ->
                             editorProvider = provider
                             editorApiKey = state.keyFor(provider)
-                            editorModel = AiModels.defaultForProvider(provider).id
+                            editorModel = state.modelFor(provider)
                         },
-                        onActivateProvider = { provider ->
-                            val model = AiModels.defaultForProvider(provider).id
-                            viewModel.saveProviderConfiguration(
-                                provider = provider,
-                                model = model,
-                                apiKey = state.keyFor(provider),
-                                activate = true
-                            )
-                        }
+                        onActivateProvider = viewModel::activateProvider
                     )
 
                     Spacer(Modifier.height(18.dp))
@@ -115,11 +112,10 @@ fun SettingsScreen(
                         provider = editorProvider,
                         apiKey = editorApiKey,
                         model = editorModel,
-                        state = state,
                         onProviderChange = { provider ->
                             editorProvider = provider
                             editorApiKey = state.keyFor(provider)
-                            editorModel = AiModels.defaultForProvider(provider).id
+                            editorModel = state.modelFor(provider)
                         },
                         onApiKeyChange = { editorApiKey = it },
                         onModelChange = { editorModel = it },
@@ -131,7 +127,7 @@ fun SettingsScreen(
                                 activate = false
                             )
                         },
-                        onTestAndActivate = {
+                        onSaveAndActivate = {
                             viewModel.saveProviderConfiguration(
                                 provider = editorProvider,
                                 model = editorModel,
@@ -178,7 +174,7 @@ fun SettingsScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    Subtitle("Models shown here match the selected provider in the Add API Key section.")
+                    Subtitle("Choose a provider above to view its supported models.")
 
                     Spacer(Modifier.height(8.dp))
 
@@ -220,7 +216,7 @@ private fun ProviderDashboard(
 
         ActiveProviderCard(state = state)
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -240,10 +236,7 @@ private fun ProviderDashboard(
                     1.dp,
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
                 ),
-                shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.clickable {
-                    onEditProvider(ApiProvider.OpenRouter)
-                }
+                shape = MaterialTheme.shapes.extraLarge
             ) {
                 Text(
                     text = "+ Add Key",
@@ -257,15 +250,19 @@ private fun ProviderDashboard(
 
         Spacer(Modifier.height(10.dp))
 
-        if (state.configuredProviders.isEmpty()) {
+        val saved = state.configuredProviderModels()
+
+        if (saved.isEmpty()) {
             Subtitle("No API keys saved yet. Add a key below.")
         } else {
-            state.configuredProviders.forEach { provider ->
+            saved.forEach { config ->
                 SavedKeyRow(
-                    provider = provider,
-                    isActive = provider == state.selectedProvider,
-                    onEdit = { onEditProvider(provider) },
-                    onActivate = { onActivateProvider(provider) }
+                    provider = config.provider,
+                    modelId = config.modelId,
+                    isActive = state.hasActiveConfiguration() &&
+                        config.provider == state.selectedProvider,
+                    onEdit = { onEditProvider(config.provider) },
+                    onActivate = { onActivateProvider(config.provider) }
                 )
 
                 Spacer(Modifier.height(8.dp))
@@ -276,14 +273,21 @@ private fun ProviderDashboard(
 
 @Composable
 private fun ActiveProviderCard(state: SettingsUiState) {
-    val model = AiModels.findById(state.model)
-    val hasKey = state.keyFor(state.selectedProvider).isNotBlank()
+    val hasActive = state.hasActiveConfiguration()
 
     Surface(
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+        color = if (hasActive) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+        } else {
+            MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
+        },
         border = BorderStroke(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            color = if (hasActive) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            } else {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.25f)
+            }
         ),
         shape = MaterialTheme.shapes.large
     ) {
@@ -305,7 +309,11 @@ private fun ActiveProviderCard(state: SettingsUiState) {
                 Spacer(Modifier.height(4.dp))
 
                 Text(
-                    text = state.selectedProvider.displayName,
+                    text = if (hasActive) {
+                        state.selectedProvider.displayName
+                    } else {
+                        "No active model"
+                    },
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
@@ -314,15 +322,19 @@ private fun ActiveProviderCard(state: SettingsUiState) {
                 Spacer(Modifier.height(2.dp))
 
                 Text(
-                    text = model.name,
+                    text = if (hasActive) {
+                        AiModels.findById(state.modelFor(state.selectedProvider)).name
+                    } else {
+                        "Add a key below or activate a saved provider."
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
 
             Text(
-                text = if (hasKey) "Connected" else "No Key",
-                color = if (hasKey) {
+                text = if (hasActive) "Connected" else "No Key",
+                color = if (hasActive) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.error
@@ -337,6 +349,7 @@ private fun ActiveProviderCard(state: SettingsUiState) {
 @Composable
 private fun SavedKeyRow(
     provider: ApiProvider,
+    modelId: String,
     isActive: Boolean,
     onEdit: () -> Unit,
     onActivate: () -> Unit
@@ -373,7 +386,7 @@ private fun SavedKeyRow(
                 )
 
                 Text(
-                    text = if (isActive) "Active" else "Saved",
+                    text = "${AiModels.findById(modelId).name} • ${if (isActive) "Active" else "Saved"}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
@@ -411,12 +424,11 @@ private fun AddApiKeyCard(
     provider: ApiProvider,
     apiKey: String,
     model: String,
-    state: SettingsUiState,
     onProviderChange: (ApiProvider) -> Unit,
     onApiKeyChange: (String) -> Unit,
     onModelChange: (String) -> Unit,
     onSave: () -> Unit,
-    onTestAndActivate: () -> Unit
+    onSaveAndActivate: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.74f),
@@ -431,24 +443,12 @@ private fun AddApiKeyCard(
                 .fillMaxWidth()
                 .padding(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Add API Key",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-
-                Text(
-                    text = "Current: ${state.selectedProvider.shortName}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp
-                )
-            }
+            Text(
+                text = "Add API Key",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
 
             Spacer(Modifier.height(12.dp))
 
@@ -496,11 +496,24 @@ private fun AddApiKeyCard(
                     Text("Save")
                 }
 
-                CyberButtonMini(
-                    text = "Test & Activate",
-                    onClick = onTestAndActivate,
-                    modifier = Modifier.weight(1f)
-                )
+                Button(
+                    onClick = onSaveAndActivate,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                ) {
+                    Text(
+                        text = "Save & Activate",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -621,32 +634,9 @@ private fun ThemeSelectorCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            ThemeTile(
-                title = "Auto",
-                mode = AppThemeMode.Auto,
-                selected = selected,
-                iconRes = R.drawable.ic_lucide_sun_moon_exact,
-                onSelected = onSelected,
-                modifier = Modifier.weight(1f)
-            )
-
-            ThemeTile(
-                title = "Light",
-                mode = AppThemeMode.Light,
-                selected = selected,
-                iconRes = R.drawable.ic_lucide_sun,
-                onSelected = onSelected,
-                modifier = Modifier.weight(1f)
-            )
-
-            ThemeTile(
-                title = "Dark",
-                mode = AppThemeMode.Dark,
-                selected = selected,
-                iconRes = R.drawable.ic_lucide_moon,
-                onSelected = onSelected,
-                modifier = Modifier.weight(1f)
-            )
+            ThemeTile("Auto", AppThemeMode.Auto, selected, R.drawable.ic_lucide_sun_moon_exact, onSelected, Modifier.weight(1f))
+            ThemeTile("Light", AppThemeMode.Light, selected, R.drawable.ic_lucide_sun, onSelected, Modifier.weight(1f))
+            ThemeTile("Dark", AppThemeMode.Dark, selected, R.drawable.ic_lucide_moon, onSelected, Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(10.dp))
@@ -655,23 +645,8 @@ private fun ThemeSelectorCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            ThemeTile(
-                title = "Cyber",
-                mode = AppThemeMode.Cyberpunk,
-                selected = selected,
-                iconRes = R.drawable.ic_lucide_cpu,
-                onSelected = onSelected,
-                modifier = Modifier.weight(1f)
-            )
-
-            ThemeTile(
-                title = "Hacker",
-                mode = AppThemeMode.Hacker,
-                selected = selected,
-                iconRes = R.drawable.ic_lucide_terminal_square,
-                onSelected = onSelected,
-                modifier = Modifier.weight(1f)
-            )
+            ThemeTile("Cyber", AppThemeMode.Cyberpunk, selected, R.drawable.ic_lucide_cpu, onSelected, Modifier.weight(1f))
+            ThemeTile("Hacker", AppThemeMode.Hacker, selected, R.drawable.ic_lucide_terminal_square, onSelected, Modifier.weight(1f))
         }
     }
 }
@@ -734,29 +709,5 @@ private fun ThemeTile(
                 maxLines = 1
             )
         }
-    }
-}
-
-@Composable
-private fun CyberButtonMini(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    androidx.compose.material3.Button(
-        onClick = onClick,
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        ),
-        shape = MaterialTheme.shapes.medium,
-        modifier = modifier.height(48.dp)
-    ) {
-        Text(
-            text = text,
-            fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
-            maxLines = 1
-        )
     }
 }

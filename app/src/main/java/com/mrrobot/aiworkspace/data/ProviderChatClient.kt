@@ -98,8 +98,16 @@ object ProviderChatClient {
             .put(
                 "messages",
                 JSONArray()
-                    .put(JSONObject().put("role", "system").put("content", "You are ALPHA inside Mr. Robot AI Workspace. Be precise, practical, and helpful."))
-                    .put(JSONObject().put("role", "user").put("content", message))
+                    .put(
+                        JSONObject()
+                            .put("role", "system")
+                            .put("content", "You are ALPHA inside Mr. Robot AI Workspace. Be precise, practical, and helpful.")
+                    )
+                    .put(
+                        JSONObject()
+                            .put("role", "user")
+                            .put("content", message)
+                    )
             )
             .put("temperature", 0.7)
 
@@ -131,7 +139,11 @@ object ProviderChatClient {
             .put(
                 "messages",
                 JSONArray()
-                    .put(JSONObject().put("role", "user").put("content", message))
+                    .put(
+                        JSONObject()
+                            .put("role", "user")
+                            .put("content", message)
+                    )
             )
 
         val response = postJson(
@@ -156,8 +168,9 @@ object ProviderChatClient {
         model: String,
         message: String
     ): String {
-        val encodedKey = URLEncoder.encode(apiKey, "UTF-8")
-        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$encodedKey"
+        val endpoint =
+            "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=" +
+                URLEncoder.encode(apiKey, "UTF-8")
 
         val payload = JSONObject()
             .put(
@@ -176,7 +189,9 @@ object ProviderChatClient {
         val response = postJson(
             url = endpoint,
             body = payload,
-            headers = mapOf("Content-Type" to "application/json")
+            headers = mapOf(
+                "Content-Type" to "application/json"
+            )
         )
 
         return JSONObject(response)
