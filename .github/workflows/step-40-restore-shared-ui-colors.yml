@@ -1,0 +1,96 @@
+name: Step 40 Restore Shared UI Colors
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    name: Restore Backward Compatible UI Color Constants
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Restore missing shared colors in UiComponents
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          COMPONENT_FILE="app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt"
+
+          if [ ! -f "$COMPONENT_FILE" ]; then
+            echo "UiComponents.kt not found:"
+            echo "$COMPONENT_FILE"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt")
+          text = path.read_text()
+
+          constants = """
+          // Backward-compatible shared colors.
+          // Older screens still import these symbols directly, so keep them available.
+          val NeonCyan = Color(0xFF00DFF7)
+          val NeonPurple = Color(0xFF8B5CF6)
+          val NeonGreen = Color(0xFF22C55E)
+          val DeepBg = Color(0xFF030712)
+          val Panel = Color(0xFF111827)
+          val PanelSoft = Color(0xFF0B1020)
+          val SoftText = Color(0xFFB8C0CC)
+          val Danger = Color(0xFFFF6B6B)
+
+          """
+
+          # If constants already exist, do not duplicate them.
+          if "val NeonCyan" not in text:
+              marker = "@Composable\nfun ScreenShell"
+              if marker not in text:
+                  raise SystemExit("Could not find ScreenShell marker in UiComponents.kt")
+
+              text = text.replace(marker, constants + marker)
+
+          path.write_text(text)
+          PY
+
+      - name: Verify restored symbols
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -R "val NeonCyan" app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt
+          grep -R "val NeonPurple" app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt
+          grep -R "val SoftText" app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt
+          grep -R "val PanelSoft" app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt
+          grep -R "val Danger" app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt
+
+          echo "Shared UI color constants restored."
+
+      - name: Commit Step 40
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 40 restore shared UI color constants"
+
+          git pull --rebase origin main
+          git push origin main
