@@ -1,0 +1,139 @@
+name: Step 51 Fix Chat ColumnScope Compile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    name: Fix ChatScreen ColumnScope Compile Error
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Apply surgical ColumnScope fix
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CHAT_SCREEN="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt"
+
+          if [ ! -f "$CHAT_SCREEN" ]; then
+            echo "ChatScreen.kt not found at $CHAT_SCREEN"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt")
+          text = path.read_text()
+
+          original = text
+
+          # Add ColumnScope import if missing.
+          if "import androidx.compose.foundation.layout.ColumnScope" not in text:
+              text = text.replace(
+                  "import androidx.compose.foundation.layout.Column\n",
+                  "import androidx.compose.foundation.layout.Column\n"
+                  "import androidx.compose.foundation.layout.ColumnScope\n"
+              )
+
+          # Fix invalid receiver type.
+          text = text.replace(
+              "content: @Composable Column.() -> Unit",
+              "content: @Composable ColumnScope.() -> Unit"
+          )
+
+          if text == original:
+              print("No source change required. ColumnScope fix may already be applied.")
+          else:
+              path.write_text(text)
+              print("Applied ColumnScope compile fix to ChatScreen.kt")
+          PY
+
+          mkdir -p docs/fixes
+
+          cat > docs/fixes/STEP_51_FIX_CHAT_COLUMNSCOPE_COMPILE.md <<'EOF'
+          # Step 51 Fix Chat ColumnScope Compile
+
+          Final validation failed with:
+
+          ```text
+          ChatScreen.kt:701:26 Unresolved reference: Column
+          ```
+
+          Root cause:
+
+          ```kotlin
+          content: @Composable Column.() -> Unit
+          ```
+
+          `Column` is a composable function, not a receiver scope type.
+
+          Fixed to:
+
+          ```kotlin
+          content: @Composable ColumnScope.() -> Unit
+          ```
+
+          Also added:
+
+          ```kotlin
+          import androidx.compose.foundation.layout.ColumnScope
+          ```
+
+          This is a surgical compile fix only. It does not change the AI Chat UI design, provider routing, icons, branding, or layout.
+          EOF
+
+      - name: Verify ColumnScope repair
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CHAT_SCREEN="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt"
+
+          grep -R "import androidx.compose.foundation.layout.ColumnScope" "$CHAT_SCREEN"
+          grep -R "content: @Composable ColumnScope.() -> Unit" "$CHAT_SCREEN"
+
+          if grep -R "content: @Composable Column.() -> Unit" "$CHAT_SCREEN"; then
+            echo "Invalid Column receiver still exists."
+            exit 1
+          fi
+
+          grep -R "Ask Mr. Robot" "$CHAT_SCREEN"
+          grep -R "Mr. Robot is thinking" "$CHAT_SCREEN"
+          grep -R "R.drawable.ic_lucide_plus" "$CHAT_SCREEN"
+          grep -R "R.drawable.ic_lucide_mic" "$CHAT_SCREEN"
+
+          echo "Step 51 ColumnScope verification passed."
+
+      - name: Commit Step 51
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt
+          git add docs/fixes/STEP_51_FIX_CHAT_COLUMNSCOPE_COMPILE.md
+
+          echo "Staged diff:"
+          git diff --cached --stat || true
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit. Step 51 is already applied."
+            exit 0
+          fi
+
+          git commit -m "Step 51 fix ChatScreen ColumnScope compile error"
+          git pull --rebase origin main
+          git push origin main
