@@ -9,11 +9,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,9 +39,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-
-// Backward-compatible shared colors.
-// Older screens still import these symbols directly, so keep them available.
 val NeonCyan = Color(0xFF00DFF7)
 val NeonPurple = Color(0xFF8B5CF6)
 val NeonGreen = Color(0xFF22C55E)
@@ -65,7 +60,7 @@ fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
                     listOf(
                         scheme.background,
                         scheme.surface.copy(alpha = 0.98f),
-                        scheme.surfaceVariant.copy(alpha = 0.68f)
+                        scheme.surfaceVariant.copy(alpha = 0.72f)
                     )
                 )
             )
@@ -89,10 +84,7 @@ fun AmbientGlow() {
         initialValue = 0.05f,
         targetValue = 0.16f,
         animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 3600,
-                easing = FastOutSlowInEasing
-            ),
+            animation = tween(3600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "ambient_alpha"

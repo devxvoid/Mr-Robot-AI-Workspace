@@ -70,22 +70,28 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.data.map { prefs ->
             val legacyOpenRouterKey = prefs[Keys.API_KEY] ?: ""
             val provider = runCatching {
-                ApiProvider.valueOf(prefs[Keys.SELECTED_PROVIDER] ?: ApiProvider.OpenRouter.name)
+                ApiProvider.valueOf(
+                    prefs[Keys.SELECTED_PROVIDER] ?: ApiProvider.OpenRouter.name
+                )
             }.getOrDefault(ApiProvider.OpenRouter)
 
-            val requestedModel = prefs[Keys.MODEL] ?: AiModels.defaultForProvider(provider).id
+            val openRouterKey = prefs[Keys.OPENROUTER_API_KEY] ?: legacyOpenRouterKey
+
+            val requestedModel = prefs[Keys.MODEL]
+                ?: AiModels.defaultForProvider(provider).id
+
             val normalizedModel = AiModels.byIdOrNull(requestedModel)
                 ?.takeIf { it.apiProvider == provider }
                 ?.id
                 ?: AiModels.defaultForProvider(provider).id
 
-            val openRouterKey = prefs[Keys.OPENROUTER_API_KEY] ?: legacyOpenRouterKey
-
             AppSettings(
                 apiKey = openRouterKey,
                 model = normalizedModel,
                 themeMode = runCatching {
-                    AppThemeMode.valueOf(prefs[Keys.THEME_MODE] ?: AppThemeMode.Auto.name)
+                    AppThemeMode.valueOf(
+                        prefs[Keys.THEME_MODE] ?: AppThemeMode.Auto.name
+                    )
                 }.getOrDefault(AppThemeMode.Auto),
                 selectedProvider = provider,
                 openRouterApiKey = openRouterKey,
@@ -105,6 +111,7 @@ class SettingsStore(private val context: Context) {
         themeMode: AppThemeMode
     ) {
         context.settingsDataStore.edit { prefs ->
+            prefs[Keys.SELECTED_PROVIDER] = ApiProvider.OpenRouter.name
             prefs[Keys.API_KEY] = apiKey.trim()
             prefs[Keys.OPENROUTER_API_KEY] = apiKey.trim()
             prefs[Keys.MODEL] = model.trim().ifBlank {

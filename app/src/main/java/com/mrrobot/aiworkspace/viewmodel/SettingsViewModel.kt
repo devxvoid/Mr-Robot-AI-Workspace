@@ -29,8 +29,8 @@ data class SettingsUiState(
     val savedMessage: String = "",
     val isLoaded: Boolean = false
 ) {
-    val currentApiKey: String
-        get() = when (selectedProvider) {
+    fun keyFor(provider: ApiProvider): String {
+        return when (provider) {
             ApiProvider.OpenRouter -> openRouterApiKey.ifBlank { apiKey }
             ApiProvider.OpenAI -> openAiApiKey
             ApiProvider.Anthropic -> anthropicApiKey
@@ -40,11 +40,16 @@ data class SettingsUiState(
             ApiProvider.DeepSeek -> deepSeekApiKey
             ApiProvider.XAI -> xAiApiKey
         }
+    }
+
+    val configuredProviders: List<ApiProvider>
+        get() = ApiProvider.values().filter { keyFor(it).isNotBlank() }
 }
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val store = SettingsStore(application.applicationContext)
+
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -70,14 +75,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun updateThemeMode(value: AppThemeMode) {
+        _uiState.value = _uiState.value.copy(
+            themeMode = value,
+            savedMessage = ""
+        )
+    }
+
+    fun updateModel(value: String) {
+        _uiState.value = _uiState.value.copy(
+            model = value,
+            savedMessage = ""
+        )
+    }
+
     fun updateSelectedProvider(value: ApiProvider) {
         val current = _uiState.value
-        val currentModel = AiModels.byIdOrNull(current.model)
-        val safeModel = if (currentModel?.apiProvider == value) {
-            current.model
-        } else {
-            AiModels.defaultForProvider(value).id
-        }
+        val safeModel = AiModels.defaultForProvider(value).id
 
         _uiState.value = current.copy(
             selectedProvider = value,
@@ -101,12 +115,46 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun updateModel(value: String) {
-        _uiState.value = _uiState.value.copy(model = value, savedMessage = "")
-    }
+    fun saveProviderConfiguration(
+        provider: ApiProvider,
+        model: String,
+        apiKey: String,
+        activate: Boolean
+    ) {
+        viewModelScope.launch {
+            val current = applyProviderKey(
+                state = _uiState.value,
+                provider = provider,
+                apiKey = apiKey
+            )
 
-    fun updateThemeMode(value: AppThemeMode) {
-        _uiState.value = _uiState.value.copy(themeMode = value, savedMessage = "")
+            val targetProvider = if (activate) provider else current.selectedProvider
+            val targetModel = if (activate) model else current.model
+
+            store.saveAllSettings(
+                selectedProvider = targetProvider,
+                model = targetModel,
+                themeMode = current.themeMode,
+                openRouterApiKey = current.openRouterApiKey,
+                openAiApiKey = current.openAiApiKey,
+                anthropicApiKey = current.anthropicApiKey,
+                geminiApiKey = current.geminiApiKey,
+                groqApiKey = current.groqApiKey,
+                mistralApiKey = current.mistralApiKey,
+                deepSeekApiKey = current.deepSeekApiKey,
+                xAiApiKey = current.xAiApiKey
+            )
+
+            _uiState.value = current.copy(
+                selectedProvider = targetProvider,
+                model = targetModel,
+                savedMessage = if (activate) {
+                    "${provider.displayName} saved and activated"
+                } else {
+                    "${provider.displayName} key saved"
+                }
+            )
+        }
     }
 
     fun save() {
@@ -127,14 +175,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 xAiApiKey = current.xAiApiKey
             )
 
-            _uiState.value = current.copy(savedMessage = "Settings saved successfully")
+            _uiState.value = current.copy(
+                savedMessage = "Settings saved successfully"
+            )
         }
     }
 
     fun saveThemeOnly(themeMode: AppThemeMode) {
         viewModelScope.launch {
-            val current = _uiState.value.copy(themeMode = themeMode, savedMessage = "")
-            _uiState.value = current
+            val current = _uiState.value.copy(themeMode = themeMode)
 
             store.saveAllSettings(
                 selectedProvider = current.selectedProvider,
@@ -150,14 +199,37 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 xAiApiKey = current.xAiApiKey
             )
 
-            _uiState.value = current.copy(savedMessage = "Theme updated")
+            _uiState.value = current.copy(
+                savedMessage = "Theme updated"
+            )
         }
     }
 
     fun clear() {
         viewModelScope.launch {
             store.clearSettings()
-            _uiState.value = SettingsUiState(savedMessage = "Settings cleared", isLoaded = true)
+
+            _uiState.value = SettingsUiState(
+                savedMessage = "Settings cleared",
+                isLoaded = true
+            )
+        }
+    }
+
+    private fun applyProviderKey(
+        state: SettingsUiState,
+        provider: ApiProvider,
+        apiKey: String
+    ): SettingsUiState {
+        return when (provider) {
+            ApiProvider.OpenRouter -> state.copy(apiKey = apiKey, openRouterApiKey = apiKey)
+            ApiProvider.OpenAI -> state.copy(openAiApiKey = apiKey)
+            ApiProvider.Anthropic -> state.copy(anthropicApiKey = apiKey)
+            ApiProvider.Gemini -> state.copy(geminiApiKey = apiKey)
+            ApiProvider.Groq -> state.copy(groqApiKey = apiKey)
+            ApiProvider.Mistral -> state.copy(mistralApiKey = apiKey)
+            ApiProvider.DeepSeek -> state.copy(deepSeekApiKey = apiKey)
+            ApiProvider.XAI -> state.copy(xAiApiKey = apiKey)
         }
     }
 }
