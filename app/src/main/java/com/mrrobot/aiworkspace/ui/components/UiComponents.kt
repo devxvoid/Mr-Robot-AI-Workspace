@@ -41,15 +41,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-val NeonCyan = Color(0xFF00DFF7)
-val NeonPurple = Color(0xFF8B5CF6)
-val NeonGreen = Color(0xFF22C55E)
-val DeepBg = Color(0xFF030712)
-val Panel = Color(0xFF111827)
-val PanelSoft = Color(0xFF0B1020)
-val SoftText = Color(0xFFB8C0CC)
-val Danger = Color(0xFFFF6B6B)
-
 @Composable
 fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
     val scheme = MaterialTheme.colorScheme
@@ -61,8 +52,8 @@ fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
                 Brush.verticalGradient(
                     listOf(
                         scheme.background,
-                        scheme.surface,
-                        scheme.surfaceVariant.copy(alpha = 0.90f)
+                        scheme.surface.copy(alpha = 0.98f),
+                        scheme.surfaceVariant.copy(alpha = 0.68f)
                     )
                 )
             )
@@ -83,11 +74,11 @@ fun AmbientGlow() {
     val infinite = rememberInfiniteTransition(label = "ambient_glow")
 
     val alpha by infinite.animateFloat(
-        initialValue = 0.10f,
-        targetValue = 0.32f,
+        initialValue = 0.05f,
+        targetValue = 0.16f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 2600,
+                durationMillis = 3600,
                 easing = FastOutSlowInEasing
             ),
             repeatMode = RepeatMode.Reverse
@@ -98,14 +89,14 @@ fun AmbientGlow() {
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
-                .size(260.dp)
-                .offset(x = (-110).dp, y = 10.dp)
+                .size(280.dp)
+                .offset(x = (-120).dp, y = 10.dp)
                 .alpha(alpha)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.34f),
                             Color.Transparent
                         )
                     )
@@ -114,15 +105,15 @@ fun AmbientGlow() {
 
         Box(
             modifier = Modifier
-                .size(300.dp)
+                .size(340.dp)
                 .align(Alignment.BottomEnd)
-                .offset(x = 120.dp, y = 80.dp)
+                .offset(x = 130.dp, y = 90.dp)
                 .alpha(alpha)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.26f),
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f),
                             Color.Transparent
                         )
                     )
@@ -141,20 +132,14 @@ fun GlassCard(
             .fillMaxWidth()
             .border(
                 width = 1.dp,
-                brush = Brush.horizontalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.46f),
-                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.32f),
-                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f)
-                    )
-                ),
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.32f),
                 shape = MaterialTheme.shapes.extraLarge
             ),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
@@ -170,52 +155,23 @@ fun PremiumHeader(
     badge: String? = null
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    lineHeight = 34.sp
-                )
+        Text(
+            text = title,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontSize = 34.sp,
+            fontWeight = FontWeight.ExtraBold,
+            lineHeight = 38.sp,
+            letterSpacing = (-0.8).sp
+        )
 
-                Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(10.dp))
 
-                Text(
-                    text = subtitle,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp,
-                    lineHeight = 21.sp
-                )
-            }
-
-            if (badge != null) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.50f)
-                    ),
-                    shape = MaterialTheme.shapes.extraLarge
-                ) {
-                    Text(
-                        text = badge,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(
-                            horizontal = 12.dp,
-                            vertical = 7.dp
-                        )
-                    )
-                }
-            }
-        }
+        Text(
+            text = subtitle,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 16.sp,
+            lineHeight = 25.sp
+        )
     }
 }
 
@@ -224,9 +180,10 @@ fun Title(text: String) {
     Text(
         text = text,
         color = MaterialTheme.colorScheme.onSurface,
-        fontSize = 23.sp,
+        fontSize = 25.sp,
         fontWeight = FontWeight.Bold,
-        lineHeight = 28.sp
+        lineHeight = 31.sp,
+        letterSpacing = (-0.3).sp
     )
 }
 
@@ -235,8 +192,8 @@ fun Subtitle(text: String) {
     Text(
         text = text,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontSize = 14.sp,
-        lineHeight = 21.sp
+        fontSize = 15.sp,
+        lineHeight = 23.sp
     )
 }
 
@@ -248,14 +205,15 @@ fun CyberButton(text: String, onClick: () -> Unit) {
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
         ),
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.large,
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp)
+            .height(56.dp)
     ) {
         Text(
             text = text,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp
         )
     }
 }
@@ -270,28 +228,28 @@ fun PremiumMetric(
         Text(
             text = value,
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 22.sp,
+            fontSize = 25.sp,
             fontWeight = FontWeight.ExtraBold,
             maxLines = 1
         )
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
 
         Text(
             text = label,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             maxLines = 1
         )
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(5.dp))
 
         Text(
             text = description,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
             maxLines = 2
         )
     }
@@ -305,10 +263,10 @@ fun StatusPill(
     val pillColor = color ?: MaterialTheme.colorScheme.primary
 
     Surface(
-        color = pillColor.copy(alpha = 0.12f),
+        color = pillColor.copy(alpha = 0.10f),
         border = BorderStroke(
             width = 1.dp,
-            color = pillColor.copy(alpha = 0.45f)
+            color = pillColor.copy(alpha = 0.35f)
         ),
         shape = MaterialTheme.shapes.extraLarge
     ) {
@@ -318,8 +276,8 @@ fun StatusPill(
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(
-                horizontal = 10.dp,
-                vertical = 6.dp
+                horizontal = 12.dp,
+                vertical = 7.dp
             )
         )
     }

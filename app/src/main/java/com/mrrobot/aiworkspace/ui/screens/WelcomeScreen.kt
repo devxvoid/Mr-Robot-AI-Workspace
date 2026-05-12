@@ -33,34 +33,36 @@ fun WelcomeScreen(nav: NavController) {
     ScreenShell {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 18.dp)
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             item {
                 HomeHeader()
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(18.dp))
 
                 GlassCard {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        StatusPill("Cyber")
-                        StatusPill("Hacker")
-                        StatusPill("Assets")
+                        StatusPill("Chat")
+                        StatusPill("Agents")
+                        StatusPill("Workflows")
                     }
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(18.dp))
 
-                    Title("Command Center")
+                    Title("What can I help you with today?")
+
+                    Spacer(Modifier.height(8.dp))
 
                     Subtitle(
-                        "Launch AI chat, manage agents, build workflows, inspect terminal activity, and tune the workspace from Settings."
+                        "Start a conversation, launch an agent, or build an automation from a calmer AI workspace."
                     )
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(18.dp))
 
-                    CyberButton("Launch AI Chat") {
+                    CyberButton("Start New Chat") {
                         nav.navigate(Route.Chat.path)
                     }
 
@@ -70,9 +72,10 @@ fun WelcomeScreen(nav: NavController) {
                         onClick = { nav.navigate(Route.Agents.path) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
+                            .height(54.dp),
+                        shape = MaterialTheme.shapes.large
                     ) {
-                        Text("Open Agent System")
+                        Text("Open Agents")
                     }
 
                     Spacer(Modifier.height(10.dp))
@@ -81,7 +84,8 @@ fun WelcomeScreen(nav: NavController) {
                         onClick = { nav.navigate(Route.Workflow.path) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
+                            .height(54.dp),
+                        shape = MaterialTheme.shapes.large
                     ) {
                         Text("Build Workflow")
                     }
@@ -95,9 +99,9 @@ fun WelcomeScreen(nav: NavController) {
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
                         PremiumMetric(
-                            label = "Screens",
+                            label = "Workspace",
                             value = "20+",
-                            description = "Workspace tools"
+                            description = "Screens and tools"
                         )
                     }
 
@@ -105,7 +109,7 @@ fun WelcomeScreen(nav: NavController) {
                         PremiumMetric(
                             label = "Themes",
                             value = "5",
-                            description = "Configured in Settings"
+                            description = "Set in Settings"
                         )
                     }
                 }
@@ -118,9 +122,9 @@ fun WelcomeScreen(nav: NavController) {
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
                         PremiumMetric(
-                            label = "AI",
+                            label = "Model",
                             value = "OR",
-                            description = "OpenRouter"
+                            description = "OpenRouter ready"
                         )
                     }
 
@@ -128,12 +132,12 @@ fun WelcomeScreen(nav: NavController) {
                         PremiumMetric(
                             label = "Agents",
                             value = "5",
-                            description = "Role prompts"
+                            description = "Role-based system"
                         )
                     }
                 }
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(18.dp))
             }
         }
     }
@@ -145,18 +149,19 @@ private fun HomeHeader() {
         Text(
             text = "Mr. Robot AI\nWorkspace",
             color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 30.sp,
+            fontSize = 34.sp,
             fontWeight = FontWeight.ExtraBold,
-            lineHeight = 34.sp
+            lineHeight = 38.sp,
+            letterSpacing = (-0.8).sp
         )
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
 
         Text(
-            text = "A professional Android command center for AI chat, agents, workflows, terminal logs, marketplace tools, and OpenRouter models.",
+            text = "A calm, powerful Android workspace for chat, agents, workflows, terminal logs, marketplace tools, and OpenRouter models.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp,
-            lineHeight = 21.sp
+            fontSize = 16.sp,
+            lineHeight = 25.sp
         )
     }
 }
