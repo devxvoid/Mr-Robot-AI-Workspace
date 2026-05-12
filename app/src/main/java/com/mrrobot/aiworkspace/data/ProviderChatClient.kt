@@ -15,14 +15,14 @@ object ProviderChatClient {
 
     suspend fun generateReply(
         settings: AppSettings,
-        userMessage: String
+        messages: List<ChatMessage>
     ): String = withContext(Dispatchers.IO) {
         val apiKey = settings.activeApiKey()
         val provider = settings.selectedProvider
         val model = settings.activeModel()
 
         if (apiKey.isBlank()) {
-            throw IllegalStateException("No active API key. Add and activate a provider in Settings.")
+            throw IllegalStateException("No active AI model. Open Settings, add an API key, then tap Save & Activate.")
         }
 
         when (provider) {
@@ -30,7 +30,7 @@ object ProviderChatClient {
                 url = "https://openrouter.ai/api/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                message = userMessage,
+                messages = messages,
                 extraHeaders = mapOf(
                     "HTTP-Referer" to "https://github.com/devxvoid/Mr-Robot-AI-Workspace",
                     "X-Title" to "Mr. Robot AI Workspace"
@@ -41,47 +41,47 @@ object ProviderChatClient {
                 url = "https://api.openai.com/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                message = userMessage
+                messages = messages
             )
 
             ApiProvider.Groq -> openAiCompatible(
                 url = "https://api.groq.com/openai/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                message = userMessage
+                messages = messages
             )
 
             ApiProvider.Mistral -> openAiCompatible(
                 url = "https://api.mistral.ai/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                message = userMessage
+                messages = messages
             )
 
             ApiProvider.DeepSeek -> openAiCompatible(
                 url = "https://api.deepseek.com/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                message = userMessage
+                messages = messages
             )
 
             ApiProvider.XAI -> openAiCompatible(
                 url = "https://api.x.ai/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                message = userMessage
+                messages = messages
             )
 
             ApiProvider.Anthropic -> anthropic(
                 apiKey = apiKey,
                 model = model,
-                message = userMessage
+                messages = messages
             )
 
             ApiProvider.Gemini -> gemini(
                 apiKey = apiKey,
                 model = model,
-                message = userMessage
+                messages = messages
             )
         }
     }
@@ -90,25 +90,28 @@ object ProviderChatClient {
         url: String,
         apiKey: String,
         model: String,
-        message: String,
+        messages: List<ChatMessage>,
         extraHeaders: Map<String, String> = emptyMap()
     ): String {
+        val jsonMessages = JSONArray()
+
+        jsonMessages.put(
+            JSONObject()
+                .put("role", "system")
+                .put("content", "You are ALPHA inside Mr. Robot AI Workspace. Be precise, practical, and helpful.")
+        )
+
+        messages.forEach { message ->
+            jsonMessages.put(
+                JSONObject()
+                    .put("role", message.role)
+                    .put("content", message.content)
+            )
+        }
+
         val payload = JSONObject()
             .put("model", model)
-            .put(
-                "messages",
-                JSONArray()
-                    .put(
-                        JSONObject()
-                            .put("role", "system")
-                            .put("content", "You are ALPHA inside Mr. Robot AI Workspace. Be precise, practical, and helpful.")
-                    )
-                    .put(
-                        JSONObject()
-                            .put("role", "user")
-                            .put("content", message)
-                    )
-            )
+            .put("messages", jsonMessages)
             .put("temperature", 0.7)
 
         val response = postJson(
@@ -131,20 +134,24 @@ object ProviderChatClient {
     private fun anthropic(
         apiKey: String,
         model: String,
-        message: String
+        messages: List<ChatMessage>
     ): String {
+        val anthropicMessages = JSONArray()
+
+        messages
+            .filter { it.role == "user" || it.role == "assistant" }
+            .forEach { message ->
+                anthropicMessages.put(
+                    JSONObject()
+                        .put("role", message.role)
+                        .put("content", message.content)
+                )
+            }
+
         val payload = JSONObject()
             .put("model", model)
-            .put("max_tokens", 1024)
-            .put(
-                "messages",
-                JSONArray()
-                    .put(
-                        JSONObject()
-                            .put("role", "user")
-                            .put("content", message)
-                    )
-            )
+            .put("max_tokens", 1200)
+            .put("messages", anthropicMessages)
 
         val response = postJson(
             url = "https://api.anthropic.com/v1/messages",
@@ -166,8 +173,12 @@ object ProviderChatClient {
     private fun gemini(
         apiKey: String,
         model: String,
-        message: String
+        messages: List<ChatMessage>
     ): String {
+        val prompt = messages.joinToString(separator = "\n\n") { message ->
+            "${message.role.uppercase()}: ${message.content}"
+        }
+
         val endpoint =
             "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=" +
                 URLEncoder.encode(apiKey, "UTF-8")
@@ -181,7 +192,7 @@ object ProviderChatClient {
                             .put(
                                 "parts",
                                 JSONArray()
-                                    .put(JSONObject().put("text", message))
+                                    .put(JSONObject().put("text", prompt))
                             )
                     )
             )
@@ -212,7 +223,7 @@ object ProviderChatClient {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 30000
-            readTimeout = 60000
+            readTimeout = 90000
             doOutput = true
             headers.forEach { (key, value) ->
                 setRequestProperty(key, value)
@@ -221,6 +232,7 @@ object ProviderChatClient {
 
         OutputStreamWriter(connection.outputStream).use { writer ->
             writer.write(body.toString())
+            writer.flush()
         }
 
         val status = connection.responseCode
@@ -233,6 +245,8 @@ object ProviderChatClient {
         val response = BufferedReader(InputStreamReader(stream)).use { reader ->
             reader.readText()
         }
+
+        connection.disconnect()
 
         if (status !in 200..299) {
             throw IllegalStateException("AI request failed ($status): $response")

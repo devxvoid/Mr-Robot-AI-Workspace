@@ -318,7 +318,7 @@ private fun ChatHeader(
                         text = if (apiKeyConfigured) {
                             "OpenRouter connected. File reading, image vision, and voice-to-text input are available."
                         } else {
-                            "OpenRouter key required in Settings"
+                            "No active model configured"
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
