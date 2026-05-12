@@ -13,7 +13,7 @@ enum class AppThemeMode {
     Auto,
     Dark,
     Light,
-    Cyberpunk,
+    Cyber,
     Hacker
 }
 
@@ -55,7 +55,7 @@ data class AppSettings(
     }
 
     fun modelFor(provider: ApiProvider): String {
-        val saved = when (provider) {
+        val stored = when (provider) {
             ApiProvider.OpenRouter -> openRouterModel.ifBlank { model }
             ApiProvider.OpenAI -> openAiModel
             ApiProvider.Anthropic -> anthropicModel
@@ -66,7 +66,7 @@ data class AppSettings(
             ApiProvider.XAI -> xAiModel
         }
 
-        return AiModels.byIdOrNull(saved)
+        return AiModels.byIdOrNull(stored)
             ?.takeIf { it.apiProvider == provider }
             ?.id
             ?: AiModels.defaultForProvider(provider).id
@@ -130,15 +130,10 @@ class SettingsStore(private val context: Context) {
             val openRouterKey = prefs[Keys.OPENROUTER_API_KEY] ?: legacyOpenRouterKey
 
             val selectedProvider = runCatching {
-                ApiProvider.valueOf(
-                    prefs[Keys.SELECTED_PROVIDER] ?: ApiProvider.OpenRouter.name
-                )
+                ApiProvider.valueOf(prefs[Keys.SELECTED_PROVIDER] ?: ApiProvider.OpenRouter.name)
             }.getOrDefault(ApiProvider.OpenRouter)
 
-            val openRouterModel = normalizeModel(
-                ApiProvider.OpenRouter,
-                prefs[Keys.OPENROUTER_MODEL] ?: prefs[Keys.MODEL]
-            )
+            val openRouterModel = normalizeModel(ApiProvider.OpenRouter, prefs[Keys.OPENROUTER_MODEL] ?: prefs[Keys.MODEL])
             val openAiModel = normalizeModel(ApiProvider.OpenAI, prefs[Keys.OPENAI_MODEL])
             val anthropicModel = normalizeModel(ApiProvider.Anthropic, prefs[Keys.ANTHROPIC_MODEL])
             val geminiModel = normalizeModel(ApiProvider.Gemini, prefs[Keys.GEMINI_MODEL])
@@ -162,9 +157,7 @@ class SettingsStore(private val context: Context) {
                 apiKey = openRouterKey,
                 model = activeModel,
                 themeMode = runCatching {
-                    AppThemeMode.valueOf(
-                        prefs[Keys.THEME_MODE] ?: AppThemeMode.Auto.name
-                    )
+                    AppThemeMode.valueOf(prefs[Keys.THEME_MODE] ?: AppThemeMode.Auto.name)
                 }.getOrDefault(AppThemeMode.Auto),
                 selectedProvider = selectedProvider,
 

@@ -247,7 +247,7 @@ fun ChatScreen(
                     ).show()
                 }
             },
-            onRemoveAttachment = viewModel::removeAttachment,
+            onRemoveAttachment = { attachment -> viewModel.removeAttachment(attachment) },
             onSend = { viewModel.send() },
             onStop = { viewModel.stopGeneration() },
             onRegenerate = { viewModel.regenerateLastAnswer() }

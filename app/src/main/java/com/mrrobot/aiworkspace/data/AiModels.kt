@@ -73,6 +73,8 @@ data class AiModel(
     val apiProvider: ApiProvider
 )
 
+typealias AiModelOption = AiModel
+
 data class ProviderModelConfig(
     val provider: ApiProvider,
     val modelId: String,
@@ -86,16 +88,14 @@ object AiModels {
     val supported = listOf(
         AiModel("openai/gpt-4o-mini", "GPT-4o Mini", "OpenRouter", "Fast OpenAI model through OpenRouter.", ApiProvider.OpenRouter),
         AiModel("anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet", "OpenRouter", "Claude model through OpenRouter.", ApiProvider.OpenRouter),
-        AiModel("google/gemini-2.0-flash-001", "Gemini Flash", "OpenRouter", "Gemini model through OpenRouter.", ApiProvider.OpenRouter),
-        AiModel("meta-llama/llama-3.1-70b-instruct", "Llama 3.1 70B", "OpenRouter", "Llama model through OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("google/gemini-2.0-flash-001", "Gemini 2.0 Flash", "OpenRouter", "Gemini model through OpenRouter.", ApiProvider.OpenRouter),
         AiModel("deepseek/deepseek-chat", "DeepSeek Chat", "OpenRouter", "DeepSeek model through OpenRouter.", ApiProvider.OpenRouter),
 
         AiModel("gpt-4o-mini", "GPT-4o Mini", "OpenAI", "Fast official OpenAI model.", ApiProvider.OpenAI),
         AiModel("gpt-4o", "GPT-4o", "OpenAI", "Flagship OpenAI model.", ApiProvider.OpenAI),
-        AiModel("o3-mini", "o3 Mini", "OpenAI", "Reasoning-focused OpenAI model.", ApiProvider.OpenAI),
 
-        AiModel("claude-3-5-sonnet-latest", "Claude 3.5 Sonnet", "Anthropic", "Strong Claude model for coding, writing, and analysis.", ApiProvider.Anthropic),
-        AiModel("claude-3-5-haiku-latest", "Claude 3.5 Haiku", "Anthropic", "Fast Claude model for daily use.", ApiProvider.Anthropic),
+        AiModel("claude-3-5-sonnet-latest", "Claude 3.5 Sonnet", "Anthropic", "Strong Claude model for coding and analysis.", ApiProvider.Anthropic),
+        AiModel("claude-3-5-haiku-latest", "Claude 3.5 Haiku", "Anthropic", "Fast Claude model.", ApiProvider.Anthropic),
 
         AiModel("gemini-1.5-flash", "Gemini 1.5 Flash", "Google", "Fast Gemini model.", ApiProvider.Gemini),
         AiModel("gemini-1.5-pro", "Gemini 1.5 Pro", "Google", "Advanced Gemini model.", ApiProvider.Gemini),

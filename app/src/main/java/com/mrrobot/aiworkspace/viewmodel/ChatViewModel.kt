@@ -28,12 +28,32 @@ data class ChatAttachment(
     val readableText: String = "",
     val extractedText: String = "",
     val description: String = "",
-    val isImage: Boolean = mimeType.startsWith("image/"),
+    val imageDataUrl: String = "",
+    val extractionStatus: String = "",
+    val isImage: Boolean = mimeType.startsWith("image/") || imageDataUrl.isNotBlank(),
     val isReadable: Boolean = readableText.isNotBlank() || extractedText.isNotBlank()
-)
+) {
+    constructor(
+        uri: Uri?,
+        name: String,
+        mimeType: String = "",
+        sizeBytes: Long = 0L,
+        imageDataUrl: String = "",
+        extractionStatus: String = ""
+    ) : this(
+        id = UUID.randomUUID().toString(),
+        uri = uri,
+        name = name,
+        displayName = name,
+        mimeType = mimeType,
+        sizeBytes = sizeBytes,
+        imageDataUrl = imageDataUrl,
+        extractionStatus = extractionStatus
+    )
+}
 
 data class ChatUiMessage(
-    val id: Long = System.currentTimeMillis(),
+    val id: String = UUID.randomUUID().toString(),
     val role: String,
     val content: String,
     val attachments: List<ChatAttachment> = emptyList()
@@ -87,11 +107,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(
                     apiKey = activeKey,
                     model = activeModel,
-                    provider = if (hasActive) {
-                        settings.selectedProvider.displayName
-                    } else {
-                        "No active model"
-                    },
+                    provider = if (hasActive) settings.selectedProvider.displayName else "No active model",
                     isProviderReady = hasActive,
                     assistantStatus = if (hasActive) {
                         "${settings.selectedProvider.displayName} ready"
@@ -120,29 +136,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    fun addAttachments(items: List<Any>) {
-        val incoming = items.mapNotNull { item ->
-            when (item) {
-                is ChatAttachment -> item
-                is Uri -> ChatAttachment(
-                    uri = item,
-                    name = item.lastPathSegment ?: "Attachment",
-                    displayName = item.lastPathSegment ?: "Attachment",
-                    mimeType = "",
-                    type = "file"
-                )
-                else -> ChatAttachment(
-                    name = item.toString(),
-                    displayName = item.toString(),
-                    type = "file"
-                )
-            }
-        }
+    fun addAttachments(items: List<ChatAttachment>) {
+        if (items.isEmpty()) return
 
-        if (incoming.isEmpty()) return
-
-        val merged = (_uiState.value.selectedAttachments + incoming)
-            .distinctBy { it.id }
+        val merged = (_uiState.value.selectedAttachments + items).distinctBy { it.id }
 
         _uiState.value = _uiState.value.copy(
             selectedAttachments = merged,
@@ -154,8 +151,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeAttachment(attachment: ChatAttachment) {
-        val updated = _uiState.value.selectedAttachments
-            .filterNot { it.id == attachment.id }
+        val updated = _uiState.value.selectedAttachments.filterNot { it.id == attachment.id }
 
         _uiState.value = _uiState.value.copy(
             selectedAttachments = updated,
@@ -165,9 +161,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    fun removeAttachment(id: String) {
-        val updated = _uiState.value.selectedAttachments
-            .filterNot { it.id == id }
+    fun removeAttachmentById(id: String) {
+        val updated = _uiState.value.selectedAttachments.filterNot { it.id == id }
 
         _uiState.value = _uiState.value.copy(
             selectedAttachments = updated,
@@ -207,16 +202,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (current.isLoading) return
 
-        val lastUser = current.messages
-            .lastOrNull { it.role == "user" }
-            ?.content
-            .orEmpty()
+        val lastUser = current.messages.lastOrNull { it.role == "user" }?.content.orEmpty()
 
         if (lastUser.isBlank()) return
 
-        val trimmedMessages = current.messages.dropLastWhile {
-            it.role == "assistant"
-        }
+        val trimmedMessages = current.messages.dropLastWhile { it.role == "assistant" }
 
         _uiState.value = current.copy(
             messages = trimmedMessages,
@@ -325,9 +315,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 .onFailure { throwable ->
-                    if (throwable is CancellationException) {
-                        return@onFailure
-                    }
+                    if (throwable is CancellationException) return@onFailure
 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -337,9 +325,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun buildAttachmentContext(
-        attachments: List<ChatAttachment>
-    ): String {
+    private fun buildAttachmentContext(attachments: List<ChatAttachment>): String {
         if (attachments.isEmpty()) return ""
 
         return attachments.joinToString(separator = "\n\n") { attachment ->
@@ -360,6 +346,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     append("\n  Size: ")
                     append(attachment.sizeBytes)
                     append(" bytes")
+                }
+
+                if (attachment.imageDataUrl.isNotBlank()) {
+                    append("\n  Image: attached")
+                }
+
+                if (attachment.extractionStatus.isNotBlank()) {
+                    append("\n  Status: ")
+                    append(attachment.extractionStatus)
                 }
 
                 if (text.isNotBlank()) {
