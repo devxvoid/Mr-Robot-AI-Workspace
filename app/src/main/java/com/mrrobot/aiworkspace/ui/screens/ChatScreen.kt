@@ -10,17 +10,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -35,10 +28,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,17 +39,25 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -69,23 +68,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrrobot.aiworkspace.R
+import com.mrrobot.aiworkspace.navigation.mergedScreenPadding
+import com.mrrobot.aiworkspace.ui.components.GroupSpacing
 import com.mrrobot.aiworkspace.viewmodel.ChatAttachment
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
@@ -100,58 +98,71 @@ private val SuggestionPrompts = listOf(
     "Summarize the attached document"
 )
 
+/**
+ * Chat screen.
+ *
+ * Layout follows the canonical M3 conversational surface:
+ *
+ *   - Root [Scaffold] with a pinned [TopAppBar] on top.
+ *   - Scrollable [LazyColumn] of chat bubbles.
+ *   - Bottom composer using [OutlinedTextField] (rounded via
+ *     MaterialTheme.shapes.extraLarge for the pill look) plus a
+ *     [FloatingActionButton] anchored to the send action.
+ *   - "+" attach button opens a [ModalBottomSheet] (M3's
+ *     ModalBottomSheet component, not a custom overlay) with Gallery /
+ *     Videos / Files / Camera options wired to ActivityResult
+ *     contracts (PickVisualMedia is available starting at Android 13
+ *     equivalent via ActivityResultContracts; the app uses
+ *     GetMultipleContents + OpenMultipleDocuments as a universal
+ *     fallback and TakePicture for the camera).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    viewModel: ChatViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel(),
+    parentPadding: PaddingValues = PaddingValues()
 ) {
     val state by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val scheme = MaterialTheme.colorScheme
+    val scrollBehavior = TopAppBarDefaults
+        .pinnedScrollBehavior(rememberTopAppBarState())
 
     var showAttachSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Camera capture URI holder
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Gallery picker (photos & videos)
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
-            val attachments = uris.map { uri ->
-                uriToAttachment(context, uri)
-            }
-            viewModel.addAttachments(attachments)
+            viewModel.addAttachments(uris.map { uriToAttachment(context, it) })
         }
     }
 
-    // File picker (any file type)
     val fileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
-            val attachments = uris.map { uri ->
-                uriToAttachment(context, uri)
-            }
-            viewModel.addAttachments(attachments)
+            viewModel.addAttachments(uris.map { uriToAttachment(context, it) })
         }
     }
 
-    // Camera capture
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success && cameraImageUri != null) {
-            val attachment = uriToAttachment(context, cameraImageUri!!)
-            viewModel.addAttachments(listOf(attachment.copy(name = "Camera Photo", displayName = "Camera Photo")))
+        val uri = cameraImageUri
+        if (success && uri != null) {
+            val attachment = uriToAttachment(context, uri).copy(
+                name = "Camera Photo",
+                displayName = "Camera Photo"
+            )
+            viewModel.addAttachments(listOf(attachment))
         }
     }
 
-    // Camera permission
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -162,7 +173,11 @@ fun ChatScreen(
                 cameraLauncher.launch(uri)
             }
         } else {
-            Toast.makeText(context, "Camera permission is required to take photos.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                "Camera permission is required to take photos.",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -195,14 +210,12 @@ fun ChatScreen(
         }
     }
 
-    // Attachment bottom sheet
     if (showAttachSheet) {
         ModalBottomSheet(
             onDismissRequest = { showAttachSheet = false },
             sheetState = sheetState,
-            containerColor = scheme.surface,
-            tonalElevation = 4.dp,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = MaterialTheme.shapes.large
         ) {
             AttachmentSheetContent(
                 onGalleryClick = {
@@ -225,43 +238,61 @@ fun ChatScreen(
         }
     }
 
-    Box(
+    Scaffold(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        scheme.background,
-                        scheme.surface.copy(alpha = 0.98f),
-                        scheme.surfaceVariant.copy(alpha = 0.82f)
-                    )
-                )
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = "Mr. Robot",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Text(
+                            text = if (state.isProviderReady) {
+                                "${state.provider} - ${state.assistantStatus}"
+                            } else {
+                                state.assistantStatus
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.clearChat() }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_lucide_sparkles),
+                            contentDescription = "Clear chat"
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior
             )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-        ) {
-            ChatTopBar(
-                provider = state.provider,
-                assistantStatus = state.assistantStatus,
-                isReady = state.isProviderReady,
-                onClear = { viewModel.clearChat() }
-            )
+        }
+    ) { innerPadding ->
+        val padding = mergedScreenPadding(
+            innerPadding = innerPadding,
+            parentPadding = parentPadding,
+            horizontalEdge = 0.dp,
+            topExtra = 0.dp,
+            bottomExtra = 0.dp
+        )
 
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             StatusStrip(
                 model = state.model,
-                provider = state.provider,
                 isReady = state.isProviderReady,
                 userMessages = state.userMessages,
                 queuedFiles = state.queuedFiles,
                 readableFiles = state.readableFiles,
                 visionImages = state.visionImages
             )
-
-            Spacer(Modifier.height(6.dp))
 
             LazyColumn(
                 state = listState,
@@ -274,28 +305,23 @@ fun ChatScreen(
                     top = 8.dp,
                     bottom = 12.dp
                 ),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (state.messages.isEmpty()) {
                     item {
                         EmptyChatState(
                             isReady = state.isProviderReady,
-                            onPrompt = { viewModel.useSuggestion(it) }
+                            onPrompt = viewModel::useSuggestion
                         )
                     }
                 } else {
-                    items(
-                        items = state.messages,
-                        key = { it.id }
-                    ) { message ->
+                    items(state.messages, key = { it.id }) { message ->
                         ChatBubble(message = message)
                     }
                 }
 
                 if (state.isLoading) {
-                    item {
-                        ThinkingBubble()
-                    }
+                    item { ThinkingBubble() }
                 }
             }
 
@@ -304,7 +330,7 @@ fun ChatScreen(
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
             ) {
-                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                     ErrorPanel(
                         message = state.error,
                         onRetry = { viewModel.retryLast() }
@@ -314,10 +340,9 @@ fun ChatScreen(
 
             SuggestionRow(
                 visible = state.input.isBlank() && !state.isLoading && state.messages.size <= 1,
-                onPrompt = { viewModel.useSuggestion(it) }
+                onPrompt = viewModel::useSuggestion
             )
 
-            // Attachment preview strip
             AttachmentPreviewStrip(
                 attachments = state.selectedAttachments,
                 onRemove = { viewModel.removeAttachment(it) }
@@ -329,15 +354,8 @@ fun ChatScreen(
                 canRegenerate = state.messages.any { it.role == "user" },
                 queuedFiles = state.queuedFiles,
                 onInputChange = viewModel::updateInput,
-                onMicClick = {
-                    launchSpeechInput(
-                        context = context,
-                        launcher = speechLauncher::launch
-                    )
-                },
-                onAttachClick = {
-                    showAttachSheet = true
-                },
+                onMicClick = { launchSpeechInput(context, speechLauncher::launch) },
+                onAttachClick = { showAttachSheet = true },
                 onSend = { viewModel.send() },
                 onStop = { viewModel.stopGeneration() },
                 onRegenerate = { viewModel.regenerateLastAnswer() }
@@ -346,7 +364,9 @@ fun ChatScreen(
     }
 }
 
-/* ---------------- Attachment Bottom Sheet Content ---------------- */
+/* ------------------------------------------------------------------ */
+/* Attachment bottom sheet (M3 ModalBottomSheet)                      */
+/* ------------------------------------------------------------------ */
 
 @Composable
 private fun AttachmentSheetContent(
@@ -355,22 +375,26 @@ private fun AttachmentSheetContent(
     onFilesClick: () -> Unit,
     onCameraClick: () -> Unit
 ) {
-    val scheme = MaterialTheme.colorScheme
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 16.dp)
-            .navigationBarsPadding()
     ) {
         Text(
             text = "Attach to message",
-            color = scheme.onSurface,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(4.dp))
+
+        Text(
+            text = "Send photos, videos, files, or take a new picture.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(Modifier.height(24.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -379,28 +403,24 @@ private fun AttachmentSheetContent(
             AttachmentOption(
                 iconRes = R.drawable.ic_lucide_image,
                 label = "Gallery",
-                tint = scheme.primary,
                 onClick = onGalleryClick
             )
 
             AttachmentOption(
                 iconRes = R.drawable.ic_lucide_image,
                 label = "Videos",
-                tint = scheme.secondary,
                 onClick = onVideoClick
             )
 
             AttachmentOption(
                 iconRes = R.drawable.ic_lucide_file,
                 label = "Files",
-                tint = scheme.tertiary,
                 onClick = onFilesClick
             )
 
             AttachmentOption(
                 iconRes = R.drawable.ic_lucide_camera,
                 label = "Camera",
-                tint = scheme.error,
                 onClick = onCameraClick
             )
         }
@@ -413,11 +433,8 @@ private fun AttachmentSheetContent(
 private fun AttachmentOption(
     iconRes: Int,
     label: String,
-    tint: Color,
     onClick: () -> Unit
 ) {
-    val scheme = MaterialTheme.colorScheme
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable { onClick() }
@@ -425,14 +442,13 @@ private fun AttachmentOption(
         Surface(
             modifier = Modifier.size(56.dp),
             shape = CircleShape,
-            color = tint.copy(alpha = 0.12f),
-            border = BorderStroke(1.dp, tint.copy(alpha = 0.3f))
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 Icon(
                     painter = painterResource(id = iconRes),
                     contentDescription = label,
-                    tint = tint,
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -442,14 +458,15 @@ private fun AttachmentOption(
 
         Text(
             text = label,
-            color = scheme.onSurface,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
 
-/* ---------------- Attachment Preview Strip ---------------- */
+/* ------------------------------------------------------------------ */
+/* Attachment preview strip                                           */
+/* ------------------------------------------------------------------ */
 
 @Composable
 private fun AttachmentPreviewStrip(
@@ -458,22 +475,17 @@ private fun AttachmentPreviewStrip(
 ) {
     if (attachments.isEmpty()) return
 
-    val scheme = MaterialTheme.colorScheme
-
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(
-            items = attachments,
-            key = { it.stableKey }
-        ) { attachment ->
+        items(attachments, key = { it.stableKey }) { attachment ->
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = scheme.surfaceVariant.copy(alpha = 0.8f),
-                border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.35f))
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
             ) {
                 Row(
                     modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
@@ -486,15 +498,12 @@ private fun AttachmentPreviewStrip(
                             else R.drawable.ic_lucide_file
                         ),
                         contentDescription = null,
-                        tint = if (attachment.isImage) scheme.primary else scheme.tertiary,
                         modifier = Modifier.size(16.dp)
                     )
 
                     Text(
                         text = attachment.displayName.take(20),
-                        color = scheme.onSurface,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.labelMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -506,7 +515,6 @@ private fun AttachmentPreviewStrip(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_lucide_x),
                             contentDescription = "Remove",
-                            tint = scheme.onSurfaceVariant,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -516,7 +524,9 @@ private fun AttachmentPreviewStrip(
     }
 }
 
-/* ---------------- Utility: URI to Attachment ---------------- */
+/* ------------------------------------------------------------------ */
+/* Utility: URI to Attachment, camera URI                             */
+/* ------------------------------------------------------------------ */
 
 private fun uriToAttachment(context: Context, uri: Uri): ChatAttachment {
     val contentResolver = context.contentResolver
@@ -536,7 +546,7 @@ private fun uriToAttachment(context: Context, uri: Uri): ChatAttachment {
     val sizeLabel = when {
         fileSize < 1024 -> "$fileSize B"
         fileSize < 1024 * 1024 -> "${fileSize / 1024} KB"
-        else -> "${"%.1f".format(fileSize / (1024.0 * 1024.0))} MB"
+        else -> String.format(Locale.US, "%.1f MB", fileSize / (1024.0 * 1024.0))
     }
 
     return ChatAttachment(
@@ -559,238 +569,63 @@ private fun createCameraImageUri(context: Context): Uri? {
             "${context.packageName}.fileprovider",
             imageFile
         )
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         null
     }
 }
 
-/* ---------------- Top bar ---------------- */
-
-@Composable
-private fun ChatTopBar(
-    provider: String,
-    assistantStatus: String,
-    isReady: Boolean,
-    onClear: () -> Unit
-) {
-    val scheme = MaterialTheme.colorScheme
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = scheme.surface.copy(alpha = 0.92f),
-        tonalElevation = 2.dp,
-        shadowElevation = 0.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AssistantAvatar(
-                size = 44.dp,
-                ring = true
-            )
-
-            Spacer(Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Mr. Robot",
-                        color = scheme.onSurface,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(Modifier.width(8.dp))
-
-                    StatusDot(isReady = isReady)
-                }
-
-                Spacer(Modifier.height(2.dp))
-
-                Text(
-                    text = if (isReady) "$provider  \u2022  $assistantStatus" else assistantStatus,
-                    color = scheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            TopBarIconButton(
-                iconRes = R.drawable.ic_lucide_sparkles,
-                contentDescription = "Clear chat",
-                onClick = onClear
-            )
-        }
-    }
-}
-
-@Composable
-private fun AssistantAvatar(
-    size: androidx.compose.ui.unit.Dp,
-    ring: Boolean = false
-) {
-    val scheme = MaterialTheme.colorScheme
-
-    Box(
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        scheme.primary,
-                        scheme.tertiary
-                    )
-                )
-            )
-            .then(
-                if (ring) Modifier.shadow(elevation = 2.dp, shape = CircleShape)
-                else Modifier
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_lucide_bot),
-            contentDescription = null,
-            tint = scheme.onPrimary,
-            modifier = Modifier.size(size * 0.55f)
-        )
-    }
-}
-
-@Composable
-private fun UserAvatar(size: androidx.compose.ui.unit.Dp) {
-    val scheme = MaterialTheme.colorScheme
-
-    Box(
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(scheme.secondaryContainer),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_lucide_user),
-            contentDescription = null,
-            tint = scheme.onSecondaryContainer,
-            modifier = Modifier.size(size * 0.55f)
-        )
-    }
-}
-
-@Composable
-private fun StatusDot(isReady: Boolean) {
-    val scheme = MaterialTheme.colorScheme
-    val color = if (isReady) scheme.tertiary else scheme.error
-
-    val transition = rememberInfiniteTransition(label = "status_pulse")
-    val pulse by transition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = if (isReady) 1f else 0.7f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "status_pulse_alpha"
-    )
-
-    Box(
-        modifier = Modifier
-            .size(9.dp)
-            .alpha(pulse)
-            .clip(CircleShape)
-            .background(color)
-    )
-}
-
-@Composable
-private fun TopBarIconButton(
-    iconRes: Int,
-    contentDescription: String,
-    onClick: () -> Unit
-) {
-    val scheme = MaterialTheme.colorScheme
-
-    Surface(
-        modifier = Modifier.size(40.dp),
-        shape = CircleShape,
-        color = scheme.surfaceVariant,
-        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.35f))
-    ) {
-        IconButton(onClick = onClick) {
-            Icon(
-                painter = painterResource(id = iconRes),
-                contentDescription = contentDescription,
-                tint = scheme.onSurface,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-/* ---------------- Status strip ---------------- */
+/* ------------------------------------------------------------------ */
+/* Status strip                                                       */
+/* ------------------------------------------------------------------ */
 
 @Composable
 private fun StatusStrip(
     model: String,
-    provider: String,
     isReady: Boolean,
     userMessages: Int,
     queuedFiles: Int,
     readableFiles: Int,
     visionImages: Int
 ) {
-    val scheme = MaterialTheme.colorScheme
     val scroll = rememberScrollState()
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(scroll)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         InfoChip(
             iconRes = R.drawable.ic_lucide_cpu,
             label = if (isReady) model else "No model",
-            tint = scheme.primary,
             emphasized = true
         )
 
         InfoChip(
             iconRes = R.drawable.ic_lucide_user,
-            label = "$userMessages sent",
-            tint = scheme.onSurfaceVariant
+            label = "$userMessages sent"
         )
 
         if (queuedFiles > 0) {
             InfoChip(
                 iconRes = R.drawable.ic_lucide_folder,
-                label = "$queuedFiles queued",
-                tint = scheme.tertiary
+                label = "$queuedFiles queued"
             )
         }
 
         if (readableFiles > 0) {
             InfoChip(
                 iconRes = R.drawable.ic_lucide_terminal,
-                label = "$readableFiles readable",
-                tint = scheme.tertiary
+                label = "$readableFiles readable"
             )
         }
 
         if (visionImages > 0) {
             InfoChip(
                 iconRes = R.drawable.ic_lucide_sparkles,
-                label = "$visionImages vision",
-                tint = scheme.secondary
+                label = "$visionImages vision"
             )
         }
     }
@@ -800,65 +635,67 @@ private fun StatusStrip(
 private fun InfoChip(
     iconRes: Int,
     label: String,
-    tint: Color,
     emphasized: Boolean = false
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val container = if (emphasized) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+
+    val content = if (emphasized) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
 
     Surface(
-        color = if (emphasized) tint.copy(alpha = 0.12f) else scheme.surface.copy(alpha = 0.88f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (emphasized) tint.copy(alpha = 0.45f) else scheme.outline.copy(alpha = 0.35f)
-        ),
-        shape = RoundedCornerShape(999.dp)
+        color = container,
+        contentColor = content,
+        shape = MaterialTheme.shapes.small
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
-                tint = tint,
                 modifier = Modifier.size(14.dp)
             )
             Text(
                 text = label,
-                color = if (emphasized) tint else scheme.onSurface,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.labelMedium,
                 maxLines = 1
             )
         }
     }
 }
 
-/* ---------------- Empty state ---------------- */
+/* ------------------------------------------------------------------ */
+/* Empty state                                                        */
+/* ------------------------------------------------------------------ */
 
 @Composable
 private fun EmptyChatState(
     isReady: Boolean,
     onPrompt: (String) -> Unit
 ) {
-    val scheme = MaterialTheme.colorScheme
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(20.dp))
 
-        AssistantAvatar(size = 72.dp, ring = true)
+        AssistantAvatar(size = 72.dp)
 
         Spacer(Modifier.height(16.dp))
 
         Text(
             text = "How can I help you today?",
-            color = scheme.onBackground,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.ExtraBold
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(Modifier.height(6.dp))
@@ -869,15 +706,15 @@ private fun EmptyChatState(
             } else {
                 "Add an API key in Settings, then start a conversation."
             },
-            color = scheme.onSurfaceVariant,
-            fontSize = 14.sp
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(24.dp))
 
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(GroupSpacing)
         ) {
             SuggestionPrompts.forEach { prompt ->
                 SuggestionCard(
@@ -894,15 +731,15 @@ private fun SuggestionCard(
     text: String,
     onClick: () -> Unit
 ) {
-    val scheme = MaterialTheme.colorScheme
-
-    Surface(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(18.dp),
-        color = scheme.surface.copy(alpha = 0.92f),
-        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.35f))
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        )
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -913,33 +750,32 @@ private fun SuggestionCard(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(scheme.primary.copy(alpha = 0.14f)),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_lucide_sparkles),
                     contentDescription = null,
-                    tint = scheme.primary,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(16.dp)
                 )
             }
 
             Text(
                 text = text,
-                color = scheme.onSurface,
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
         }
     }
 }
 
-/* ---------------- Chat bubble ---------------- */
+/* ------------------------------------------------------------------ */
+/* Chat bubble                                                        */
+/* ------------------------------------------------------------------ */
 
 @Composable
-private fun ChatBubble(
-    message: ChatUiMessage
-) {
+private fun ChatBubble(message: ChatUiMessage) {
     val clipboard = LocalClipboardManager.current
     val scheme = MaterialTheme.colorScheme
     val isUser = message.role == "user"
@@ -951,7 +787,7 @@ private fun ChatBubble(
     ) {
         if (!isUser) {
             AssistantAvatar(size = 34.dp)
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
         }
 
         Column(
@@ -960,20 +796,14 @@ private fun ChatBubble(
         ) {
             Text(
                 text = if (isUser) "You" else "Mr. Robot",
-                color = scheme.onSurfaceVariant,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(4.dp))
 
-            val bubbleColor = if (isUser) {
-                scheme.primary
-            } else {
-                scheme.surface.copy(alpha = 0.96f)
-            }
-
-            val textColor = if (isUser) scheme.onPrimary else scheme.onSurface
+            val container = if (isUser) scheme.primary else scheme.surfaceContainerHigh
+            val content = if (isUser) scheme.onPrimary else scheme.onSurface
 
             Surface(
                 shape = RoundedCornerShape(
@@ -982,19 +812,12 @@ private fun ChatBubble(
                     bottomStart = if (isUser) 18.dp else 4.dp,
                     bottomEnd = if (isUser) 4.dp else 18.dp
                 ),
-                color = bubbleColor,
-                border = if (isUser) null else BorderStroke(
-                    1.dp,
-                    scheme.outline.copy(alpha = 0.3f)
-                ),
-                tonalElevation = if (isUser) 0.dp else 1.dp,
-                shadowElevation = if (isUser) 2.dp else 0.dp
+                color = container,
+                contentColor = content,
+                tonalElevation = if (isUser) 0.dp else 1.dp
             ) {
                 Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-                    MessageContent(
-                        content = message.content,
-                        textColor = textColor
-                    )
+                    MessageContent(content = message.content, isUser = isUser)
                 }
             }
 
@@ -1006,17 +829,17 @@ private fun ChatBubble(
             ) {
                 if (message.attachments.isNotEmpty()) {
                     Text(
-                        text = "${message.attachments.size} attachment${if (message.attachments.size == 1) "" else "s"}",
-                        color = scheme.onSurfaceVariant,
-                        fontSize = 11.sp
+                        text = "${message.attachments.size} attachment" +
+                            if (message.attachments.size == 1) "" else "s",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.onSurfaceVariant
                     )
                 }
 
                 Text(
                     text = "Copy",
+                    style = MaterialTheme.typography.labelSmall,
                     color = scheme.primary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clickable {
                         clipboard.setText(AnnotatedString(message.content))
                     }
@@ -1025,17 +848,14 @@ private fun ChatBubble(
         }
 
         if (isUser) {
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
             UserAvatar(size = 34.dp)
         }
     }
 }
 
 @Composable
-private fun MessageContent(
-    content: String,
-    textColor: Color
-) {
+private fun MessageContent(content: String, isUser: Boolean) {
     val looksLikeCode = content.contains("```") ||
         content.lines().any {
             val line = it.trim()
@@ -1051,29 +871,68 @@ private fun MessageContent(
         val scheme = MaterialTheme.colorScheme
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = scheme.surfaceVariant.copy(alpha = 0.6f),
-            shape = RoundedCornerShape(10.dp),
-            border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.3f))
+            color = if (isUser) scheme.primary.copy(alpha = 0.3f) else scheme.surfaceContainerHighest,
+            shape = MaterialTheme.shapes.small
         ) {
             Text(
                 text = content.replace("```", ""),
-                color = textColor,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontFamily = FontFamily.Monospace
+                ),
                 modifier = Modifier.padding(12.dp)
             )
         }
     } else {
         Text(
             text = content,
-            color = textColor,
-            fontSize = 15.sp,
-            lineHeight = 22.sp
+            style = MaterialTheme.typography.bodyLarge
         )
     }
 }
 
-/* ---------------- Thinking indicator ---------------- */
+/* ------------------------------------------------------------------ */
+/* Avatars                                                            */
+/* ------------------------------------------------------------------ */
+
+@Composable
+private fun AssistantAvatar(size: Dp) {
+    Surface(
+        modifier = Modifier.size(size),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_lucide_bot),
+                contentDescription = null,
+                modifier = Modifier.size(size * 0.55f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun UserAvatar(size: Dp) {
+    Surface(
+        modifier = Modifier.size(size),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_lucide_user),
+                contentDescription = null,
+                modifier = Modifier.size(size * 0.55f)
+            )
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Thinking indicator                                                 */
+/* ------------------------------------------------------------------ */
 
 @Composable
 private fun ThinkingBubble() {
@@ -1084,7 +943,7 @@ private fun ThinkingBubble() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         AssistantAvatar(size = 34.dp)
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(8.dp))
 
         Surface(
             shape = RoundedCornerShape(
@@ -1093,8 +952,8 @@ private fun ThinkingBubble() {
                 bottomStart = 4.dp,
                 bottomEnd = 18.dp
             ),
-            color = scheme.surface.copy(alpha = 0.96f),
-            border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.3f)),
+            color = scheme.surfaceContainerHigh,
+            contentColor = scheme.onSurface,
             tonalElevation = 1.dp
         ) {
             Row(
@@ -1102,116 +961,49 @@ private fun ThinkingBubble() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                ThinkingDots(color = scheme.primary)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = scheme.primary
+                )
 
                 Text(
                     text = "Thinking",
-                    color = scheme.onSurface,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
     }
 }
 
-@Composable
-private fun ThinkingDots(color: Color) {
-    val transition = rememberInfiniteTransition(label = "dots")
-    val a1 by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "d1"
-    )
-    val a2 by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, delayMillis = 150, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "d2"
-    )
-    val a3 by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, delayMillis = 300, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "d3"
-    )
-
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Dot(color, a1)
-        Dot(color, a2)
-        Dot(color, a3)
-    }
-}
-
-@Composable
-private fun Dot(color: Color, alphaValue: Float) {
-    Box(
-        modifier = Modifier
-            .size(7.dp)
-            .alpha(alphaValue.coerceIn(0.35f, 1f))
-            .clip(CircleShape)
-            .background(color)
-    )
-}
-
-/* ---------------- Error ---------------- */
+/* ------------------------------------------------------------------ */
+/* Error panel                                                        */
+/* ------------------------------------------------------------------ */
 
 @Composable
 private fun ErrorPanel(
     message: String,
     onRetry: () -> Unit
 ) {
-    val scheme = MaterialTheme.colorScheme
-
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = scheme.errorContainer.copy(alpha = 0.85f),
-        border = BorderStroke(1.dp, scheme.error.copy(alpha = 0.5f))
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(scheme.error.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "!",
-                    color = scheme.error,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            }
-
-            Spacer(Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Request failed",
-                    color = scheme.onErrorContainer,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp
+                    style = MaterialTheme.typography.titleSmall
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = message,
-                    color = scheme.onErrorContainer.copy(alpha = 0.9f),
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1221,31 +1013,29 @@ private fun ErrorPanel(
 
             Surface(
                 modifier = Modifier.clickable { onRetry() },
-                shape = RoundedCornerShape(999.dp),
-                color = scheme.error.copy(alpha = 0.15f),
-                border = BorderStroke(1.dp, scheme.error.copy(alpha = 0.5f))
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError
             ) {
                 Text(
                     text = "Retry",
-                    color = scheme.error,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
         }
     }
 }
 
-/* ---------------- Suggestion row ---------------- */
+/* ------------------------------------------------------------------ */
+/* Suggestion row                                                     */
+/* ------------------------------------------------------------------ */
 
 @Composable
 private fun SuggestionRow(
     visible: Boolean,
     onPrompt: (String) -> Unit
 ) {
-    val scheme = MaterialTheme.colorScheme
-
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn() + expandVertically(),
@@ -1257,21 +1047,19 @@ private fun SuggestionRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(scroll)
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SuggestionPrompts.forEach { prompt ->
                 Surface(
                     modifier = Modifier.clickable { onPrompt(prompt) },
-                    shape = RoundedCornerShape(999.dp),
-                    color = scheme.primary.copy(alpha = 0.10f),
-                    border = BorderStroke(1.dp, scheme.primary.copy(alpha = 0.4f))
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 ) {
                     Text(
                         text = prompt,
-                        color = scheme.primary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.labelMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
@@ -1282,7 +1070,9 @@ private fun SuggestionRow(
     }
 }
 
-/* ---------------- Composer ---------------- */
+/* ------------------------------------------------------------------ */
+/* Prompt composer                                                    */
+/* ------------------------------------------------------------------ */
 
 @Composable
 private fun PromptComposer(
@@ -1297,87 +1087,60 @@ private fun PromptComposer(
     onStop: () -> Unit,
     onRegenerate: () -> Unit
 ) {
-    val scheme = MaterialTheme.colorScheme
-
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 8.dp),
-        color = scheme.surface,
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
         tonalElevation = 3.dp
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(26.dp),
-                color = scheme.surfaceVariant.copy(alpha = 0.6f),
-                border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.4f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    ComposerIconButton(
-                        iconRes = R.drawable.ic_lucide_plus,
-                        contentDescription = "Attach",
-                        badgeCount = queuedFiles,
-                        onClick = onAttachClick
-                    )
+            ComposerIconButton(
+                iconRes = R.drawable.ic_lucide_plus,
+                contentDescription = "Attach",
+                badgeCount = queuedFiles,
+                onClick = onAttachClick
+            )
 
-                    OutlinedTextField(
-                        value = input,
-                        onValueChange = onInputChange,
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp, max = 160.dp)
-                            .defaultMinSize(minHeight = 48.dp),
-                        placeholder = {
-                            Text(
-                                text = "Message Mr. Robot...",
-                                color = scheme.onSurfaceVariant,
-                                fontSize = 15.sp
-                            )
-                        },
-                        shape = RoundedCornerShape(24.dp),
-                        maxLines = 6,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            disabledIndicatorColor = Color.Transparent,
-                            errorIndicatorColor = Color.Transparent,
-                            cursorColor = scheme.primary,
-                            focusedTextColor = scheme.onSurface,
-                            unfocusedTextColor = scheme.onSurface,
-                            focusedPlaceholderColor = scheme.onSurfaceVariant,
-                            unfocusedPlaceholderColor = scheme.onSurfaceVariant
-                        )
-                    )
+            OutlinedTextField(
+                value = input,
+                onValueChange = onInputChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp, max = 160.dp)
+                    .defaultMinSize(minHeight = 48.dp),
+                placeholder = { Text("Message Mr. Robot...") },
+                shape = MaterialTheme.shapes.extraLarge,
+                maxLines = 6,
+                textStyle = MaterialTheme.typography.bodyLarge,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    errorIndicatorColor = Color.Transparent
+                )
+            )
 
-                    ComposerIconButton(
-                        iconRes = R.drawable.ic_lucide_mic,
-                        contentDescription = "Voice input",
-                        onClick = onMicClick
-                    )
+            ComposerIconButton(
+                iconRes = R.drawable.ic_lucide_mic,
+                contentDescription = "Voice input",
+                onClick = onMicClick
+            )
 
-                    SendButton(
-                        isLoading = isLoading,
-                        canSend = input.isNotBlank() || isLoading,
-                        canRegenerate = canRegenerate,
-                        onSend = onSend,
-                        onStop = onStop,
-                        onRegenerate = onRegenerate
-                    )
-                }
-            }
+            SendFab(
+                isLoading = isLoading,
+                canSend = input.isNotBlank() || isLoading,
+                canRegenerate = canRegenerate,
+                onSend = onSend,
+                onStop = onStop,
+                onRegenerate = onRegenerate
+            )
         }
     }
 }
@@ -1394,37 +1157,36 @@ private fun ComposerIconButton(
     Box(contentAlignment = Alignment.TopEnd) {
         IconButton(
             onClick = onClick,
-            modifier = Modifier.size(44.dp)
+            modifier = Modifier.size(48.dp)
         ) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = contentDescription,
                 tint = scheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
 
         if (badgeCount > 0) {
-            Box(
-                modifier = Modifier
-                    .size(16.dp)
-                    .clip(CircleShape)
-                    .background(scheme.primary),
-                contentAlignment = Alignment.Center
+            Surface(
+                modifier = Modifier.size(16.dp),
+                shape = CircleShape,
+                color = scheme.primary,
+                contentColor = scheme.onPrimary
             ) {
-                Text(
-                    text = badgeCount.coerceAtMost(9).toString(),
-                    color = scheme.onPrimary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = badgeCount.coerceAtMost(9).toString(),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SendButton(
+private fun SendFab(
     isLoading: Boolean,
     canSend: Boolean,
     canRegenerate: Boolean,
@@ -1433,20 +1195,20 @@ private fun SendButton(
     onRegenerate: () -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
-
     val showRegenerate = !isLoading && !canSend && canRegenerate
 
-    val bgColor = when {
-        isLoading -> scheme.error
-        showRegenerate -> scheme.surfaceVariant
-        canSend -> scheme.primary
-        else -> scheme.primary.copy(alpha = 0.45f)
+    val container = when {
+        isLoading -> scheme.errorContainer
+        showRegenerate -> scheme.secondaryContainer
+        canSend -> scheme.primaryContainer
+        else -> scheme.surfaceContainerHighest
     }
 
-    val iconTint = when {
-        isLoading -> scheme.onError
-        showRegenerate -> scheme.onSurface
-        else -> scheme.onPrimary
+    val content = when {
+        isLoading -> scheme.onErrorContainer
+        showRegenerate -> scheme.onSecondaryContainer
+        canSend -> scheme.onPrimaryContainer
+        else -> scheme.onSurfaceVariant
     }
 
     val iconRes = when {
@@ -1461,38 +1223,42 @@ private fun SendButton(
         else -> "Send message"
     }
 
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(bgColor)
-            .clickable(enabled = isLoading || canSend || showRegenerate) {
-                when {
-                    isLoading -> onStop()
-                    canSend -> onSend()
-                    showRegenerate -> onRegenerate()
-                }
-            },
-        contentAlignment = Alignment.Center
+    FloatingActionButton(
+        onClick = {
+            when {
+                isLoading -> onStop()
+                canSend -> onSend()
+                showRegenerate -> onRegenerate()
+            }
+        },
+        modifier = Modifier.size(48.dp),
+        shape = MaterialTheme.shapes.large,
+        containerColor = container,
+        contentColor = content,
+        elevation = FloatingActionButtonDefaults.elevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 2.dp
+        )
     ) {
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(18.dp),
                 strokeWidth = 2.dp,
-                color = iconTint
+                color = content
             )
         } else {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = description,
-                tint = iconTint,
                 modifier = Modifier.size(20.dp)
             )
         }
     }
 }
 
-/* ---------------- Voice input ---------------- */
+/* ------------------------------------------------------------------ */
+/* Voice input                                                        */
+/* ------------------------------------------------------------------ */
 
 private fun launchSpeechInput(
     context: Context,

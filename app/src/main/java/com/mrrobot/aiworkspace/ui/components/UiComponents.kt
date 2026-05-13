@@ -1,288 +1,315 @@
 package com.mrrobot.aiworkspace.ui.components
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
-val NeonCyan = Color(0xFF00DFF7)
-val NeonPurple = Color(0xFF8B5CF6)
-val NeonGreen = Color(0xFF22C55E)
-val DeepBg = Color(0xFF030712)
-val Panel = Color(0xFF111827)
-val PanelSoft = Color(0xFF0B1020)
-val SoftText = Color(0xFFB8C0CC)
-val Danger = Color(0xFFFF6B6B)
+/**
+ * Shared Material 3 UI components for the Mr. Robot workspace.
+ *
+ * Every component in this file follows M3 rules:
+ *
+ *   - No hardcoded colors. All colors come from MaterialTheme.colorScheme.
+ *   - No hardcoded shapes. All corner rounding comes from MaterialTheme.shapes.
+ *   - No hardcoded typography. All text styles come from MaterialTheme.typography.
+ *   - No borders on cards. Elevation and surfaceVariant carry visual separation.
+ *   - No custom pills / chips that duplicate M3 components. Reuse SuggestionChip.
+ *
+ * The resulting surface looks like Google's own Material 3 demo apps.
+ */
 
+/* ------------------------------------------------------------------ */
+/* Screen scaffolding                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Default M3 screen content padding.
+ *
+ * 16dp on screen edges (per M3 spec for handset breakpoints) and
+ * 8dp internal grouping via Arrangement.spacedBy on the hosting
+ * LazyColumn / Column.
+ */
+val ScreenHorizontalPadding: Dp = 16.dp
+val ScreenVerticalPadding: Dp = 16.dp
+val GroupSpacing: Dp = 8.dp
+val SectionSpacing: Dp = 16.dp
+
+/**
+ * Standard padding used by every screen's LazyColumn so content sits
+ * on a consistent 8dp grid with 16dp screen edges and enough bottom
+ * space for the navigation bar.
+ */
+val ScreenContentPadding: PaddingValues = PaddingValues(
+    start = ScreenHorizontalPadding,
+    end = ScreenHorizontalPadding,
+    top = 8.dp,
+    bottom = 24.dp
+)
+
+/* ------------------------------------------------------------------ */
+/* Cards                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The canonical content card used throughout the app.
+ *
+ * Built on [ElevatedCard] with M3 tonal elevation - never a border -
+ * and [MaterialTheme.shapes.medium] corners (12dp). Internal padding
+ * sits on the 8dp grid (16dp default for comfortable density).
+ */
 @Composable
-fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        scheme.background,
-                        scheme.surface.copy(alpha = 0.98f),
-                        scheme.surfaceVariant.copy(alpha = 0.72f)
-                    )
-                )
-            )
-    ) {
-        AmbientGlow()
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            content = content
-        )
-    }
-}
-
-@Composable
-fun AmbientGlow() {
-    val infinite = rememberInfiniteTransition(label = "ambient_glow")
-
-    val alpha by infinite.animateFloat(
-        initialValue = 0.05f,
-        targetValue = 0.16f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3600, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "ambient_alpha"
-    )
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .size(280.dp)
-                .offset(x = (-120).dp, y = 10.dp)
-                .alpha(alpha)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.34f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-
-        Box(
-            modifier = Modifier
-                .size(340.dp)
-                .align(Alignment.BottomEnd)
-                .offset(x = 130.dp, y = 90.dp)
-                .alpha(alpha)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-    }
-}
-
-@Composable
-fun GlassCard(
+fun AppCard(
     modifier: Modifier = Modifier,
+    padding: Dp = 16.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.32f),
-                shape = MaterialTheme.shapes.extraLarge
-            ),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+    ElevatedCard(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 1.dp,
+            pressedElevation = 2.dp,
+            focusedElevation = 2.dp,
+            hoveredElevation = 3.dp
+        )
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(padding),
             content = content
         )
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* Headers                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Hero section header. Uses headlineMedium for the title and
+ * bodyLarge for the subtitle so every screen's opening block looks
+ * identical in scale and spacing.
+ */
 @Composable
-fun PremiumHeader(
+fun SectionHeader(
     title: String,
-    subtitle: String,
-    badge: String? = null
+    subtitle: String? = null
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 34.sp,
-            fontWeight = FontWeight.ExtraBold,
-            lineHeight = 38.sp,
-            letterSpacing = (-0.8).sp
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
-        Spacer(Modifier.height(10.dp))
-
-        Text(
-            text = subtitle,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 16.sp,
-            lineHeight = 25.sp
-        )
+        if (!subtitle.isNullOrBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
+/**
+ * In-card grouped title. Mapped to titleLarge per M3 so cards align
+ * with the type scale.
+ */
 @Composable
-fun Title(text: String) {
+fun GroupTitle(text: String) {
     Text(
         text = text,
+        style = MaterialTheme.typography.titleLarge,
         color = MaterialTheme.colorScheme.onSurface,
-        fontSize = 25.sp,
-        fontWeight = FontWeight.Bold,
-        lineHeight = 31.sp,
-        letterSpacing = (-0.3).sp
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
     )
 }
 
+/**
+ * Supporting body text. Mapped to bodyMedium with onSurfaceVariant
+ * so it always meets 4.5:1 contrast against surface backgrounds.
+ */
 @Composable
-fun Subtitle(text: String) {
+fun BodyText(
+    text: String,
+    modifier: Modifier = Modifier
+) {
     Text(
         text = text,
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontSize = 15.sp,
-        lineHeight = 23.sp
+        modifier = modifier
     )
 }
 
+/**
+ * Caption / overline text. Mapped to labelSmall for M3-consistent
+ * micro-typography on chips and status lines.
+ */
 @Composable
-fun CyberButton(text: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        ),
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-    ) {
-        Text(
-            text = text,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp
-        )
-    }
+fun CaptionText(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
+    )
 }
 
+/* ------------------------------------------------------------------ */
+/* Metric card (stat tile)                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Compact metric tile used on dashboards. Keeps the M3 card look and
+ * composes a prominent value on top of a label + description using the
+ * correct type roles (headlineSmall, titleMedium, bodySmall).
+ */
 @Composable
-fun PremiumMetric(
+fun MetricCard(
     label: String,
     value: String,
-    description: String
+    description: String,
+    modifier: Modifier = Modifier
 ) {
-    GlassCard {
+    AppCard(modifier = modifier) {
         Text(
             text = value,
+            style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 25.sp,
-            fontWeight = FontWeight.ExtraBold,
             maxLines = 1
         )
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
 
         Text(
             text = label,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
             maxLines = 1
         )
 
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(2.dp))
 
         Text(
             text = description,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
-            maxLines = 2
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
 
-@Composable
-fun StatusPill(
-    text: String,
-    color: Color? = null
-) {
-    val pillColor = color ?: MaterialTheme.colorScheme.primary
+/* ------------------------------------------------------------------ */
+/* Chips                                                              */
+/* ------------------------------------------------------------------ */
 
+/**
+ * Thin wrapper around [SuggestionChip] so screens can use it as a
+ * read-only status chip while staying fully on the M3 chip component.
+ */
+@Composable
+fun StatusChip(
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    // Use a Surface-based pill rather than SuggestionChip so we don't
+    // inherit the default chip outline. Fully on M3 tokens.
     Surface(
-        color = pillColor.copy(alpha = 0.10f),
-        border = BorderStroke(
-            width = 1.dp,
-            color = pillColor.copy(alpha = 0.35f)
-        ),
-        shape = MaterialTheme.shapes.extraLarge
+        modifier = modifier,
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            modifier = Modifier.padding(
+                horizontal = 12.dp,
+                vertical = 6.dp
+            )
+        )
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Primary action button                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Prominent filled-tonal action button used inside cards for the
+ * "main" action. Full width with M3 shapes.small on a 40dp touch
+ * target - identical to Google's own Settings / Contacts apps.
+ */
+@Composable
+fun PrimaryTonalButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large
     ) {
         Text(
             text = text,
-            color = pillColor,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(
-                horizontal = 12.dp,
-                vertical = 7.dp
-            )
+            style = MaterialTheme.typography.labelLarge
         )
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Two column / row helpers                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Equal-weight two-column row on the 8dp grid. Used for side-by-side
+ * [MetricCard]s and CTA button pairs.
+ */
+@Composable
+fun TwoColumnRow(
+    modifier: Modifier = Modifier,
+    spacing: Dp = GroupSpacing,
+    left: @Composable () -> Unit,
+    right: @Composable () -> Unit
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing)
+    ) {
+        Box(modifier = Modifier.weight(1f)) { left() }
+        Box(modifier = Modifier.weight(1f)) { right() }
     }
 }

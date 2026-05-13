@@ -10,35 +10,65 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mrrobot.aiworkspace.navigation.Route
-import com.mrrobot.aiworkspace.ui.components.GlassCard
-import com.mrrobot.aiworkspace.ui.components.ScreenShell
-import com.mrrobot.aiworkspace.ui.components.Subtitle
-import com.mrrobot.aiworkspace.ui.components.Title
+import com.mrrobot.aiworkspace.navigation.mergedScreenPadding
+import com.mrrobot.aiworkspace.ui.components.AppCard
+import com.mrrobot.aiworkspace.ui.components.BodyText
+import com.mrrobot.aiworkspace.ui.components.GroupSpacing
+import com.mrrobot.aiworkspace.ui.components.GroupTitle
+import com.mrrobot.aiworkspace.ui.components.SectionHeader
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MoreScreen(navController: NavController) {
-    ScreenShell {
+fun MoreScreen(
+    navController: NavController,
+    parentPadding: PaddingValues = PaddingValues()
+) {
+    val scrollBehavior = TopAppBarDefaults
+        .exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+        topBar = {
+            MediumTopAppBar(
+                title = { Text("More") },
+                scrollBehavior = scrollBehavior
+            )
+        }
+    ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 18.dp)
+            contentPadding = mergedScreenPadding(innerPadding, parentPadding),
+            verticalArrangement = Arrangement.spacedBy(GroupSpacing)
         ) {
             item {
-                Title("More")
-                Subtitle("Access workspace tools, files, marketplace, settings, and profile.")
+                SectionHeader(
+                    title = "Workspace tools",
+                    subtitle = "Access the terminal, file manager, marketplace, settings, and profile."
+                )
+                Spacer(Modifier.height(8.dp))
+            }
 
-                Spacer(Modifier.height(14.dp))
-
+            item {
                 MoreCard(
                     iconRes = Route.Terminal.iconRes,
                     title = "Live Terminal",
@@ -46,15 +76,19 @@ fun MoreScreen(navController: NavController) {
                     button = "Open Terminal",
                     onClick = { navController.navigate(Route.Terminal.path) }
                 )
+            }
 
+            item {
                 MoreCard(
                     iconRes = Route.Files.iconRes,
                     title = "File Manager",
-                    subtitle = "Browse project files and Stitch design references.",
+                    subtitle = "Browse project files and design references.",
                     button = "Open Files",
                     onClick = { navController.navigate(Route.Files.path) }
                 )
+            }
 
+            item {
                 MoreCard(
                     iconRes = Route.Market.iconRes,
                     title = "Marketplace",
@@ -62,15 +96,19 @@ fun MoreScreen(navController: NavController) {
                     button = "Open Marketplace",
                     onClick = { navController.navigate(Route.Market.path) }
                 )
+            }
 
+            item {
                 MoreCard(
                     iconRes = Route.Settings.iconRes,
                     title = "Settings",
-                    subtitle = "Configure OpenRouter, model selection, and Auto/Dark/Light theme.",
+                    subtitle = "Configure AI providers, model selection, and theme.",
                     button = "Open Settings",
                     onClick = { navController.navigate(Route.Settings.path) }
                 )
+            }
 
+            item {
                 MoreCard(
                     iconRes = Route.Profile.iconRes,
                     title = "Profile",
@@ -91,10 +129,10 @@ private fun MoreCard(
     button: String,
     onClick: () -> Unit
 ) {
-    GlassCard {
+    AppCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -104,19 +142,20 @@ private fun MoreCard(
                 tint = MaterialTheme.colorScheme.primary
             )
 
-            Title(title)
+            GroupTitle(title)
         }
 
         Spacer(Modifier.height(8.dp))
 
-        Subtitle(subtitle)
+        BodyText(subtitle)
 
         Spacer(Modifier.height(12.dp))
 
-        OutlinedButton(onClick = onClick) {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = Modifier.height(40.dp)
+        ) {
             Text(button)
         }
     }
-
-    Spacer(Modifier.height(12.dp))
 }

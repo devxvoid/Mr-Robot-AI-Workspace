@@ -1,8 +1,6 @@
 package com.mrrobot.aiworkspace.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,158 +8,161 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.mrrobot.aiworkspace.navigation.Route
-import com.mrrobot.aiworkspace.ui.components.CyberButton
-import com.mrrobot.aiworkspace.ui.components.GlassCard
-import com.mrrobot.aiworkspace.ui.components.PremiumMetric
-import com.mrrobot.aiworkspace.ui.components.ScreenShell
-import com.mrrobot.aiworkspace.ui.components.StatusPill
-import com.mrrobot.aiworkspace.ui.components.Subtitle
-import com.mrrobot.aiworkspace.ui.components.Title
+import com.mrrobot.aiworkspace.navigation.mergedScreenPadding
+import com.mrrobot.aiworkspace.ui.components.AppCard
+import com.mrrobot.aiworkspace.ui.components.BodyText
+import com.mrrobot.aiworkspace.ui.components.GroupSpacing
+import com.mrrobot.aiworkspace.ui.components.GroupTitle
+import com.mrrobot.aiworkspace.ui.components.MetricCard
+import com.mrrobot.aiworkspace.ui.components.PrimaryTonalButton
+import com.mrrobot.aiworkspace.ui.components.SectionHeader
+import com.mrrobot.aiworkspace.ui.components.StatusChip
+import com.mrrobot.aiworkspace.ui.components.TwoColumnRow
 
+/**
+ * Home / Welcome screen.
+ *
+ * Uses a [MediumTopAppBar] with exitUntilCollapsed scroll behavior so the
+ * header compresses as the user scrolls - the canonical M3 pattern for
+ * a brand landing screen. All cards are [AppCard]s (ElevatedCard under
+ * the hood) with zero borders and tonal elevation only.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WelcomeScreen(nav: NavController) {
-    ScreenShell {
+fun WelcomeScreen(
+    nav: NavController,
+    parentPadding: PaddingValues = PaddingValues()
+) {
+    val scrollBehavior = TopAppBarDefaults
+        .exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+        topBar = {
+            MediumTopAppBar(
+                title = { Text("Mr. Robot AI") },
+                scrollBehavior = scrollBehavior
+            )
+        }
+    ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp)
+            contentPadding = mergedScreenPadding(innerPadding, parentPadding),
+            verticalArrangement = Arrangement.spacedBy(GroupSpacing)
         ) {
             item {
-                HomeHeader()
+                SectionHeader(
+                    title = "Workspace",
+                    subtitle = "A calm, powerful Android workspace for chat, agents, " +
+                        "workflows, terminal logs, marketplace tools, and AI models."
+                )
+                Spacer(Modifier.height(8.dp))
+            }
 
-                Spacer(Modifier.height(18.dp))
-
-                GlassCard {
+            item {
+                AppCard {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(GroupSpacing)
                     ) {
-                        StatusPill("Chat")
-                        StatusPill("Agents")
-                        StatusPill("Workflows")
+                        StatusChip("Chat")
+                        StatusChip("Agents")
+                        StatusChip("Workflows")
                     }
 
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    Title("What can I help you with today?")
+                    GroupTitle("What can I help you with today?")
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(4.dp))
 
-                    Subtitle(
-                        "Start a conversation, launch an agent, or build an automation from a calmer AI workspace."
+                    BodyText(
+                        "Start a conversation, launch an agent, or build an automation " +
+                            "from a calmer AI workspace."
                     )
 
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    CyberButton("Start New Chat") {
+                    PrimaryTonalButton("Start New Chat") {
                         nav.navigate(Route.Chat.path)
                     }
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(GroupSpacing))
 
                     OutlinedButton(
                         onClick = { nav.navigate(Route.Agents.path) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp),
-                        shape = MaterialTheme.shapes.large
+                            .height(48.dp)
                     ) {
                         Text("Open Agents")
                     }
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(GroupSpacing))
 
                     OutlinedButton(
                         onClick = { nav.navigate(Route.Workflow.path) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp),
-                        shape = MaterialTheme.shapes.large
+                            .height(48.dp)
                     ) {
                         Text("Build Workflow")
                     }
                 }
+            }
 
-                Spacer(Modifier.height(14.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric(
+            item {
+                TwoColumnRow(
+                    left = {
+                        MetricCard(
                             label = "Workspace",
                             value = "20+",
                             description = "Screens and tools"
                         )
-                    }
-
-                    Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric(
+                    },
+                    right = {
+                        MetricCard(
                             label = "Themes",
                             value = "5",
                             description = "Set in Settings"
                         )
                     }
-                }
+                )
+            }
 
-                Spacer(Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric(
+            item {
+                TwoColumnRow(
+                    left = {
+                        MetricCard(
                             label = "Model",
-                            value = "OR",
-                            description = "OpenRouter ready"
+                            value = "AI",
+                            description = "Multi-provider ready"
                         )
-                    }
-
-                    Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric(
+                    },
+                    right = {
+                        MetricCard(
                             label = "Agents",
                             value = "5",
                             description = "Role-based system"
                         )
                     }
-                }
-
-                Spacer(Modifier.height(18.dp))
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun HomeHeader() {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "Mr. Robot AI\nWorkspace",
-            color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 34.sp,
-            fontWeight = FontWeight.ExtraBold,
-            lineHeight = 38.sp,
-            letterSpacing = (-0.8).sp
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        Text(
-            text = "A calm, powerful Android workspace for chat, agents, workflows, terminal logs, marketplace tools, and OpenRouter models.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 16.sp,
-            lineHeight = 25.sp
-        )
     }
 }

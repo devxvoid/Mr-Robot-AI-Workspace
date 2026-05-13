@@ -1,43 +1,89 @@
 package com.mrrobot.aiworkspace.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumTopAppBar
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrrobot.aiworkspace.data.WorkspaceCapability
 import com.mrrobot.aiworkspace.data.WorkspaceStat
-import com.mrrobot.aiworkspace.ui.components.*
+import com.mrrobot.aiworkspace.navigation.mergedScreenPadding
+import com.mrrobot.aiworkspace.ui.components.AppCard
+import com.mrrobot.aiworkspace.ui.components.BodyText
+import com.mrrobot.aiworkspace.ui.components.CaptionText
+import com.mrrobot.aiworkspace.ui.components.GroupSpacing
+import com.mrrobot.aiworkspace.ui.components.GroupTitle
+import com.mrrobot.aiworkspace.ui.components.PrimaryTonalButton
+import com.mrrobot.aiworkspace.ui.components.SectionHeader
+import com.mrrobot.aiworkspace.ui.components.StatusChip
 import com.mrrobot.aiworkspace.viewmodel.ProfileViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    viewModel: ProfileViewModel = viewModel()
+    viewModel: ProfileViewModel = viewModel(),
+    parentPadding: PaddingValues = PaddingValues()
 ) {
     val state by viewModel.uiState.collectAsState()
     val clipboard = LocalClipboardManager.current
     val profile = state.profile
+    val scrollBehavior = TopAppBarDefaults
+        .exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
-    ScreenShell {
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+        topBar = {
+            MediumTopAppBar(
+                title = { Text("Profile") },
+                scrollBehavior = scrollBehavior
+            )
+        }
+    ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 90.dp)
+            contentPadding = mergedScreenPadding(innerPadding, parentPadding),
+            verticalArrangement = Arrangement.spacedBy(GroupSpacing)
         ) {
             item {
-                Title("Profile")
-                Subtitle("Workspace identity, status, capabilities, and export summary.")
-                Spacer(Modifier.height(14.dp))
+                SectionHeader(
+                    title = "Identity",
+                    subtitle = "Workspace identity, status, capabilities, and export summary."
+                )
+                Spacer(Modifier.height(8.dp))
+            }
 
-                GlassCard {
+            item {
+                AppCard {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -46,49 +92,43 @@ fun ProfileScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = profile.displayName,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
 
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(4.dp))
 
-                            Subtitle(profile.title)
-                            Subtitle("@${profile.handle}")
+                            BodyText(profile.title)
+                            CaptionText("@${profile.handle}")
 
-                            Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(12.dp))
 
-                            AssistChip(
-                                onClick = {},
-                                label = { Text(profile.status) }
-                            )
+                            StatusChip(profile.status)
                         }
-
-                        Text(
-                            text = "⚡",
-                            color = NeonCyan,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    Subtitle(profile.principle)
+                    BodyText(profile.principle)
                 }
+            }
 
-                Spacer(Modifier.height(12.dp))
-
-                GlassCard {
-                    Title("Online Presence")
+            item {
+                AppCard {
+                    GroupTitle("Online Presence")
                     Spacer(Modifier.height(8.dp))
-                    Subtitle("GitHub: ${profile.github}")
-                    Subtitle("Website: ${profile.website}")
-                    Subtitle("X: ${profile.xProfile}")
+                    BodyText("GitHub: ${profile.github}")
+                    BodyText("Website: ${profile.website}")
+                    BodyText("X: ${profile.xProfile}")
                 }
+            }
 
-                Spacer(Modifier.height(12.dp))
-
-                Title("Workspace Stats")
-                Spacer(Modifier.height(8.dp))
+            item {
+                Text(
+                    text = "Workspace Stats",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
             }
 
             items(state.stats) { stat ->
@@ -96,9 +136,11 @@ fun ProfileScreen(
             }
 
             item {
-                Spacer(Modifier.height(12.dp))
-                Title("Capabilities")
-                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Capabilities",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
             }
 
             items(state.capabilities) { capability ->
@@ -106,57 +148,62 @@ fun ProfileScreen(
             }
 
             item {
-                Spacer(Modifier.height(12.dp))
+                AppCard {
+                    GroupTitle("Export Workspace Profile")
+                    Spacer(Modifier.height(4.dp))
+                    BodyText("Generate a markdown summary of the current app identity and capabilities.")
 
-                GlassCard {
-                    Title("Export Workspace Profile")
-                    Subtitle("Generate a markdown summary of the current app identity and capabilities.")
-
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(GroupSpacing)
                     ) {
                         Button(
                             onClick = { viewModel.generateExport() },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = NeonCyan,
-                                contentColor = Color.Black
-                            )
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = MaterialTheme.shapes.large
                         ) {
                             Text("Generate")
                         }
 
                         OutlinedButton(
                             onClick = { viewModel.clearExport() },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).height(48.dp)
                         ) {
                             Text("Clear")
                         }
                     }
 
                     if (state.exportText.isNotBlank()) {
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(16.dp))
 
-                        Text(
-                            text = state.exportText,
-                            color = Color.White,
-                            fontFamily = FontFamily.Monospace
-                        )
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                text = state.exportText,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
 
                         Spacer(Modifier.height(12.dp))
 
-                        CyberButton("Copy Export") {
+                        PrimaryTonalButton("Copy Export") {
                             clipboard.setText(AnnotatedString(state.exportText))
                             viewModel.markCopied()
                         }
                     }
 
                     if (state.copiedMessage.isNotBlank()) {
-                        Spacer(Modifier.height(10.dp))
-                        Subtitle(state.copiedMessage)
+                        Spacer(Modifier.height(8.dp))
+                        CaptionText(state.copiedMessage)
                     }
                 }
             }
@@ -166,7 +213,7 @@ fun ProfileScreen(
 
 @Composable
 private fun StatCard(stat: WorkspaceStat) {
-    GlassCard(modifier = Modifier.padding(bottom = 10.dp)) {
+    AppCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -175,16 +222,17 @@ private fun StatCard(stat: WorkspaceStat) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stat.label,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Subtitle(stat.description)
+                Spacer(Modifier.height(2.dp))
+                BodyText(stat.description)
             }
 
             Text(
                 text = stat.value,
-                color = NeonCyan,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -192,7 +240,7 @@ private fun StatCard(stat: WorkspaceStat) {
 
 @Composable
 private fun CapabilityCard(capability: WorkspaceCapability) {
-    GlassCard(modifier = Modifier.padding(bottom = 10.dp)) {
+    AppCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -201,24 +249,14 @@ private fun CapabilityCard(capability: WorkspaceCapability) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = capability.name,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-
-                Spacer(Modifier.height(6.dp))
-
-                Subtitle(capability.description)
+                Spacer(Modifier.height(4.dp))
+                BodyText(capability.description)
             }
 
-            AssistChip(
-                onClick = {},
-                label = {
-                    Text(
-                        text = if (capability.enabled) "Enabled" else "Disabled",
-                        color = if (capability.enabled) NeonCyan else SoftText
-                    )
-                }
-            )
+            StatusChip(if (capability.enabled) "Enabled" else "Disabled")
         }
     }
 }
