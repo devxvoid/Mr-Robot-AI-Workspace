@@ -3,6 +3,8 @@ package com.mrrobot.aiworkspace.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
 import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -40,24 +42,31 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -74,11 +83,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrrobot.aiworkspace.R
+import com.mrrobot.aiworkspace.viewmodel.ChatAttachment
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.Locale
 
 private val SuggestionPrompts = listOf(
@@ -88,6 +100,7 @@ private val SuggestionPrompts = listOf(
     "Summarize the attached document"
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel = viewModel()
@@ -97,6 +110,61 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val scheme = MaterialTheme.colorScheme
+
+    var showAttachSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Camera capture URI holder
+    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Gallery picker (photos & videos)
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            val attachments = uris.map { uri ->
+                uriToAttachment(context, uri)
+            }
+            viewModel.addAttachments(attachments)
+        }
+    }
+
+    // File picker (any file type)
+    val fileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            val attachments = uris.map { uri ->
+                uriToAttachment(context, uri)
+            }
+            viewModel.addAttachments(attachments)
+        }
+    }
+
+    // Camera capture
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && cameraImageUri != null) {
+            val attachment = uriToAttachment(context, cameraImageUri!!)
+            viewModel.addAttachments(listOf(attachment.copy(name = "Camera Photo", displayName = "Camera Photo")))
+        }
+    }
+
+    // Camera permission
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val uri = createCameraImageUri(context)
+            cameraImageUri = uri
+            if (uri != null) {
+                cameraLauncher.launch(uri)
+            }
+        } else {
+            Toast.makeText(context, "Camera permission is required to take photos.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -124,6 +192,36 @@ fun ChatScreen(
             scope.launch {
                 listState.animateScrollToItem(state.messages.lastIndex)
             }
+        }
+    }
+
+    // Attachment bottom sheet
+    if (showAttachSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAttachSheet = false },
+            sheetState = sheetState,
+            containerColor = scheme.surface,
+            tonalElevation = 4.dp,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            AttachmentSheetContent(
+                onGalleryClick = {
+                    showAttachSheet = false
+                    galleryLauncher.launch("image/*")
+                },
+                onVideoClick = {
+                    showAttachSheet = false
+                    galleryLauncher.launch("video/*")
+                },
+                onFilesClick = {
+                    showAttachSheet = false
+                    fileLauncher.launch(arrayOf("*/*"))
+                },
+                onCameraClick = {
+                    showAttachSheet = false
+                    cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                }
+            )
         }
     }
 
@@ -219,6 +317,12 @@ fun ChatScreen(
                 onPrompt = { viewModel.useSuggestion(it) }
             )
 
+            // Attachment preview strip
+            AttachmentPreviewStrip(
+                attachments = state.selectedAttachments,
+                onRemove = { viewModel.removeAttachment(it) }
+            )
+
             PromptComposer(
                 input = state.input,
                 isLoading = state.isLoading,
@@ -232,13 +336,231 @@ fun ChatScreen(
                     )
                 },
                 onAttachClick = {
-                    // attach hook for your file picker
+                    showAttachSheet = true
                 },
                 onSend = { viewModel.send() },
                 onStop = { viewModel.stopGeneration() },
                 onRegenerate = { viewModel.regenerateLastAnswer() }
             )
         }
+    }
+}
+
+/* ---------------- Attachment Bottom Sheet Content ---------------- */
+
+@Composable
+private fun AttachmentSheetContent(
+    onGalleryClick: () -> Unit,
+    onVideoClick: () -> Unit,
+    onFilesClick: () -> Unit,
+    onCameraClick: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .navigationBarsPadding()
+    ) {
+        Text(
+            text = "Attach to message",
+            color = scheme.onSurface,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(Modifier.height(20.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            AttachmentOption(
+                iconRes = R.drawable.ic_lucide_image,
+                label = "Gallery",
+                tint = scheme.primary,
+                onClick = onGalleryClick
+            )
+
+            AttachmentOption(
+                iconRes = R.drawable.ic_lucide_image,
+                label = "Videos",
+                tint = scheme.secondary,
+                onClick = onVideoClick
+            )
+
+            AttachmentOption(
+                iconRes = R.drawable.ic_lucide_file,
+                label = "Files",
+                tint = scheme.tertiary,
+                onClick = onFilesClick
+            )
+
+            AttachmentOption(
+                iconRes = R.drawable.ic_lucide_camera,
+                label = "Camera",
+                tint = scheme.error,
+                onClick = onCameraClick
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun AttachmentOption(
+    iconRes: Int,
+    label: String,
+    tint: Color,
+    onClick: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Surface(
+            modifier = Modifier.size(56.dp),
+            shape = CircleShape,
+            color = tint.copy(alpha = 0.12f),
+            border = BorderStroke(1.dp, tint.copy(alpha = 0.3f))
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = label,
+                    tint = tint,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = label,
+            color = scheme.onSurface,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+/* ---------------- Attachment Preview Strip ---------------- */
+
+@Composable
+private fun AttachmentPreviewStrip(
+    attachments: List<ChatAttachment>,
+    onRemove: (ChatAttachment) -> Unit
+) {
+    if (attachments.isEmpty()) return
+
+    val scheme = MaterialTheme.colorScheme
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(
+            items = attachments,
+            key = { it.stableKey }
+        ) { attachment ->
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = scheme.surfaceVariant.copy(alpha = 0.8f),
+                border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.35f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (attachment.isImage) R.drawable.ic_lucide_image
+                            else R.drawable.ic_lucide_file
+                        ),
+                        contentDescription = null,
+                        tint = if (attachment.isImage) scheme.primary else scheme.tertiary,
+                        modifier = Modifier.size(16.dp)
+                    )
+
+                    Text(
+                        text = attachment.displayName.take(20),
+                        color = scheme.onSurface,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    IconButton(
+                        onClick = { onRemove(attachment) },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_lucide_x),
+                            contentDescription = "Remove",
+                            tint = scheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* ---------------- Utility: URI to Attachment ---------------- */
+
+private fun uriToAttachment(context: Context, uri: Uri): ChatAttachment {
+    val contentResolver = context.contentResolver
+    val mimeType = contentResolver.getType(uri) ?: ""
+    var fileName = "Attachment"
+    var fileSize = 0L
+
+    contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (nameIndex >= 0) fileName = cursor.getString(nameIndex) ?: "Attachment"
+            if (sizeIndex >= 0) fileSize = cursor.getLong(sizeIndex)
+        }
+    }
+
+    val sizeLabel = when {
+        fileSize < 1024 -> "$fileSize B"
+        fileSize < 1024 * 1024 -> "${fileSize / 1024} KB"
+        else -> "${"%.1f".format(fileSize / (1024.0 * 1024.0))} MB"
+    }
+
+    return ChatAttachment(
+        uri = uri,
+        name = fileName,
+        mimeType = mimeType,
+        sizeBytes = fileSize,
+        sizeLabel = sizeLabel,
+        extractionStatus = "Queued"
+    )
+}
+
+private fun createCameraImageUri(context: Context): Uri? {
+    return try {
+        val cacheDir = File(context.cacheDir, "camera_photos")
+        if (!cacheDir.exists()) cacheDir.mkdirs()
+        val imageFile = File(cacheDir, "photo_${System.currentTimeMillis()}.jpg")
+        FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            imageFile
+        )
+    } catch (e: Exception) {
+        null
     }
 }
 
