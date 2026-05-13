@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!--
+      Minimal launcher theme. The app is fully Material 3 Compose so this
+      theme only provides a stable pre-Compose splash window background
+      and keeps system bars transparent for edge-to-edge rendering.
+    -->
     <style name="Theme.MrRobot" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
-        <item name="android:windowFullscreen">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:statusBarColor">#F8FAFC</item>
-        <item name="android:navigationBarColor">#F8FAFC</item>
-        <item name="android:windowBackground">#F8FAFC</item>
-        <item name="android:colorAccent">#008C99</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/white</item>
         <item name="android:enforceStatusBarContrast">false</item>
         <item name="android:enforceNavigationBarContrast">false</item>
     </style>
