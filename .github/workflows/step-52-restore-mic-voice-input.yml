@@ -18,7 +18,7 @@ jobs:
           token: ${{ secrets.PAT_TOKEN || github.token }}
           fetch-depth: 0
 
-      - name: Patch ChatScreen mic speech input
+      - name: Restore mic voice input in ChatScreen
         shell: bash
         run: |
           set -euo pipefail
@@ -27,120 +27,69 @@ jobs:
           MANIFEST="app/src/main/AndroidManifest.xml"
 
           if [ ! -f "$CHAT_SCREEN" ]; then
-            echo "ChatScreen.kt not found at $CHAT_SCREEN"
+            echo "ERROR: ChatScreen.kt not found at $CHAT_SCREEN"
+            exit 1
+          fi
+
+          if [ ! -f "$MANIFEST" ]; then
+            echo "ERROR: AndroidManifest.xml not found at $MANIFEST"
             exit 1
           fi
 
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
-          path = Path("app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt")
-          text = path.read_text()
+          chat_path = Path("app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt")
+          text = chat_path.read_text()
+
           original = text
 
-          imports = {
-              "import android.app.Activity\n": "import android.app.Activity\n",
-              "import android.content.Intent\n": "import android.content.Intent\n",
-              "import android.speech.RecognizerIntent\n": "import android.speech.RecognizerIntent\n",
-              "import android.widget.Toast\n": "import android.widget.Toast\n",
-              "import java.util.Locale\n": "import java.util.Locale\n",
-          }
+          def ensure_import(source: str, import_line: str, after: str = None) -> str:
+              if import_line in source:
+                  return source
 
-          # Insert Android speech imports after package line or near existing android imports.
-          if "import android.app.Activity" not in text:
-              text = text.replace(
-                  "package com.mrrobot.aiworkspace.ui.screens\n\n",
-                  "package com.mrrobot.aiworkspace.ui.screens\n\n"
-                  "import android.app.Activity\n"
-              )
+              if after and after in source:
+                  return source.replace(after, after + import_line + "\n", 1)
 
-          if "import android.content.Intent" not in text:
-              text = text.replace(
-                  "import android.content.Context\n",
-                  "import android.content.Context\n"
-                  "import android.content.Intent\n"
-              )
+              package_line = "package com.mrrobot.aiworkspace.ui.screens\n\n"
+              return source.replace(package_line, package_line + import_line + "\n", 1)
 
-          if "import android.speech.RecognizerIntent" not in text:
-              text = text.replace(
-                  "import android.provider.OpenableColumns\n",
-                  "import android.provider.OpenableColumns\n"
-                  "import android.speech.RecognizerIntent\n"
-              )
+          text = ensure_import(
+              text,
+              "import android.app.Activity",
+              "package com.mrrobot.aiworkspace.ui.screens\n\n"
+          )
 
-          if "import android.widget.Toast" not in text:
-              text = text.replace(
-                  "import android.speech.RecognizerIntent\n",
-                  "import android.speech.RecognizerIntent\n"
-                  "import android.widget.Toast\n"
-              )
+          text = ensure_import(
+              text,
+              "import android.content.Intent",
+              "import android.content.Context\n"
+          )
 
-          if "import java.util.Locale" not in text:
-              text = text.replace(
-                  "import java.io.InputStreamReader\n",
-                  "import java.io.InputStreamReader\n"
-                  "import java.util.Locale\n"
-              )
+          text = ensure_import(
+              text,
+              "import android.speech.RecognizerIntent",
+              "import android.provider.OpenableColumns\n"
+          )
 
-          # Add speech launcher after attachment launcher block.
-          old = '''              val attachmentLauncher = rememberLauncherForActivityResult(
-                  contract = ActivityResultContracts.OpenMultipleDocuments()
-              ) { uris ->
-                  val attachments = uris.map { uri ->
-                      createAttachmentFromUri(
-                          context = context,
-                          uri = uri
-                      )
-                  }
+          text = ensure_import(
+              text,
+              "import android.widget.Toast",
+              "import android.speech.RecognizerIntent\n"
+          )
 
-                  viewModel.addAttachments(attachments)
-              }
-          '''
+          text = ensure_import(
+              text,
+              "import java.util.Locale",
+              "import java.io.InputStreamReader\n"
+          )
 
-          new = '''              val attachmentLauncher = rememberLauncherForActivityResult(
-                  contract = ActivityResultContracts.OpenMultipleDocuments()
-              ) { uris ->
-                  val attachments = uris.map { uri ->
-                      createAttachmentFromUri(
-                          context = context,
-                          uri = uri
-                      )
-                  }
-
-                  viewModel.addAttachments(attachments)
-              }
-
-              val speechLauncher = rememberLauncherForActivityResult(
-                  contract = ActivityResultContracts.StartActivityForResult()
-              ) { result ->
-                  if (result.resultCode == Activity.RESULT_OK) {
-                      val spokenText = result.data
-                          ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                          ?.firstOrNull()
-                          .orEmpty()
-                          .trim()
-
-                      if (spokenText.isNotBlank()) {
-                          val mergedInput = listOf(
-                              state.input.trim(),
-                              spokenText
-                          )
-                              .filter { it.isNotBlank() }
-                              .joinToString(" ")
-
-                          viewModel.updateInput(mergedInput)
-                      }
-                  }
-              }
-          '''
-
-          if old in text and "val speechLauncher = rememberLauncherForActivityResult" not in text:
-              text = text.replace(old, new)
-          elif "val speechLauncher = rememberLauncherForActivityResult" not in text:
+          # Add speech launcher after attachmentLauncher block.
+          if "val speechLauncher = rememberLauncherForActivityResult" not in text:
               marker = "              LaunchedEffect(state.messages.size, state.isLoading) {"
-              text = text.replace(
-                  marker,
-                  '''              val speechLauncher = rememberLauncherForActivityResult(
+
+              speech_launcher = '''              val speechLauncher = rememberLauncherForActivityResult(
                   contract = ActivityResultContracts.StartActivityForResult()
               ) { result ->
                   if (result.resultCode == Activity.RESULT_OK) {
@@ -151,23 +100,29 @@ jobs:
                           .trim()
 
                       if (spokenText.isNotBlank()) {
-                          val mergedInput = listOf(
-                              state.input.trim(),
-                              spokenText
-                          )
-                              .filter { it.isNotBlank() }
-                              .joinToString(" ")
+                          val existingInput = state.input.trim()
 
-                          viewModel.updateInput(mergedInput)
+                          val nextInput = if (existingInput.isBlank()) {
+                              spokenText
+                          } else {
+                              "$existingInput $spokenText"
+                          }
+
+                          viewModel.updateInput(nextInput)
                       }
                   }
               }
 
-''' + marker
-              )
+'''
 
-          # Pass mic action into PromptInputBar.
-          old_call = '''                      onPickFiles = {
+              if marker not in text:
+                  raise SystemExit("Could not find LaunchedEffect marker in ChatScreen.kt")
+
+              text = text.replace(marker, speech_launcher + marker, 1)
+
+          # Add onMicClick argument to PremiumPromptInputBar call.
+          if "onMicClick = {" not in text:
+              pick_files_block = '''                      onPickFiles = {
                           attachmentLauncher.launch(
                               arrayOf(
                                   "text/*",
@@ -180,10 +135,9 @@ jobs:
                               )
                           )
                       },
-                      onRemoveAttachment = { attachment ->
-          '''
+'''
 
-          new_call = '''                      onPickFiles = {
+              mic_argument = '''                      onPickFiles = {
                           attachmentLauncher.launch(
                               arrayOf(
                                   "text/*",
@@ -202,45 +156,61 @@ jobs:
                               launcher = speechLauncher::launch
                           )
                       },
-                      onRemoveAttachment = { attachment ->
-          '''
+'''
 
-          if old_call in text and "onMicClick = {" not in text:
-              text = text.replace(old_call, new_call)
+              if pick_files_block not in text:
+                  raise SystemExit("Could not find onPickFiles block in PremiumPromptInputBar call")
+
+              text = text.replace(pick_files_block, mic_argument, 1)
 
           # Add onMicClick parameter to PremiumPromptInputBar signature.
-          old_sig = '''              onInputChange: (String) -> Unit,
+          if "onMicClick: () -> Unit" not in text:
+              signature_target = '''              onInputChange: (String) -> Unit,
               onPickFiles: () -> Unit,
               onRemoveAttachment: (ChatAttachment) -> Unit,
-          '''
+'''
 
-          new_sig = '''              onInputChange: (String) -> Unit,
+              signature_replacement = '''              onInputChange: (String) -> Unit,
               onPickFiles: () -> Unit,
               onMicClick: () -> Unit,
               onRemoveAttachment: (ChatAttachment) -> Unit,
-          '''
+'''
 
-          if old_sig in text and "onMicClick: () -> Unit" not in text:
-              text = text.replace(old_sig, new_sig)
+              if signature_target not in text:
+                  raise SystemExit("Could not find PremiumPromptInputBar parameter signature")
 
-          # Replace dead mic onClick.
-          text = text.replace(
-              '''                      PremiumIconButton(
+              text = text.replace(signature_target, signature_replacement, 1)
+
+          # Replace empty mic click handler with real handler.
+          empty_mic_button = '''                      PremiumIconButton(
                           icon = R.drawable.ic_lucide_mic,
                           contentDescription = "Voice input",
                           onClick = {}
                       )
-          ''',
-              '''                      PremiumIconButton(
+'''
+
+          real_mic_button = '''                      PremiumIconButton(
                           icon = R.drawable.ic_lucide_mic,
                           contentDescription = "Voice input",
                           onClick = onMicClick
                       )
-          '''
+'''
+
+          if empty_mic_button in text:
+              text = text.replace(empty_mic_button, real_mic_button, 1)
+
+          # Fallback: handle slightly formatted version.
+          text = re.sub(
+              r'(PremiumIconButton\(\s*icon\s*=\s*R\.drawable\.ic_lucide_mic,\s*contentDescription\s*=\s*"Voice input",\s*)onClick\s*=\s*\{\s*\}(\s*\))',
+              r'\1onClick = onMicClick\2',
+              text,
+              count=1,
+              flags=re.DOTALL
           )
 
           # Add helper function before createAttachmentFromUri.
-          helper = '''          private fun launchSpeechInput(
+          if "private fun launchSpeechInput(" not in text:
+              helper = '''          private fun launchSpeechInput(
               context: Context,
               launcher: (Intent) -> Unit
           ) {
@@ -264,76 +234,82 @@ jobs:
               }
           }
 
-          '''
+'''
 
-          if "private fun launchSpeechInput(" not in text:
-              text = text.replace(
-                  "          private fun createAttachmentFromUri(\n",
-                  helper + "          private fun createAttachmentFromUri(\n"
-              )
+              create_function_marker = "          private fun createAttachmentFromUri(\n"
 
-          path.write_text(text)
+              if create_function_marker not in text:
+                  raise SystemExit("Could not find createAttachmentFromUri function marker")
 
-          print("Changed:", text != original)
+              text = text.replace(create_function_marker, helper + create_function_marker, 1)
+
+          chat_path.write_text(text)
+
+          print("ChatScreen changed:", text != original)
           PY
+
+      - name: Add audio permission safely
+        shell: bash
+        run: |
+          set -euo pipefail
 
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
-          manifest = Path("app/src/main/AndroidManifest.xml")
-          if not manifest.exists():
-              raise SystemExit("AndroidManifest.xml not found")
-
-          text = manifest.read_text()
+          manifest_path = Path("app/src/main/AndroidManifest.xml")
+          text = manifest_path.read_text()
           original = text
 
           if "android.permission.RECORD_AUDIO" not in text:
-              text = text.replace(
-                  "<manifest",
-                  "<manifest",
-                  1
-              )
-              text = text.replace(
-                  ">",
-                  '>\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />',
-                  1
-              )
+              manifest_open = re.search(r"<manifest\b[^>]*>", text, flags=re.DOTALL)
 
-          manifest.write_text(text)
+              if not manifest_open:
+                  raise SystemExit("Could not find <manifest> opening tag")
+
+              insert_at = manifest_open.end()
+              permission = '\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />'
+
+              text = text[:insert_at] + permission + text[insert_at:]
+
+          manifest_path.write_text(text)
+
           print("Manifest changed:", text != original)
           PY
+
+      - name: Write Step 52 notes
+        shell: bash
+        run: |
+          set -euo pipefail
 
           mkdir -p docs/fixes
 
           cat > docs/fixes/STEP_52_RESTORE_MIC_VOICE_INPUT.md <<'EOF'
           # Step 52 Restore Mic Voice Input
 
-          Step 50 restored the AI Chat UI but left the mic button with an empty click handler:
+          This step restores the AI Chat mic button after the UI restore accidentally left it with an empty click handler.
 
-          ```kotlin
-          onClick = {}
-          ```
+          ## Fixed
 
-          This step restores Android voice-to-text using:
+          - Added Android speech recognizer launcher.
+          - Added `RecognizerIntent.ACTION_RECOGNIZE_SPEECH`.
+          - Added `ActivityResultContracts.StartActivityForResult`.
+          - Connected the mic icon button to real voice input.
+          - Added `RECORD_AUDIO` permission safely.
+          - Recognized speech is inserted into the chat input field.
+          - Existing typed text is preserved and spoken text is appended.
 
-          - `ActivityResultContracts.StartActivityForResult`
-          - `RecognizerIntent.ACTION_RECOGNIZE_SPEECH`
-          - `RecognizerIntent.EXTRA_RESULTS`
-          - `RECORD_AUDIO` permission
+          ## Preserved
 
-          ## Behavior
-
-          - Tap mic.
-          - Android speech input opens.
-          - Speak prompt.
-          - Recognized text is inserted into the chat input field.
-          - If existing text is already typed, spoken text is appended cleanly.
-          - If speech input is unavailable, a toast is shown.
-
-          This step does not change provider routing, chat backend, theme logic, or visual layout.
+          - Mr. Robot branding.
+          - Premium AI Chat UI.
+          - Plus icon.
+          - Mic icon.
+          - Multi-provider API routing.
+          - Anthropic/OpenRouter/OpenAI/Gemini/Groq/Mistral/DeepSeek/xAI runtime logic.
           EOF
 
-      - name: Verify mic input repair
+      - name: Verify mic voice input patch
         shell: bash
         run: |
           set -euo pipefail
@@ -341,16 +317,23 @@ jobs:
           CHAT_SCREEN="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt"
           MANIFEST="app/src/main/AndroidManifest.xml"
 
-          grep -R "RecognizerIntent.ACTION_RECOGNIZE_SPEECH" "$CHAT_SCREEN"
+          grep -R "import android.app.Activity" "$CHAT_SCREEN"
+          grep -R "import android.content.Intent" "$CHAT_SCREEN"
+          grep -R "import android.speech.RecognizerIntent" "$CHAT_SCREEN"
+          grep -R "import android.widget.Toast" "$CHAT_SCREEN"
+          grep -R "import java.util.Locale" "$CHAT_SCREEN"
+
           grep -R "ActivityResultContracts.StartActivityForResult" "$CHAT_SCREEN"
           grep -R "val speechLauncher" "$CHAT_SCREEN"
+          grep -R "RecognizerIntent.ACTION_RECOGNIZE_SPEECH" "$CHAT_SCREEN"
+          grep -R "RecognizerIntent.EXTRA_RESULTS" "$CHAT_SCREEN"
           grep -R "onMicClick" "$CHAT_SCREEN"
           grep -R "launchSpeechInput" "$CHAT_SCREEN"
           grep -R "Speak to Mr. Robot" "$CHAT_SCREEN"
           grep -R "android.permission.RECORD_AUDIO" "$MANIFEST"
 
-          if grep -R "contentDescription = \"Voice input\"" -A 3 "$CHAT_SCREEN" | grep -q "onClick = {}"; then
-            echo "Mic button still has empty onClick."
+          if grep -R "contentDescription = \"Voice input\"" -A 5 "$CHAT_SCREEN" | grep -q "onClick = {}"; then
+            echo "ERROR: Mic button still has empty onClick."
             exit 1
           fi
 
