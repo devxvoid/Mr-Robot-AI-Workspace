@@ -48,7 +48,21 @@ jobs:
 
       - name: Build APK with logs
         run: |
-          ./gradlew clean assembleDebug --stacktrace --info | tee build-log.txt
+          # Without pipefail, `gradlew ... | tee` returns tee's exit status,
+          # which masks Gradle failures and makes the job look green even
+          # when assembleDebug errors out.
+          set -o pipefail
+          ./gradlew clean assembleDebug --stacktrace --info 2>&1 | tee build-log.txt
+
+      - name: Show APK output directory
+        if: always()
+        run: |
+          echo "Contents of app/build/outputs/apk (if it exists):"
+          if [ -d app/build/outputs/apk ]; then
+            find app/build/outputs/apk -type f -print
+          else
+            echo "  (directory does not exist)"
+          fi
 
       - name: Upload build logs
         uses: actions/upload-artifact@v4
@@ -63,3 +77,4 @@ jobs:
         with:
           name: mr-robot-ai-workspace-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
