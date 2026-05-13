@@ -35,6 +35,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -65,23 +66,23 @@ import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private val BgTop = Color(0xFF120E0C)
-private val BgBottom = Color(0xFF17120F)
+private val BgTop = Color(0xFF0F0D0C)
+private val BgBottom = Color(0xFF141210)
 
-private val CardBg = Color(0xFF1A1614)
-private val CardBorder = Color(0x33F4B183)
+private val CardBg = Color(0xFF1A1715)
+private val CardBorder = Color(0x22F4B183)
 
-private val SoftOutline = Color(0x33F4B183)
-private val SoftText = Color(0xFFE7D8CE)
-private val SecondaryText = Color(0xFFBFAEA1)
+private val SoftOutline = Color(0x22F4B183)
+private val SoftText = Color(0xFFE8DCD4)
+private val SecondaryText = Color(0xFFA89B91)
 private val Accent = Color(0xFFF4B183)
 private val AccentStrong = Color(0xFFF0AE82)
-private val AccentSoftFill = Color(0x26F4B183)
+private val AccentSoftFill = Color(0x1AF4B183)
 
-private val InputBg = Color(0xFF15110F)
-private val AssistantBubble = Color(0xFF171311)
-private val UserBubble = Color(0x2218D7F0)
-private val ErrorBg = Color(0xFF5E1818)
+private val InputBg = Color(0xFF131110)
+private val AssistantBubble = Color(0xFF161412)
+private val UserBubble = Color(0x1A18D7F0)
+private val ErrorBg = Color(0xFF3D1515)
 private val ErrorText = Color(0xFFFFD4D4)
 
 @Composable
@@ -232,7 +233,7 @@ private fun ChatHeader(
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
             modifier = Modifier.weight(1f)
@@ -240,27 +241,25 @@ private fun ChatHeader(
             Text(
                 text = "AI Chat",
                 color = Color.White,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                style = MaterialTheme.typography.titleLarge
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Attach files, speak prompts, analyze screenshots, and coordinate Android development work.",
-                color = SecondaryText
+                text = "Attach files, speak prompts, and coordinate development work.",
+                color = SecondaryText,
+                style = MaterialTheme.typography.bodySmall
             )
         }
 
         TextButton(
-            onClick = onClear,
-            modifier = Modifier.padding(top = 2.dp)
+            onClick = onClear
         ) {
             Text(
                 text = "Clear",
                 color = Accent,
-                fontWeight = FontWeight.Medium
+                style = MaterialTheme.typography.labelLarge
             )
         }
     }
@@ -278,12 +277,12 @@ private fun AssistantStatusCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = CardBg),
         border = BorderStroke(1.dp, CardBorder)
     ) {
         Column(
-            modifier = Modifier.padding(18.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -296,21 +295,22 @@ private fun AssistantStatusCard(
                     Text(
                         text = "Assistant Status",
                         color = Color.White,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.titleMedium
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
                         text = if (isConfigured) "API key configured  •  Ready" else "No active model configured",
-                        color = if (isConfigured) SoftText else SecondaryText
+                        color = if (isConfigured) SoftText else SecondaryText,
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
 
                 if (!isConfigured) {
                     OutlinedButton(
                         onClick = onSetup,
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, Accent),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = Accent
@@ -319,23 +319,23 @@ private fun AssistantStatusCard(
                         Text(
                             text = "SETUP",
                             color = Accent,
-                            fontWeight = FontWeight.Medium
+                            style = MaterialTheme.typography.labelSmall
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = Color.Transparent,
-                border = BorderStroke(1.dp, Color(0x22FFFFFF))
+                border = BorderStroke(1.dp, Color(0x15FFFFFF))
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     StatusRow("Model", model)
                     StatusRow("User messages", userMessages.toString())
@@ -356,12 +356,13 @@ private fun StatusRow(label: String, value: String) {
     ) {
         Text(
             text = label,
-            color = SecondaryText
+            color = SecondaryText,
+            style = MaterialTheme.typography.bodySmall
         )
         Text(
             text = value,
             color = Color.White,
-            fontWeight = FontWeight.SemiBold
+            style = MaterialTheme.typography.titleSmall
         )
     }
 }
@@ -380,21 +381,21 @@ private fun ChatBubble(
         Card(
             modifier = Modifier.fillMaxWidth(if (isUser) 0.86f else 0.96f),
             shape = RoundedCornerShape(
-                topStart = 24.dp,
-                topEnd = 24.dp,
-                bottomStart = if (isUser) 24.dp else 8.dp,
-                bottomEnd = if (isUser) 8.dp else 24.dp
+                topStart = 18.dp,
+                topEnd = 18.dp,
+                bottomStart = if (isUser) 18.dp else 4.dp,
+                bottomEnd = if (isUser) 4.dp else 18.dp
             ),
             colors = CardDefaults.cardColors(
                 containerColor = if (isUser) UserBubble else AssistantBubble
             ),
             border = BorderStroke(
                 1.dp,
-                if (isUser) Color(0x3318D7F0) else Color(0x22FFFFFF)
+                if (isUser) Color(0x2218D7F0) else Color(0x15FFFFFF)
             )
         ) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(14.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -404,19 +405,20 @@ private fun ChatBubble(
                     Text(
                         text = if (isUser) "You" else "Mr. Robot",
                         color = if (isUser) Color(0xFF6DEBFF) else Color(0xFFA77BFF),
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.labelMedium
                     )
 
                     Text(
                         text = "Copy",
                         color = SecondaryText,
+                        style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.clickable {
                             clipboard.setText(AnnotatedString(message.content))
                         }
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 MessageText(message.content)
             }
@@ -455,23 +457,24 @@ private fun MessageText(content: String) {
 @Composable
 private fun ThinkingBubble() {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = CardBg),
         border = BorderStroke(1.dp, CardBorder)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(16.dp),
                 strokeWidth = 2.dp,
                 color = Accent
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = "Mr. Robot is thinking...",
-                color = SoftText
+                color = SoftText,
+                style = MaterialTheme.typography.bodySmall
             )
         }
     }
@@ -484,36 +487,38 @@ private fun ErrorPanel(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = ErrorBg),
-        border = BorderStroke(1.dp, Color(0x55FF8A8A))
+        border = BorderStroke(1.dp, Color(0x44FF8A8A))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(14.dp)
         ) {
             Text(
                 text = "Request failed",
                 color = Color.White,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.titleSmall
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = message,
-                color = ErrorText
+                color = ErrorText,
+                style = MaterialTheme.typography.bodySmall
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             OutlinedButton(
                 onClick = onRetry,
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, Color(0x66FFB6B6))
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, Color(0x55FFB6B6))
             ) {
                 Text(
                     text = "Retry last prompt",
-                    color = Color(0xFFFFD4D4)
+                    color = Color(0xFFFFD4D4),
+                    style = MaterialTheme.typography.labelMedium
                 )
             }
         }
@@ -534,16 +539,16 @@ private fun PromptComposer(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = CardBg),
         border = BorderStroke(1.dp, CardBorder)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 SmallActionButton(
@@ -565,10 +570,11 @@ private fun PromptComposer(
                     placeholder = {
                         Text(
                             text = "Ask Mr. Robot...",
-                            color = SecondaryText
+                            color = SecondaryText,
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     },
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(14.dp),
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = InputBg,
@@ -584,18 +590,18 @@ private fun PromptComposer(
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Button(
                     onClick = {
                         if (isLoading) onStop() else onSend()
                     },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = AccentStrong,
                         contentColor = Color.Black
@@ -603,7 +609,7 @@ private fun PromptComposer(
                 ) {
                     Text(
                         text = if (isLoading) "Stop" else "Send",
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.labelLarge
                     )
                 }
 
@@ -611,14 +617,17 @@ private fun PromptComposer(
                     onClick = onRegenerate,
                     enabled = canRegenerate && !isLoading,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, SoftOutline),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = SecondaryText,
                         disabledContentColor = SecondaryText.copy(alpha = 0.45f)
                     )
                 ) {
-                    Text("Regenerate")
+                    Text(
+                        text = "Regenerate",
+                        style = MaterialTheme.typography.labelLarge
+                    )
                 }
             }
         }
@@ -632,8 +641,8 @@ private fun SmallActionButton(
     onClick: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.size(64.dp),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.size(48.dp),
+        shape = RoundedCornerShape(14.dp),
         color = AccentSoftFill,
         border = BorderStroke(1.dp, SoftOutline)
     ) {
@@ -642,7 +651,7 @@ private fun SmallActionButton(
                 painter = painterResource(id = iconRes),
                 contentDescription = contentDescription,
                 tint = Accent,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
     }

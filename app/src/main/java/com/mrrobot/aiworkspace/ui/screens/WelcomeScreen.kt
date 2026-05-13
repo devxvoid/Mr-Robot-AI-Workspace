@@ -15,9 +15,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.mrrobot.aiworkspace.navigation.Route
 import com.mrrobot.aiworkspace.ui.components.CyberButton
@@ -25,21 +23,20 @@ import com.mrrobot.aiworkspace.ui.components.GlassCard
 import com.mrrobot.aiworkspace.ui.components.PremiumMetric
 import com.mrrobot.aiworkspace.ui.components.ScreenShell
 import com.mrrobot.aiworkspace.ui.components.StatusPill
-import com.mrrobot.aiworkspace.ui.components.Subtitle
-import com.mrrobot.aiworkspace.ui.components.Title
 
 @Composable
 fun WelcomeScreen(nav: NavController) {
     ScreenShell {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp)
+            contentPadding = PaddingValues(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
                 HomeHeader()
+            }
 
-                Spacer(Modifier.height(18.dp))
-
+            item {
                 GlassCard {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -50,17 +47,23 @@ fun WelcomeScreen(nav: NavController) {
                         StatusPill("Workflows")
                     }
 
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(14.dp))
 
-                    Title("What can I help you with today?")
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Subtitle(
-                        "Start a conversation, launch an agent, or build an automation from a calmer AI workspace."
+                    Text(
+                        text = "What can I help you with?",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        text = "Start a conversation, launch an agent, or build an automation workflow.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(Modifier.height(16.dp))
 
                     CyberButton("Start New Chat") {
                         nav.navigate(Route.Chat.path)
@@ -72,30 +75,36 @@ fun WelcomeScreen(nav: NavController) {
                         onClick = { nav.navigate(Route.Agents.path) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp),
-                        shape = MaterialTheme.shapes.large
+                            .height(48.dp),
+                        shape = MaterialTheme.shapes.medium
                     ) {
-                        Text("Open Agents")
+                        Text(
+                            text = "Open Agents",
+                            style = MaterialTheme.typography.labelLarge
+                        )
                     }
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(8.dp))
 
                     OutlinedButton(
                         onClick = { nav.navigate(Route.Workflow.path) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp),
-                        shape = MaterialTheme.shapes.large
+                            .height(48.dp),
+                        shape = MaterialTheme.shapes.medium
                     ) {
-                        Text("Build Workflow")
+                        Text(
+                            text = "Build Workflow",
+                            style = MaterialTheme.typography.labelLarge
+                        )
                     }
                 }
+            }
 
-                Spacer(Modifier.height(14.dp))
-
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
                         PremiumMetric(
@@ -113,12 +122,12 @@ fun WelcomeScreen(nav: NavController) {
                         )
                     }
                 }
+            }
 
-                Spacer(Modifier.height(10.dp))
-
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
                         PremiumMetric(
@@ -136,8 +145,6 @@ fun WelcomeScreen(nav: NavController) {
                         )
                     }
                 }
-
-                Spacer(Modifier.height(18.dp))
             }
         }
     }
@@ -147,21 +154,17 @@ fun WelcomeScreen(nav: NavController) {
 private fun HomeHeader() {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Mr. Robot AI\nWorkspace",
-            color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 34.sp,
-            fontWeight = FontWeight.ExtraBold,
-            lineHeight = 38.sp,
-            letterSpacing = (-0.8).sp
+            text = "Mr. Robot AI Workspace",
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "A calm, powerful Android workspace for chat, agents, workflows, terminal logs, marketplace tools, and OpenRouter models.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 16.sp,
-            lineHeight = 25.sp
+            text = "A powerful workspace for chat, agents, workflows, and OpenRouter models.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

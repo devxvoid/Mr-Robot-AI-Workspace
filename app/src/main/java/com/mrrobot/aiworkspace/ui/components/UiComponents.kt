@@ -35,9 +35,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 val NeonCyan = Color(0xFF00DFF7)
 val NeonPurple = Color(0xFF8B5CF6)
@@ -55,22 +53,14 @@ fun ScreenShell(content: @Composable ColumnScope.() -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        scheme.background,
-                        scheme.surface.copy(alpha = 0.98f),
-                        scheme.surfaceVariant.copy(alpha = 0.72f)
-                    )
-                )
-            )
+            .background(scheme.background)
     ) {
         AmbientGlow()
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             content = content
         )
     }
@@ -81,10 +71,10 @@ fun AmbientGlow() {
     val infinite = rememberInfiniteTransition(label = "ambient_glow")
 
     val alpha by infinite.animateFloat(
-        initialValue = 0.05f,
-        targetValue = 0.16f,
+        initialValue = 0.03f,
+        targetValue = 0.10f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3600, easing = FastOutSlowInEasing),
+            animation = tween(4000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "ambient_alpha"
@@ -93,14 +83,14 @@ fun AmbientGlow() {
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
-                .size(280.dp)
-                .offset(x = (-120).dp, y = 10.dp)
+                .size(260.dp)
+                .offset(x = (-100).dp, y = (-20).dp)
                 .alpha(alpha)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.34f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
                             Color.Transparent
                         )
                     )
@@ -109,15 +99,15 @@ fun AmbientGlow() {
 
         Box(
             modifier = Modifier
-                .size(340.dp)
+                .size(300.dp)
                 .align(Alignment.BottomEnd)
-                .offset(x = 130.dp, y = 90.dp)
+                .offset(x = 120.dp, y = 80.dp)
                 .alpha(alpha)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f),
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
                             Color.Transparent
                         )
                     )
@@ -136,17 +126,17 @@ fun GlassCard(
             .fillMaxWidth()
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.32f),
-                shape = MaterialTheme.shapes.extraLarge
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
+                shape = MaterialTheme.shapes.large
             ),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(16.dp),
             content = content
         )
     }
@@ -161,20 +151,16 @@ fun PremiumHeader(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 34.sp,
-            fontWeight = FontWeight.ExtraBold,
-            lineHeight = 38.sp,
-            letterSpacing = (-0.8).sp
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
 
         Text(
             text = subtitle,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 16.sp,
-            lineHeight = 25.sp
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -183,11 +169,8 @@ fun PremiumHeader(
 fun Title(text: String) {
     Text(
         text = text,
-        color = MaterialTheme.colorScheme.onSurface,
-        fontSize = 25.sp,
-        fontWeight = FontWeight.Bold,
-        lineHeight = 31.sp,
-        letterSpacing = (-0.3).sp
+        style = MaterialTheme.typography.headlineMedium,
+        color = MaterialTheme.colorScheme.onSurface
     )
 }
 
@@ -195,9 +178,8 @@ fun Title(text: String) {
 fun Subtitle(text: String) {
     Text(
         text = text,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontSize = 15.sp,
-        lineHeight = 23.sp
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
 
@@ -209,15 +191,14 @@ fun CyberButton(text: String, onClick: () -> Unit) {
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
         ),
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(52.dp)
     ) {
         Text(
             text = text,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp
+            style = MaterialTheme.typography.labelLarge
         )
     }
 }
@@ -231,29 +212,24 @@ fun PremiumMetric(
     GlassCard {
         Text(
             text = value,
-            color = MaterialTheme.colorScheme.primary,
-            fontSize = 25.sp,
-            fontWeight = FontWeight.ExtraBold,
-            maxLines = 1
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
 
         Text(
             text = label,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            maxLines = 1
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface
         )
 
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(4.dp))
 
         Text(
             text = description,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
             maxLines = 2
         )
     }
@@ -267,21 +243,20 @@ fun StatusPill(
     val pillColor = color ?: MaterialTheme.colorScheme.primary
 
     Surface(
-        color = pillColor.copy(alpha = 0.10f),
+        color = pillColor.copy(alpha = 0.08f),
         border = BorderStroke(
             width = 1.dp,
-            color = pillColor.copy(alpha = 0.35f)
+            color = pillColor.copy(alpha = 0.25f)
         ),
-        shape = MaterialTheme.shapes.extraLarge
+        shape = MaterialTheme.shapes.small
     ) {
         Text(
             text = text,
             color = pillColor,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(
-                horizontal = 12.dp,
-                vertical = 7.dp
+                horizontal = 10.dp,
+                vertical = 5.dp
             )
         )
     }

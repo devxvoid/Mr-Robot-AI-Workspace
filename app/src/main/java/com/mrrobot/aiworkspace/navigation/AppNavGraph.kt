@@ -2,6 +2,7 @@ package com.mrrobot.aiworkspace.navigation
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -13,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -114,8 +116,8 @@ fun AppNavGraph() {
                 navController.currentBackStackEntryAsState().value?.destination?.route
 
             NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                tonalElevation = androidx.compose.ui.unit.Dp.Hairline
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp
             ) {
                 bottomItems.forEach { route ->
                     NavigationBarItem(
@@ -135,19 +137,22 @@ fun AppNavGraph() {
                         icon = {
                             Icon(
                                 painter = painterResource(id = route.iconRes),
-                                contentDescription = route.label
+                                contentDescription = route.label,
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         label = {
                             Text(
                                 text = route.label,
+                                style = MaterialTheme.typography.labelSmall,
                                 maxLines = 1
                             )
                         },
+                        alwaysShowLabel = true,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
