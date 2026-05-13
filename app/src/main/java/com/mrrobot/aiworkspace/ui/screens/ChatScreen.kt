@@ -7,39 +7,51 @@ import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +60,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -58,6 +73,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrrobot.aiworkspace.R
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
@@ -65,24 +81,12 @@ import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private val BgTop = Color(0xFF120E0C)
-private val BgBottom = Color(0xFF17120F)
-
-private val CardBg = Color(0xFF1A1614)
-private val CardBorder = Color(0x33F4B183)
-
-private val SoftOutline = Color(0x33F4B183)
-private val SoftText = Color(0xFFE7D8CE)
-private val SecondaryText = Color(0xFFBFAEA1)
-private val Accent = Color(0xFFF4B183)
-private val AccentStrong = Color(0xFFF0AE82)
-private val AccentSoftFill = Color(0x26F4B183)
-
-private val InputBg = Color(0xFF15110F)
-private val AssistantBubble = Color(0xFF171311)
-private val UserBubble = Color(0x2218D7F0)
-private val ErrorBg = Color(0xFF5E1818)
-private val ErrorText = Color(0xFFFFD4D4)
+private val SuggestionPrompts = listOf(
+    "Review my latest Android build errors and suggest fixes",
+    "Refactor this Kotlin file for readability",
+    "Write a Compose screen from a UI description",
+    "Summarize the attached document"
+)
 
 @Composable
 fun ChatScreen(
@@ -92,6 +96,7 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
 
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -127,7 +132,11 @@ fun ChatScreen(
             .fillMaxSize()
             .background(
                 brush = Brush.verticalGradient(
-                    colors = listOf(BgTop, BgBottom)
+                    colors = listOf(
+                        scheme.background,
+                        scheme.surface.copy(alpha = 0.98f),
+                        scheme.surfaceVariant.copy(alpha = 0.82f)
+                    )
                 )
             )
     ) {
@@ -136,53 +145,52 @@ fun ChatScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 18.dp)
-                .padding(top = 10.dp, bottom = 10.dp)
         ) {
-            ChatHeader(
+            ChatTopBar(
+                provider = state.provider,
+                assistantStatus = state.assistantStatus,
+                isReady = state.isProviderReady,
                 onClear = { viewModel.clearChat() }
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            AssistantStatusCard(
-                isConfigured = state.apiKey.isNotBlank(),
+            StatusStrip(
                 model = state.model,
-                onSetup = {
-                    // keep hook if you wire navigation later
-                },
-                userMessages = state.messages.count { it.role == "user" },
-                queuedFiles = 0,
-                readableFiles = 0,
-                visionImages = 0
+                provider = state.provider,
+                isReady = state.isProviderReady,
+                userMessages = state.userMessages,
+                queuedFiles = state.queuedFiles,
+                readableFiles = state.readableFiles,
+                visionImages = state.visionImages
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(Modifier.height(6.dp))
 
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(bottom = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 8.dp,
+                    bottom = 12.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                items(
-                    items = state.messages,
-                    key = { it.id }
-                ) { message ->
-                    ChatBubble(message = message)
-                }
-
                 if (state.messages.isEmpty()) {
                     item {
-                        ChatBubble(
-                            message = ChatUiMessage(
-                                id = 0L,
-                                role = "assistant",
-                                content = "Mr. Robot online. Add and activate any supported AI provider in Settings, then send a message."
-                            )
+                        EmptyChatState(
+                            isReady = state.isProviderReady,
+                            onPrompt = { viewModel.useSuggestion(it) }
                         )
+                    }
+                } else {
+                    items(
+                        items = state.messages,
+                        key = { it.id }
+                    ) { message ->
+                        ChatBubble(message = message)
                     }
                 }
 
@@ -193,20 +201,29 @@ fun ChatScreen(
                 }
             }
 
-            if (state.error.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                ErrorPanel(
-                    message = state.error,
-                    onRetry = { viewModel.retryLast() }
-                )
+            AnimatedVisibility(
+                visible = state.error.isNotBlank(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    ErrorPanel(
+                        message = state.error,
+                        onRetry = { viewModel.retryLast() }
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            SuggestionRow(
+                visible = state.input.isBlank() && !state.isLoading && state.messages.size <= 1,
+                onPrompt = { viewModel.useSuggestion(it) }
+            )
 
             PromptComposer(
                 input = state.input,
                 isLoading = state.isLoading,
                 canRegenerate = state.messages.any { it.role == "user" },
+                queuedFiles = state.queuedFiles,
                 onInputChange = viewModel::updateInput,
                 onMicClick = {
                     launchSpeechInput(
@@ -225,295 +242,325 @@ fun ChatScreen(
     }
 }
 
+/* ---------------- Top bar ---------------- */
+
 @Composable
-private fun ChatHeader(
+private fun ChatTopBar(
+    provider: String,
+    assistantStatus: String,
+    isReady: Boolean,
     onClear: () -> Unit
 ) {
-    Row(
+    val scheme = MaterialTheme.colorScheme
+
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
+        color = scheme.surface.copy(alpha = 0.92f),
+        tonalElevation = 2.dp,
+        shadowElevation = 0.dp
     ) {
-        Column(
-            modifier = Modifier.weight(1f)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "AI Chat",
-                color = Color.White,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            AssistantAvatar(
+                size = 44.dp,
+                ring = true
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.width(12.dp))
 
-            Text(
-                text = "Attach files, speak prompts, analyze screenshots, and coordinate Android development work.",
-                color = SecondaryText
-            )
-        }
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Mr. Robot",
+                        color = scheme.onSurface,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-        TextButton(
-            onClick = onClear,
-            modifier = Modifier.padding(top = 2.dp)
-        ) {
-            Text(
-                text = "Clear",
-                color = Accent,
-                fontWeight = FontWeight.Medium
+                    Spacer(Modifier.width(8.dp))
+
+                    StatusDot(isReady = isReady)
+                }
+
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    text = if (isReady) "$provider  \u2022  $assistantStatus" else assistantStatus,
+                    color = scheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            TopBarIconButton(
+                iconRes = R.drawable.ic_lucide_sparkles,
+                contentDescription = "Clear chat",
+                onClick = onClear
             )
         }
     }
 }
 
 @Composable
-private fun AssistantStatusCard(
-    isConfigured: Boolean,
+private fun AssistantAvatar(
+    size: androidx.compose.ui.unit.Dp,
+    ring: Boolean = false
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        scheme.primary,
+                        scheme.tertiary
+                    )
+                )
+            )
+            .then(
+                if (ring) Modifier.shadow(elevation = 2.dp, shape = CircleShape)
+                else Modifier
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_lucide_bot),
+            contentDescription = null,
+            tint = scheme.onPrimary,
+            modifier = Modifier.size(size * 0.55f)
+        )
+    }
+}
+
+@Composable
+private fun UserAvatar(size: androidx.compose.ui.unit.Dp) {
+    val scheme = MaterialTheme.colorScheme
+
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(scheme.secondaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_lucide_user),
+            contentDescription = null,
+            tint = scheme.onSecondaryContainer,
+            modifier = Modifier.size(size * 0.55f)
+        )
+    }
+}
+
+@Composable
+private fun StatusDot(isReady: Boolean) {
+    val scheme = MaterialTheme.colorScheme
+    val color = if (isReady) scheme.tertiary else scheme.error
+
+    val transition = rememberInfiniteTransition(label = "status_pulse")
+    val pulse by transition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = if (isReady) 1f else 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "status_pulse_alpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(9.dp)
+            .alpha(pulse)
+            .clip(CircleShape)
+            .background(color)
+    )
+}
+
+@Composable
+private fun TopBarIconButton(
+    iconRes: Int,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    Surface(
+        modifier = Modifier.size(40.dp),
+        shape = CircleShape,
+        color = scheme.surfaceVariant,
+        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.35f))
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = contentDescription,
+                tint = scheme.onSurface,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+/* ---------------- Status strip ---------------- */
+
+@Composable
+private fun StatusStrip(
     model: String,
-    onSetup: () -> Unit,
+    provider: String,
+    isReady: Boolean,
     userMessages: Int,
     queuedFiles: Int,
     readableFiles: Int,
     visionImages: Int
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        border = BorderStroke(1.dp, CardBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = "Assistant Status",
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = if (isConfigured) "API key configured  •  Ready" else "No active model configured",
-                        color = if (isConfigured) SoftText else SecondaryText
-                    )
-                }
-
-                if (!isConfigured) {
-                    OutlinedButton(
-                        onClick = onSetup,
-                        shape = RoundedCornerShape(18.dp),
-                        border = BorderStroke(1.dp, Accent),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Accent
-                        )
-                    ) {
-                        Text(
-                            text = "SETUP",
-                            color = Accent,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = Color.Transparent,
-                border = BorderStroke(1.dp, Color(0x22FFFFFF))
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    StatusRow("Model", model)
-                    StatusRow("User messages", userMessages.toString())
-                    StatusRow("Queued files", queuedFiles.toString())
-                    StatusRow("Readable files", readableFiles.toString())
-                    StatusRow("Vision images", visionImages.toString())
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatusRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            color = SecondaryText
-        )
-        Text(
-            text = value,
-            color = Color.White,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
-private fun ChatBubble(
-    message: ChatUiMessage
-) {
-    val clipboard = LocalClipboardManager.current
-    val isUser = message.role == "user"
+    val scheme = MaterialTheme.colorScheme
+    val scroll = rememberScrollState()
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(scroll)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(if (isUser) 0.86f else 0.96f),
-            shape = RoundedCornerShape(
-                topStart = 24.dp,
-                topEnd = 24.dp,
-                bottomStart = if (isUser) 24.dp else 8.dp,
-                bottomEnd = if (isUser) 8.dp else 24.dp
-            ),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isUser) UserBubble else AssistantBubble
-            ),
-            border = BorderStroke(
-                1.dp,
-                if (isUser) Color(0x3318D7F0) else Color(0x22FFFFFF)
+        InfoChip(
+            iconRes = R.drawable.ic_lucide_cpu,
+            label = if (isReady) model else "No model",
+            tint = scheme.primary,
+            emphasized = true
+        )
+
+        InfoChip(
+            iconRes = R.drawable.ic_lucide_user,
+            label = "$userMessages sent",
+            tint = scheme.onSurfaceVariant
+        )
+
+        if (queuedFiles > 0) {
+            InfoChip(
+                iconRes = R.drawable.ic_lucide_folder,
+                label = "$queuedFiles queued",
+                tint = scheme.tertiary
             )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text(
-                        text = if (isUser) "You" else "Mr. Robot",
-                        color = if (isUser) Color(0xFF6DEBFF) else Color(0xFFA77BFF),
-                        fontWeight = FontWeight.SemiBold
-                    )
+        }
 
-                    Text(
-                        text = "Copy",
-                        color = SecondaryText,
-                        modifier = Modifier.clickable {
-                            clipboard.setText(AnnotatedString(message.content))
-                        }
-                    )
-                }
+        if (readableFiles > 0) {
+            InfoChip(
+                iconRes = R.drawable.ic_lucide_terminal,
+                label = "$readableFiles readable",
+                tint = scheme.tertiary
+            )
+        }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                MessageText(message.content)
-            }
+        if (visionImages > 0) {
+            InfoChip(
+                iconRes = R.drawable.ic_lucide_sparkles,
+                label = "$visionImages vision",
+                tint = scheme.secondary
+            )
         }
     }
 }
 
 @Composable
-private fun MessageText(content: String) {
-    val looksLikeCode =
-        content.contains("```") ||
-            content.lines().any {
-                val line = it.trim()
-                line.startsWith("fun ") ||
-                    line.startsWith("class ") ||
-                    line.startsWith("val ") ||
-                    line.startsWith("var ") ||
-                    line.startsWith("import ") ||
-                    line.startsWith("package ")
-            }
+private fun InfoChip(
+    iconRes: Int,
+    label: String,
+    tint: Color,
+    emphasized: Boolean = false
+) {
+    val scheme = MaterialTheme.colorScheme
 
-    if (looksLikeCode) {
-        Text(
-            text = content.replace("```", ""),
-            color = Color.White,
-            fontFamily = FontFamily.Monospace
-        )
-    } else {
-        Text(
-            text = content,
-            color = Color.White
-        )
-    }
-}
-
-@Composable
-private fun ThinkingBubble() {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        border = BorderStroke(1.dp, CardBorder)
+    Surface(
+        color = if (emphasized) tint.copy(alpha = 0.12f) else scheme.surface.copy(alpha = 0.88f),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (emphasized) tint.copy(alpha = 0.45f) else scheme.outline.copy(alpha = 0.35f)
+        ),
+        shape = RoundedCornerShape(999.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = Accent
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(14.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "Mr. Robot is thinking...",
-                color = SoftText
+                text = label,
+                color = if (emphasized) tint else scheme.onSurface,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
             )
         }
     }
 }
 
+/* ---------------- Empty state ---------------- */
+
 @Composable
-private fun ErrorPanel(
-    message: String,
-    onRetry: () -> Unit
+private fun EmptyChatState(
+    isReady: Boolean,
+    onPrompt: (String) -> Unit
 ) {
-    Card(
+    val scheme = MaterialTheme.colorScheme
+
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = ErrorBg),
-        border = BorderStroke(1.dp, Color(0x55FF8A8A))
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(Modifier.height(20.dp))
+
+        AssistantAvatar(size = 72.dp, ring = true)
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            text = "How can I help you today?",
+            color = scheme.onBackground,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            text = if (isReady) {
+                "Ask anything, attach files or screenshots, or dictate your prompt."
+            } else {
+                "Add an API key in Settings, then start a conversation."
+            },
+            color = scheme.onSurfaceVariant,
+            fontSize = 14.sp
+        )
+
+        Spacer(Modifier.height(22.dp))
+
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                text = "Request failed",
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = message,
-                color = ErrorText
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedButton(
-                onClick = onRetry,
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, Color(0x66FFB6B6))
-            ) {
-                Text(
-                    text = "Retry last prompt",
-                    color = Color(0xFFFFD4D4)
+            SuggestionPrompts.forEach { prompt ->
+                SuggestionCard(
+                    text = prompt,
+                    onClick = { onPrompt(prompt) }
                 )
             }
         }
@@ -521,10 +568,406 @@ private fun ErrorPanel(
 }
 
 @Composable
+private fun SuggestionCard(
+    text: String,
+    onClick: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(18.dp),
+        color = scheme.surface.copy(alpha = 0.92f),
+        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(scheme.primary.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_lucide_sparkles),
+                    contentDescription = null,
+                    tint = scheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Text(
+                text = text,
+                color = scheme.onSurface,
+                fontSize = 14.sp,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/* ---------------- Chat bubble ---------------- */
+
+@Composable
+private fun ChatBubble(
+    message: ChatUiMessage
+) {
+    val clipboard = LocalClipboardManager.current
+    val scheme = MaterialTheme.colorScheme
+    val isUser = message.role == "user"
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Top
+    ) {
+        if (!isUser) {
+            AssistantAvatar(size = 34.dp)
+            Spacer(Modifier.width(10.dp))
+        }
+
+        Column(
+            modifier = Modifier.widthIn(max = 340.dp),
+            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+        ) {
+            Text(
+                text = if (isUser) "You" else "Mr. Robot",
+                color = scheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            val bubbleColor = if (isUser) {
+                scheme.primary
+            } else {
+                scheme.surface.copy(alpha = 0.96f)
+            }
+
+            val textColor = if (isUser) scheme.onPrimary else scheme.onSurface
+
+            Surface(
+                shape = RoundedCornerShape(
+                    topStart = 18.dp,
+                    topEnd = 18.dp,
+                    bottomStart = if (isUser) 18.dp else 4.dp,
+                    bottomEnd = if (isUser) 4.dp else 18.dp
+                ),
+                color = bubbleColor,
+                border = if (isUser) null else BorderStroke(
+                    1.dp,
+                    scheme.outline.copy(alpha = 0.3f)
+                ),
+                tonalElevation = if (isUser) 0.dp else 1.dp,
+                shadowElevation = if (isUser) 2.dp else 0.dp
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                    MessageContent(
+                        content = message.content,
+                        textColor = textColor
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (message.attachments.isNotEmpty()) {
+                    Text(
+                        text = "${message.attachments.size} attachment${if (message.attachments.size == 1) "" else "s"}",
+                        color = scheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Text(
+                    text = "Copy",
+                    color = scheme.primary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable {
+                        clipboard.setText(AnnotatedString(message.content))
+                    }
+                )
+            }
+        }
+
+        if (isUser) {
+            Spacer(Modifier.width(10.dp))
+            UserAvatar(size = 34.dp)
+        }
+    }
+}
+
+@Composable
+private fun MessageContent(
+    content: String,
+    textColor: Color
+) {
+    val looksLikeCode = content.contains("```") ||
+        content.lines().any {
+            val line = it.trim()
+            line.startsWith("fun ") ||
+                line.startsWith("class ") ||
+                line.startsWith("val ") ||
+                line.startsWith("var ") ||
+                line.startsWith("import ") ||
+                line.startsWith("package ")
+        }
+
+    if (looksLikeCode) {
+        val scheme = MaterialTheme.colorScheme
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = scheme.surfaceVariant.copy(alpha = 0.6f),
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.3f))
+        ) {
+            Text(
+                text = content.replace("```", ""),
+                color = textColor,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(12.dp)
+            )
+        }
+    } else {
+        Text(
+            text = content,
+            color = textColor,
+            fontSize = 15.sp,
+            lineHeight = 22.sp
+        )
+    }
+}
+
+/* ---------------- Thinking indicator ---------------- */
+
+@Composable
+private fun ThinkingBubble() {
+    val scheme = MaterialTheme.colorScheme
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AssistantAvatar(size = 34.dp)
+        Spacer(Modifier.width(10.dp))
+
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 18.dp,
+                topEnd = 18.dp,
+                bottomStart = 4.dp,
+                bottomEnd = 18.dp
+            ),
+            color = scheme.surface.copy(alpha = 0.96f),
+            border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.3f)),
+            tonalElevation = 1.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ThinkingDots(color = scheme.primary)
+
+                Text(
+                    text = "Thinking",
+                    color = scheme.onSurface,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThinkingDots(color: Color) {
+    val transition = rememberInfiniteTransition(label = "dots")
+    val a1 by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "d1"
+    )
+    val a2 by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, delayMillis = 150, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "d2"
+    )
+    val a3 by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, delayMillis = 300, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "d3"
+    )
+
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Dot(color, a1)
+        Dot(color, a2)
+        Dot(color, a3)
+    }
+}
+
+@Composable
+private fun Dot(color: Color, alphaValue: Float) {
+    Box(
+        modifier = Modifier
+            .size(7.dp)
+            .alpha(alphaValue.coerceIn(0.35f, 1f))
+            .clip(CircleShape)
+            .background(color)
+    )
+}
+
+/* ---------------- Error ---------------- */
+
+@Composable
+private fun ErrorPanel(
+    message: String,
+    onRetry: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = scheme.errorContainer.copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, scheme.error.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(scheme.error.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "!",
+                    color = scheme.error,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Request failed",
+                    color = scheme.onErrorContainer,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = message,
+                    color = scheme.onErrorContainer.copy(alpha = 0.9f),
+                    fontSize = 12.sp,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(Modifier.width(10.dp))
+
+            Surface(
+                modifier = Modifier.clickable { onRetry() },
+                shape = RoundedCornerShape(999.dp),
+                color = scheme.error.copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, scheme.error.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = "Retry",
+                    color = scheme.error,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                )
+            }
+        }
+    }
+}
+
+/* ---------------- Suggestion row ---------------- */
+
+@Composable
+private fun SuggestionRow(
+    visible: Boolean,
+    onPrompt: (String) -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
+        val scroll = rememberScrollState()
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(scroll)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SuggestionPrompts.forEach { prompt ->
+                Surface(
+                    modifier = Modifier.clickable { onPrompt(prompt) },
+                    shape = RoundedCornerShape(999.dp),
+                    color = scheme.primary.copy(alpha = 0.10f),
+                    border = BorderStroke(1.dp, scheme.primary.copy(alpha = 0.4f))
+                ) {
+                    Text(
+                        text = prompt,
+                        color = scheme.primary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/* ---------------- Composer ---------------- */
+
+@Composable
 private fun PromptComposer(
     input: String,
     isLoading: Boolean,
     canRegenerate: Boolean,
+    queuedFiles: Int,
     onInputChange: (String) -> Unit,
     onMicClick: () -> Unit,
     onAttachClick: () -> Unit,
@@ -532,93 +975,85 @@ private fun PromptComposer(
     onStop: () -> Unit,
     onRegenerate: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        border = BorderStroke(1.dp, CardBorder)
+    val scheme = MaterialTheme.colorScheme
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 8.dp),
+        color = scheme.surface,
+        tonalElevation = 3.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
-            Row(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                shape = RoundedCornerShape(26.dp),
+                color = scheme.surfaceVariant.copy(alpha = 0.6f),
+                border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.4f))
             ) {
-                SmallActionButton(
-                    iconRes = R.drawable.ic_lucide_plus,
-                    contentDescription = "Attach",
-                    onClick = onAttachClick
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    ComposerIconButton(
+                        iconRes = R.drawable.ic_lucide_plus,
+                        contentDescription = "Attach",
+                        badgeCount = queuedFiles,
+                        onClick = onAttachClick
+                    )
 
-                SmallActionButton(
-                    iconRes = R.drawable.ic_lucide_mic,
-                    contentDescription = "Voice input",
-                    onClick = onMicClick
-                )
-
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = onInputChange,
-                    modifier = Modifier.weight(1f),
-                    placeholder = {
-                        Text(
-                            text = "Ask Mr. Robot...",
-                            color = SecondaryText
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = onInputChange,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp, max = 160.dp)
+                            .defaultMinSize(minHeight = 48.dp),
+                        placeholder = {
+                            Text(
+                                text = "Message Mr. Robot...",
+                                color = scheme.onSurfaceVariant,
+                                fontSize = 15.sp
+                            )
+                        },
+                        shape = RoundedCornerShape(24.dp),
+                        maxLines = 6,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent,
+                            errorIndicatorColor = Color.Transparent,
+                            cursorColor = scheme.primary,
+                            focusedTextColor = scheme.onSurface,
+                            unfocusedTextColor = scheme.onSurface,
+                            focusedPlaceholderColor = scheme.onSurfaceVariant,
+                            unfocusedPlaceholderColor = scheme.onSurfaceVariant
                         )
-                    },
-                    shape = RoundedCornerShape(18.dp),
-                    singleLine = true,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = InputBg,
-                        unfocusedContainerColor = InputBg,
-                        focusedIndicatorColor = Accent,
-                        unfocusedIndicatorColor = SoftOutline,
-                        cursorColor = Accent,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedPlaceholderColor = SecondaryText,
-                        unfocusedPlaceholderColor = SecondaryText
                     )
-                )
-            }
 
-            Spacer(modifier = Modifier.height(14.dp))
+                    ComposerIconButton(
+                        iconRes = R.drawable.ic_lucide_mic,
+                        contentDescription = "Voice input",
+                        onClick = onMicClick
+                    )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Button(
-                    onClick = {
-                        if (isLoading) onStop() else onSend()
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AccentStrong,
-                        contentColor = Color.Black
+                    SendButton(
+                        isLoading = isLoading,
+                        canSend = input.isNotBlank() || isLoading,
+                        canRegenerate = canRegenerate,
+                        onSend = onSend,
+                        onStop = onStop,
+                        onRegenerate = onRegenerate
                     )
-                ) {
-                    Text(
-                        text = if (isLoading) "Stop" else "Send",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                OutlinedButton(
-                    onClick = onRegenerate,
-                    enabled = canRegenerate && !isLoading,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(1.dp, SoftOutline),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = SecondaryText,
-                        disabledContentColor = SecondaryText.copy(alpha = 0.45f)
-                    )
-                ) {
-                    Text("Regenerate")
                 }
             }
         }
@@ -626,27 +1061,116 @@ private fun PromptComposer(
 }
 
 @Composable
-private fun SmallActionButton(
+private fun ComposerIconButton(
     iconRes: Int,
     contentDescription: String,
+    badgeCount: Int = 0,
     onClick: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.size(64.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = AccentSoftFill,
-        border = BorderStroke(1.dp, SoftOutline)
-    ) {
-        IconButton(onClick = onClick) {
+    val scheme = MaterialTheme.colorScheme
+
+    Box(contentAlignment = Alignment.TopEnd) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(44.dp)
+        ) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = contentDescription,
-                tint = Accent,
-                modifier = Modifier.size(28.dp)
+                tint = scheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        if (badgeCount > 0) {
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(scheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = badgeCount.coerceAtMost(9).toString(),
+                    color = scheme.onPrimary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SendButton(
+    isLoading: Boolean,
+    canSend: Boolean,
+    canRegenerate: Boolean,
+    onSend: () -> Unit,
+    onStop: () -> Unit,
+    onRegenerate: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+
+    val showRegenerate = !isLoading && !canSend && canRegenerate
+
+    val bgColor = when {
+        isLoading -> scheme.error
+        showRegenerate -> scheme.surfaceVariant
+        canSend -> scheme.primary
+        else -> scheme.primary.copy(alpha = 0.45f)
+    }
+
+    val iconTint = when {
+        isLoading -> scheme.onError
+        showRegenerate -> scheme.onSurface
+        else -> scheme.onPrimary
+    }
+
+    val iconRes = when {
+        isLoading -> R.drawable.ic_lucide_cpu
+        showRegenerate -> R.drawable.ic_lucide_sparkles
+        else -> R.drawable.ic_lucide_sparkles
+    }
+
+    val description = when {
+        isLoading -> "Stop generating"
+        showRegenerate -> "Regenerate last response"
+        else -> "Send message"
+    }
+
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(bgColor)
+            .clickable(enabled = isLoading || canSend || showRegenerate) {
+                when {
+                    isLoading -> onStop()
+                    canSend -> onSend()
+                    showRegenerate -> onRegenerate()
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = iconTint
+            )
+        } else {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = description,
+                tint = iconTint,
+                modifier = Modifier.size(20.dp)
             )
         }
     }
 }
+
+/* ---------------- Voice input ---------------- */
 
 private fun launchSpeechInput(
     context: Context,
