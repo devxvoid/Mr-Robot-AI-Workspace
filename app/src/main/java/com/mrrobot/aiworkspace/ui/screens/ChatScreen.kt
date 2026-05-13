@@ -11,14 +11,18 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,6 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -50,21 +56,33 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mrrobot.aiworkspace.R
-import com.mrrobot.aiworkspace.ui.components.GlassCard
-import com.mrrobot.aiworkspace.ui.components.NeonCyan
-import com.mrrobot.aiworkspace.ui.components.NeonPurple
-import com.mrrobot.aiworkspace.ui.components.Panel
-import com.mrrobot.aiworkspace.ui.components.ScreenShell
-import com.mrrobot.aiworkspace.ui.components.SoftText
-import com.mrrobot.aiworkspace.ui.components.Subtitle
-import com.mrrobot.aiworkspace.ui.components.Title
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
+
+private val BgTop = Color(0xFF120E0C)
+private val BgBottom = Color(0xFF17120F)
+
+private val CardBg = Color(0xFF1A1614)
+private val CardBorder = Color(0x33F4B183)
+
+private val SoftOutline = Color(0x33F4B183)
+private val SoftText = Color(0xFFE7D8CE)
+private val SecondaryText = Color(0xFFBFAEA1)
+private val Accent = Color(0xFFF4B183)
+private val AccentStrong = Color(0xFFF0AE82)
+private val AccentSoftFill = Color(0x26F4B183)
+
+private val InputBg = Color(0xFF15110F)
+private val AssistantBubble = Color(0xFF171311)
+private val UserBubble = Color(0x2218D7F0)
+private val ErrorBg = Color(0xFF5E1818)
+private val ErrorText = Color(0xFFFFD4D4)
 
 @Composable
 fun ChatScreen(
@@ -86,15 +104,12 @@ fun ChatScreen(
                 .trim()
 
             if (spokenText.isNotBlank()) {
-                val currentInput = state.input.trim()
-
-                val newInput = if (currentInput.isBlank()) {
+                val merged = if (state.input.isBlank()) {
                     spokenText
                 } else {
-                    "$currentInput $spokenText"
+                    state.input + " " + spokenText
                 }
-
-                viewModel.updateInput(newInput)
+                viewModel.updateInput(merged)
             }
         }
     }
@@ -107,149 +122,323 @@ fun ChatScreen(
         }
     }
 
-    ScreenShell {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Title("AI Chat")
-                Subtitle("Attach files, speak prompts, analyze screenshots, and coordinate Android development work.")
-            }
-
-            TextButton(onClick = { viewModel.clearChat() }) {
-                Text("Clear")
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        GlassCard {
-            Subtitle("Model: ${state.model}")
-            Spacer(Modifier.height(6.dp))
-
-            if (state.apiKey.isBlank()) {
-                Subtitle("No active model configured. Open Settings, add an API key, then save settings.")
-            } else {
-                Subtitle("API key configured • Ready")
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        LazyColumn(
-            state = listState,
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(BgTop, BgBottom)
+                )
+            )
+    ) {
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 12.dp)
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 18.dp)
+                .padding(top = 10.dp, bottom = 10.dp)
         ) {
-            items(
-                items = state.messages,
-                key = { it.id }
-            ) { message ->
-                ChatBubble(message = message)
-            }
+            ChatHeader(
+                onClear = { viewModel.clearChat() }
+            )
 
-            if (state.isLoading) {
-                item {
-                    ThinkingBubble()
+            Spacer(modifier = Modifier.height(12.dp))
+
+            AssistantStatusCard(
+                isConfigured = state.apiKey.isNotBlank(),
+                model = state.model,
+                onSetup = {
+                    // keep hook if you wire navigation later
+                },
+                userMessages = state.messages.count { it.role == "user" },
+                queuedFiles = 0,
+                readableFiles = 0,
+                visionImages = 0
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(
+                    items = state.messages,
+                    key = { it.id }
+                ) { message ->
+                    ChatBubble(message = message)
+                }
+
+                if (state.messages.isEmpty()) {
+                    item {
+                        ChatBubble(
+                            message = ChatUiMessage(
+                                id = "welcome",
+                                role = "assistant",
+                                content = "Mr. Robot online. Add and activate any supported AI provider in Settings, then send a message."
+                            )
+                        )
+                    }
+                }
+
+                if (state.isLoading) {
+                    item {
+                        ThinkingBubble()
+                    }
                 }
             }
-        }
 
-        if (state.error.isNotBlank()) {
-            ErrorPanel(
-                message = state.error,
-                onRetry = { viewModel.retryLast() }
+            if (state.error.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                ErrorPanel(
+                    message = state.error,
+                    onRetry = { viewModel.retryLast() }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            PromptComposer(
+                input = state.input,
+                isLoading = state.isLoading,
+                canRegenerate = state.messages.any { it.role == "user" },
+                onInputChange = viewModel::updateInput,
+                onMicClick = {
+                    launchSpeechInput(
+                        context = context,
+                        launcher = speechLauncher::launch
+                    )
+                },
+                onAttachClick = {
+                    // attach hook for your file picker
+                },
+                onSend = { viewModel.send() },
+                onStop = { viewModel.stopGeneration() },
+                onRegenerate = { viewModel.regenerateLastAnswer() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChatHeader(
+    onClear: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = "AI Chat",
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Attach files, speak prompts, analyze screenshots, and coordinate Android development work.",
+                color = SecondaryText
             )
         }
 
-        PromptInputBar(
-            input = state.input,
-            isLoading = state.isLoading,
-            onInputChange = viewModel::updateInput,
-            onMicClick = {
-                launchSpeechInput(
-                    context = context,
-                    launcher = speechLauncher::launch
-                )
-            },
-            onSend = { viewModel.send() },
-            onStop = { viewModel.stopGeneration() },
-            onRegenerate = { viewModel.regenerateLastAnswer() },
-            canRegenerate = state.messages.any { it.role == "user" }
+        TextButton(
+            onClick = onClear,
+            modifier = Modifier.padding(top = 2.dp)
+        ) {
+            Text(
+                text = "Clear",
+                color = Accent,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun AssistantStatusCard(
+    isConfigured: Boolean,
+    model: String,
+    onSetup: () -> Unit,
+    userMessages: Int,
+    queuedFiles: Int,
+    readableFiles: Int,
+    visionImages: Int
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        border = BorderStroke(1.dp, CardBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Assistant Status",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = if (isConfigured) "API key configured  •  Ready" else "No active model configured",
+                        color = if (isConfigured) SoftText else SecondaryText
+                    )
+                }
+
+                if (!isConfigured) {
+                    OutlinedButton(
+                        onClick = onSetup,
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, Accent),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Accent
+                        )
+                    ) {
+                        Text(
+                            text = "SETUP",
+                            color = Accent,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.Transparent,
+                border = BorderStroke(1.dp, Color(0x22FFFFFF))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    StatusRow("Model", model)
+                    StatusRow("User messages", userMessages.toString())
+                    StatusRow("Queued files", queuedFiles.toString())
+                    StatusRow("Readable files", readableFiles.toString())
+                    StatusRow("Vision images", visionImages.toString())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            color = SecondaryText
+        )
+        Text(
+            text = value,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
 
 @Composable
-private fun ChatBubble(message: ChatUiMessage) {
+private fun ChatBubble(
+    message: ChatUiMessage
+) {
     val clipboard = LocalClipboardManager.current
     val isUser = message.role == "user"
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 12.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(if (isUser) 0.88f else 0.96f)
-                .background(
-                    color = if (isUser) NeonCyan.copy(alpha = 0.17f) else Panel.copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(
-                        topStart = 24.dp,
-                        topEnd = 24.dp,
-                        bottomStart = if (isUser) 24.dp else 6.dp,
-                        bottomEnd = if (isUser) 6.dp else 24.dp
-                    )
-                )
-                .padding(16.dp)
+        Card(
+            modifier = Modifier.fillMaxWidth(if (isUser) 0.86f else 0.96f),
+            shape = RoundedCornerShape(
+                topStart = 24.dp,
+                topEnd = 24.dp,
+                bottomStart = if (isUser) 24.dp else 8.dp,
+                bottomEnd = if (isUser) 8.dp else 24.dp
+            ),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isUser) UserBubble else AssistantBubble
+            ),
+            border = BorderStroke(
+                1.dp,
+                if (isUser) Color(0x3318D7F0) else Color(0x22FFFFFF)
+            )
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.padding(16.dp)
             ) {
-                Text(
-                    text = if (isUser) "You" else "Mr. Robot",
-                    color = if (isUser) NeonCyan else NeonPurple,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Text(
+                        text = if (isUser) "You" else "Mr. Robot",
+                        color = if (isUser) Color(0xFF6DEBFF) else Color(0xFFA77BFF),
+                        fontWeight = FontWeight.SemiBold
+                    )
 
-                Text(
-                    text = "Copy",
-                    color = SoftText,
-                    modifier = Modifier.clickable {
-                        clipboard.setText(AnnotatedString(message.content))
-                    }
-                )
+                    Text(
+                        text = "Copy",
+                        color = SecondaryText,
+                        modifier = Modifier.clickable {
+                            clipboard.setText(AnnotatedString(message.content))
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                MessageText(message.content)
             }
-
-            Spacer(Modifier.height(8.dp))
-
-            MessageText(message.content)
         }
     }
 }
 
 @Composable
 private fun MessageText(content: String) {
-    val isCodeLike =
+    val looksLikeCode =
         content.contains("```") ||
             content.lines().any {
-                it.trim().startsWith("fun ") ||
-                    it.trim().startsWith("class ") ||
-                    it.trim().startsWith("val ") ||
-                    it.trim().startsWith("var ") ||
-                    it.trim().startsWith("import ") ||
-                    it.trim().startsWith("package ")
+                val line = it.trim()
+                line.startsWith("fun ") ||
+                    line.startsWith("class ") ||
+                    line.startsWith("val ") ||
+                    line.startsWith("var ") ||
+                    line.startsWith("import ") ||
+                    line.startsWith("package ")
             }
 
-    if (isCodeLike) {
+    if (looksLikeCode) {
         Text(
             text = content.replace("```", ""),
             color = Color.White,
@@ -265,14 +454,25 @@ private fun MessageText(content: String) {
 
 @Composable
 private fun ThinkingBubble() {
-    GlassCard(modifier = Modifier.padding(bottom = 10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        border = BorderStroke(1.dp, CardBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp
+                strokeWidth = 2.dp,
+                color = Accent
             )
-            Spacer(Modifier.width(12.dp))
-            Subtitle("Mr. Robot is thinking...")
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Mr. Robot is thinking...",
+                color = SoftText
+            )
         }
     }
 }
@@ -283,128 +483,167 @@ private fun ErrorPanel(
     onRetry: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 10.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF3B1111)
-        )
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = ErrorBg),
+        border = BorderStroke(1.dp, Color(0x55FF8A8A))
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
             Text(
-                text = message,
-                color = Color(0xFFFFB4AB)
+                text = "Request failed",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            OutlinedButton(onClick = onRetry) {
-                Text("Retry")
+            Text(
+                text = message,
+                color = ErrorText
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = onRetry,
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.dp, Color(0x66FFB6B6))
+            ) {
+                Text(
+                    text = "Retry last prompt",
+                    color = Color(0xFFFFD4D4)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun PromptInputBar(
+private fun PromptComposer(
     input: String,
     isLoading: Boolean,
     canRegenerate: Boolean,
     onInputChange: (String) -> Unit,
     onMicClick: () -> Unit,
+    onAttachClick: () -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
     onRegenerate: () -> Unit
 ) {
-    GlassCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(56.dp),
-                shape = RoundedCornerShape(18.dp),
-                color = NeonCyan.copy(alpha = 0.14f),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = NeonCyan.copy(alpha = 0.35f)
-                )
-            ) {
-                IconButton(onClick = {}) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_lucide_plus),
-                        contentDescription = "Attach files",
-                        tint = NeonCyan,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-            }
-
-            Surface(
-                modifier = Modifier.size(56.dp),
-                shape = RoundedCornerShape(18.dp),
-                color = NeonCyan.copy(alpha = 0.14f),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = NeonCyan.copy(alpha = 0.35f)
-                )
-            ) {
-                IconButton(onClick = onMicClick) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_lucide_mic),
-                        contentDescription = "Voice input",
-                        tint = NeonCyan,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-            }
-
-            OutlinedTextField(
-                value = input,
-                onValueChange = onInputChange,
-                placeholder = { Text("Ask Mr. Robot...") },
-                modifier = Modifier.weight(1f),
-                minLines = 1,
-                maxLines = 5,
-                shape = RoundedCornerShape(18.dp)
-            )
-        }
-
-        Spacer(Modifier.height(8.dp))
-    }
-
-    Spacer(Modifier.height(8.dp))
-
-    Row(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        border = BorderStroke(1.dp, CardBorder)
     ) {
-        Button(
-            onClick = {
-                if (isLoading) onStop() else onSend()
-            },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isLoading) Color(0xFFFFB020) else NeonCyan,
-                contentColor = Color.Black
-            ),
-            shape = RoundedCornerShape(18.dp)
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = if (isLoading) "Stop" else "Send",
-                fontWeight = FontWeight.Bold
-            )
-        }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SmallActionButton(
+                    iconRes = R.drawable.ic_lucide_plus,
+                    contentDescription = "Attach",
+                    onClick = onAttachClick
+                )
 
-        OutlinedButton(
-            onClick = onRegenerate,
-            enabled = canRegenerate && !isLoading,
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            Text("Regenerate")
+                SmallActionButton(
+                    iconRes = R.drawable.ic_lucide_mic,
+                    contentDescription = "Voice input",
+                    onClick = onMicClick
+                )
+
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = onInputChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text(
+                            text = "Ask Mr. Robot...",
+                            color = SecondaryText
+                        )
+                    },
+                    shape = RoundedCornerShape(18.dp),
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = InputBg,
+                        unfocusedContainerColor = InputBg,
+                        focusedIndicatorColor = Accent,
+                        unfocusedIndicatorColor = SoftOutline,
+                        cursorColor = Accent,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedPlaceholderColor = SecondaryText,
+                        unfocusedPlaceholderColor = SecondaryText
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = {
+                        if (isLoading) onStop() else onSend()
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentStrong,
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Text(
+                        text = if (isLoading) "Stop" else "Send",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onRegenerate,
+                    enabled = canRegenerate && !isLoading,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, SoftOutline),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = SecondaryText,
+                        disabledContentColor = SecondaryText.copy(alpha = 0.45f)
+                    )
+                ) {
+                    Text("Regenerate")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SmallActionButton(
+    iconRes: Int,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.size(64.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = AccentSoftFill,
+        border = BorderStroke(1.dp, SoftOutline)
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = contentDescription,
+                tint = Accent,
+                modifier = Modifier.size(28.dp)
+            )
         }
     }
 }
