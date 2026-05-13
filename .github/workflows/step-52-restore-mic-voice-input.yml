@@ -7,53 +7,39 @@ permissions:
   contents: write
 
 jobs:
-  fix:
-    name: Restore AI Chat Mic Voice Input
+  restore-mic:
+    name: Restore Mic Voice Input
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT_TOKEN || github.token }}
           fetch-depth: 0
 
-      - name: Restore mic voice input in ChatScreen
-        shell: bash
+      - name: Patch ChatScreen and AndroidManifest
+        shell: python
         run: |
-          set -euo pipefail
-
-          CHAT_SCREEN="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt"
-          MANIFEST="app/src/main/AndroidManifest.xml"
-
-          if [ ! -f "$CHAT_SCREEN" ]; then
-            echo "ERROR: ChatScreen.kt not found at $CHAT_SCREEN"
-            exit 1
-          fi
-
-          if [ ! -f "$MANIFEST" ]; then
-            echo "ERROR: AndroidManifest.xml not found at $MANIFEST"
-            exit 1
-          fi
-
-          python3 - <<'PY'
           from pathlib import Path
           import re
 
           chat_path = Path("app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt")
+          manifest_path = Path("app/src/main/AndroidManifest.xml")
+
+          if not chat_path.exists():
+              raise SystemExit(f"Missing file: {chat_path}")
+
+          if not manifest_path.exists():
+              raise SystemExit(f"Missing file: {manifest_path}")
+
           text = chat_path.read_text()
 
-          original = text
-
-          def ensure_import(source: str, import_line: str, after: str = None) -> str:
+          def ensure_import(source: str, import_line: str, anchor: str) -> str:
               if import_line in source:
                   return source
-
-              if after and after in source:
-                  return source.replace(after, after + import_line + "\n", 1)
-
-              package_line = "package com.mrrobot.aiworkspace.ui.screens\n\n"
-              return source.replace(package_line, package_line + import_line + "\n", 1)
+              if anchor not in source:
+                  raise SystemExit(f"Import anchor not found for {import_line}: {anchor!r}")
+              return source.replace(anchor, anchor + import_line + "\n", 1)
 
           text = ensure_import(
               text,
@@ -85,7 +71,6 @@ jobs:
               "import java.io.InputStreamReader\n"
           )
 
-          # Add speech launcher after attachmentLauncher block.
           if "val speechLauncher = rememberLauncherForActivityResult" not in text:
               marker = "              LaunchedEffect(state.messages.size, state.isLoading) {"
 
@@ -100,15 +85,15 @@ jobs:
                           .trim()
 
                       if (spokenText.isNotBlank()) {
-                          val existingInput = state.input.trim()
+                          val currentInput = state.input.trim()
 
-                          val nextInput = if (existingInput.isBlank()) {
+                          val newInput = if (currentInput.isBlank()) {
                               spokenText
                           } else {
-                              "$existingInput $spokenText"
+                              "$currentInput $spokenText"
                           }
 
-                          viewModel.updateInput(nextInput)
+                          viewModel.updateInput(newInput)
                       }
                   }
               }
@@ -120,9 +105,8 @@ jobs:
 
               text = text.replace(marker, speech_launcher + marker, 1)
 
-          # Add onMicClick argument to PremiumPromptInputBar call.
           if "onMicClick = {" not in text:
-              pick_files_block = '''                      onPickFiles = {
+              target = '''                      onPickFiles = {
                           attachmentLauncher.launch(
                               arrayOf(
                                   "text/*",
@@ -137,7 +121,7 @@ jobs:
                       },
 '''
 
-              mic_argument = '''                      onPickFiles = {
+              replacement = '''                      onPickFiles = {
                           attachmentLauncher.launch(
                               arrayOf(
                                   "text/*",
@@ -158,57 +142,51 @@ jobs:
                       },
 '''
 
-              if pick_files_block not in text:
-                  raise SystemExit("Could not find onPickFiles block in PremiumPromptInputBar call")
+              if target not in text:
+                  raise SystemExit("Could not find onPickFiles argument block in ChatScreen.kt")
 
-              text = text.replace(pick_files_block, mic_argument, 1)
+              text = text.replace(target, replacement, 1)
 
-          # Add onMicClick parameter to PremiumPromptInputBar signature.
           if "onMicClick: () -> Unit" not in text:
-              signature_target = '''              onInputChange: (String) -> Unit,
+              target = '''              onInputChange: (String) -> Unit,
               onPickFiles: () -> Unit,
               onRemoveAttachment: (ChatAttachment) -> Unit,
 '''
 
-              signature_replacement = '''              onInputChange: (String) -> Unit,
+              replacement = '''              onInputChange: (String) -> Unit,
               onPickFiles: () -> Unit,
               onMicClick: () -> Unit,
               onRemoveAttachment: (ChatAttachment) -> Unit,
 '''
 
-              if signature_target not in text:
-                  raise SystemExit("Could not find PremiumPromptInputBar parameter signature")
+              if target not in text:
+                  raise SystemExit("Could not find PremiumPromptInputBar signature block in ChatScreen.kt")
 
-              text = text.replace(signature_target, signature_replacement, 1)
+              text = text.replace(target, replacement, 1)
 
-          # Replace empty mic click handler with real handler.
-          empty_mic_button = '''                      PremiumIconButton(
+          text = text.replace(
+              '''                      PremiumIconButton(
                           icon = R.drawable.ic_lucide_mic,
                           contentDescription = "Voice input",
                           onClick = {}
                       )
-'''
-
-          real_mic_button = '''                      PremiumIconButton(
+''',
+              '''                      PremiumIconButton(
                           icon = R.drawable.ic_lucide_mic,
                           contentDescription = "Voice input",
                           onClick = onMicClick
                       )
 '''
+          )
 
-          if empty_mic_button in text:
-              text = text.replace(empty_mic_button, real_mic_button, 1)
-
-          # Fallback: handle slightly formatted version.
           text = re.sub(
               r'(PremiumIconButton\(\s*icon\s*=\s*R\.drawable\.ic_lucide_mic,\s*contentDescription\s*=\s*"Voice input",\s*)onClick\s*=\s*\{\s*\}(\s*\))',
               r'\1onClick = onMicClick\2',
               text,
-              count=1,
-              flags=re.DOTALL
+              flags=re.DOTALL,
+              count=1
           )
 
-          # Add helper function before createAttachmentFromUri.
           if "private fun launchSpeechInput(" not in text:
               helper = '''          private fun launchSpeechInput(
               context: Context,
@@ -236,80 +214,32 @@ jobs:
 
 '''
 
-              create_function_marker = "          private fun createAttachmentFromUri(\n"
+              marker = "          private fun createAttachmentFromUri(\n"
 
-              if create_function_marker not in text:
-                  raise SystemExit("Could not find createAttachmentFromUri function marker")
+              if marker not in text:
+                  raise SystemExit("Could not find createAttachmentFromUri marker in ChatScreen.kt")
 
-              text = text.replace(create_function_marker, helper + create_function_marker, 1)
+              text = text.replace(marker, helper + marker, 1)
 
           chat_path.write_text(text)
 
-          print("ChatScreen changed:", text != original)
-          PY
+          manifest = manifest_path.read_text()
 
-      - name: Add audio permission safely
-        shell: bash
-        run: |
-          set -euo pipefail
+          if "android.permission.RECORD_AUDIO" not in manifest:
+              match = re.search(r"<manifest\b[^>]*>", manifest)
 
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
+              if not match:
+                  raise SystemExit("Could not find opening <manifest> tag")
 
-          manifest_path = Path("app/src/main/AndroidManifest.xml")
-          text = manifest_path.read_text()
-          original = text
+              manifest = (
+                  manifest[:match.end()]
+                  + '\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />'
+                  + manifest[match.end():]
+              )
 
-          if "android.permission.RECORD_AUDIO" not in text:
-              manifest_open = re.search(r"<manifest\b[^>]*>", text, flags=re.DOTALL)
+          manifest_path.write_text(manifest)
 
-              if not manifest_open:
-                  raise SystemExit("Could not find <manifest> opening tag")
-
-              insert_at = manifest_open.end()
-              permission = '\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />'
-
-              text = text[:insert_at] + permission + text[insert_at:]
-
-          manifest_path.write_text(text)
-
-          print("Manifest changed:", text != original)
-          PY
-
-      - name: Write Step 52 notes
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mkdir -p docs/fixes
-
-          cat > docs/fixes/STEP_52_RESTORE_MIC_VOICE_INPUT.md <<'EOF'
-          # Step 52 Restore Mic Voice Input
-
-          This step restores the AI Chat mic button after the UI restore accidentally left it with an empty click handler.
-
-          ## Fixed
-
-          - Added Android speech recognizer launcher.
-          - Added `RecognizerIntent.ACTION_RECOGNIZE_SPEECH`.
-          - Added `ActivityResultContracts.StartActivityForResult`.
-          - Connected the mic icon button to real voice input.
-          - Added `RECORD_AUDIO` permission safely.
-          - Recognized speech is inserted into the chat input field.
-          - Existing typed text is preserved and spoken text is appended.
-
-          ## Preserved
-
-          - Mr. Robot branding.
-          - Premium AI Chat UI.
-          - Plus icon.
-          - Mic icon.
-          - Multi-provider API routing.
-          - Anthropic/OpenRouter/OpenAI/Gemini/Groq/Mistral/DeepSeek/xAI runtime logic.
-          EOF
-
-      - name: Verify mic voice input patch
+      - name: Verify mic patch
         shell: bash
         run: |
           set -euo pipefail
@@ -317,33 +247,26 @@ jobs:
           CHAT_SCREEN="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt"
           MANIFEST="app/src/main/AndroidManifest.xml"
 
-          grep -R "import android.app.Activity" "$CHAT_SCREEN"
-          grep -R "import android.content.Intent" "$CHAT_SCREEN"
-          grep -R "import android.speech.RecognizerIntent" "$CHAT_SCREEN"
-          grep -R "import android.widget.Toast" "$CHAT_SCREEN"
-          grep -R "import java.util.Locale" "$CHAT_SCREEN"
+          grep -q "import android.app.Activity" "$CHAT_SCREEN"
+          grep -q "import android.content.Intent" "$CHAT_SCREEN"
+          grep -q "import android.speech.RecognizerIntent" "$CHAT_SCREEN"
+          grep -q "import android.widget.Toast" "$CHAT_SCREEN"
+          grep -q "import java.util.Locale" "$CHAT_SCREEN"
+          grep -q "ActivityResultContracts.StartActivityForResult" "$CHAT_SCREEN"
+          grep -q "RecognizerIntent.ACTION_RECOGNIZE_SPEECH" "$CHAT_SCREEN"
+          grep -q "RecognizerIntent.EXTRA_RESULTS" "$CHAT_SCREEN"
+          grep -q "val speechLauncher" "$CHAT_SCREEN"
+          grep -q "onMicClick" "$CHAT_SCREEN"
+          grep -q "launchSpeechInput" "$CHAT_SCREEN"
+          grep -q "Speak to Mr. Robot" "$CHAT_SCREEN"
+          grep -q "android.permission.RECORD_AUDIO" "$MANIFEST"
 
-          grep -R "ActivityResultContracts.StartActivityForResult" "$CHAT_SCREEN"
-          grep -R "val speechLauncher" "$CHAT_SCREEN"
-          grep -R "RecognizerIntent.ACTION_RECOGNIZE_SPEECH" "$CHAT_SCREEN"
-          grep -R "RecognizerIntent.EXTRA_RESULTS" "$CHAT_SCREEN"
-          grep -R "onMicClick" "$CHAT_SCREEN"
-          grep -R "launchSpeechInput" "$CHAT_SCREEN"
-          grep -R "Speak to Mr. Robot" "$CHAT_SCREEN"
-          grep -R "android.permission.RECORD_AUDIO" "$MANIFEST"
-
-          if grep -R "contentDescription = \"Voice input\"" -A 5 "$CHAT_SCREEN" | grep -q "onClick = {}"; then
-            echo "ERROR: Mic button still has empty onClick."
+          if grep -A 8 'contentDescription = "Voice input"' "$CHAT_SCREEN" | grep -q 'onClick = {}'; then
+            echo "Mic button still has empty onClick"
             exit 1
           fi
 
-          grep -R "Ask Mr. Robot" "$CHAT_SCREEN"
-          grep -R "Mr. Robot is thinking" "$CHAT_SCREEN"
-          grep -R "R.drawable.ic_lucide_mic" "$CHAT_SCREEN"
-
-          echo "Step 52 mic input verification passed."
-
-      - name: Commit Step 52
+      - name: Commit mic patch
         shell: bash
         run: |
           set -euo pipefail
@@ -353,16 +276,12 @@ jobs:
 
           git add app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt
           git add app/src/main/AndroidManifest.xml
-          git add docs/fixes/STEP_52_RESTORE_MIC_VOICE_INPUT.md
-
-          echo "Staged diff:"
-          git diff --cached --stat || true
 
           if git diff --cached --quiet; then
-            echo "No changes to commit. Step 52 is already applied."
+            echo "No changes to commit. Mic patch is already applied."
             exit 0
           fi
 
-          git commit -m "Step 52 restore AI chat mic voice input"
+          git commit -m "Step 52 restore mic voice input"
           git pull --rebase origin main
           git push origin main
