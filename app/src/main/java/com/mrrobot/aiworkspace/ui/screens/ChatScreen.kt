@@ -178,7 +178,7 @@ fun ChatScreen(
                     item {
                         ChatBubble(
                             message = ChatUiMessage(
-                                id = "welcome",
+                                id = 0L,
                                 role = "assistant",
                                 content = "Mr. Robot online. Add and activate any supported AI provider in Settings, then send a message."
                             )
