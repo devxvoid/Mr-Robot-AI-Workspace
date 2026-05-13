@@ -1,23 +1,23 @@
 package com.mrrobot.aiworkspace.navigation
 
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mrrobot.aiworkspace.R
-import com.mrrobot.aiworkspace.ui.components.StoreBottomNav
-import com.mrrobot.aiworkspace.ui.components.StoreBottomNavItem
 import com.mrrobot.aiworkspace.ui.screens.AgentsScreen
 import com.mrrobot.aiworkspace.ui.screens.ChatScreen
 import com.mrrobot.aiworkspace.ui.screens.FileManagerScreen
@@ -34,22 +34,70 @@ sealed class Route(
     val label: String,
     @DrawableRes val iconRes: Int
 ) {
-    object Welcome : Route("welcome", "Home", R.drawable.ic_lucide_home)
-    object Chat : Route("chat", "AI", R.drawable.ic_lucide_sparkles)
-    object Agents : Route("agents", "Agents", R.drawable.ic_lucide_bot)
-    object Workflow : Route("workflow", "Flow", R.drawable.ic_lucide_workflow)
-    object More : Route("more", "More", R.drawable.ic_lucide_menu)
-    object Terminal : Route("terminal", "Terminal", R.drawable.ic_lucide_terminal)
-    object Files : Route("files", "Files", R.drawable.ic_lucide_folder)
-    object Market : Route("market", "Store", R.drawable.ic_lucide_store)
-    object Settings : Route("settings", "Settings", R.drawable.ic_lucide_settings)
-    object Profile : Route("profile", "Profile", R.drawable.ic_lucide_user)
+    object Welcome : Route(
+        path = "welcome",
+        label = "Home",
+        iconRes = R.drawable.ic_lucide_home
+    )
+
+    object Chat : Route(
+        path = "chat",
+        label = "AI",
+        iconRes = R.drawable.ic_lucide_sparkles
+    )
+
+    object Agents : Route(
+        path = "agents",
+        label = "Agents",
+        iconRes = R.drawable.ic_lucide_bot
+    )
+
+    object Workflow : Route(
+        path = "workflow",
+        label = "Flow",
+        iconRes = R.drawable.ic_lucide_workflow
+    )
+
+    object More : Route(
+        path = "more",
+        label = "More",
+        iconRes = R.drawable.ic_lucide_menu
+    )
+
+    object Terminal : Route(
+        path = "terminal",
+        label = "Terminal",
+        iconRes = R.drawable.ic_lucide_terminal
+    )
+
+    object Files : Route(
+        path = "files",
+        label = "Files",
+        iconRes = R.drawable.ic_lucide_folder
+    )
+
+    object Market : Route(
+        path = "market",
+        label = "Store",
+        iconRes = R.drawable.ic_lucide_store
+    )
+
+    object Settings : Route(
+        path = "settings",
+        label = "Settings",
+        iconRes = R.drawable.ic_lucide_settings
+    )
+
+    object Profile : Route(
+        path = "profile",
+        label = "Profile",
+        iconRes = R.drawable.ic_lucide_user
+    )
 }
 
 @Composable
 fun AppNavGraph() {
     val navController = rememberNavController()
-    val scheme = MaterialTheme.colorScheme
 
     val bottomItems = listOf(
         Route.Welcome,
@@ -59,61 +107,98 @@ fun AppNavGraph() {
         Route.More
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    0.0f to scheme.background,
-                    0.6f to scheme.surfaceContainerLow,
-                    1.0f to scheme.surfaceContainerHigh
-                )
-            )
-    ) {
-        Scaffold(
-            containerColor = Color.Transparent,
-            bottomBar = {
-                val currentRoute =
-                    navController.currentBackStackEntryAsState().value?.destination?.route
+    Scaffold(
+        containerColor = Color.Transparent,
+        bottomBar = {
+            val currentRoute =
+                navController.currentBackStackEntryAsState().value?.destination?.route
 
-                StoreBottomNav(
-                    items = bottomItems.map { route ->
-                        StoreBottomNavItem(
-                            iconRes = route.iconRes,
-                            label = route.label,
-                            selected = isBottomItemSelected(
-                                currentRoute = currentRoute,
-                                route = route
-                            ),
-                            onClick = {
-                                navController.navigate(route.path) {
-                                    launchSingleTop = true
-                                    restoreState = true
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
-                                    }
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                tonalElevation = androidx.compose.ui.unit.Dp.Hairline
+            ) {
+                bottomItems.forEach { route ->
+                    NavigationBarItem(
+                        selected = isBottomItemSelected(
+                            currentRoute = currentRoute,
+                            route = route
+                        ),
+                        onClick = {
+                            navController.navigate(route.path) {
+                                launchSingleTop = true
+                                restoreState = true
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
                                 }
                             }
+                        },
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = route.iconRes),
+                                contentDescription = route.label
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = route.label,
+                                maxLines = 1
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                )
+                    )
+                }
             }
-        ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = Route.Welcome.path,
-                modifier = Modifier.padding(innerPadding)
-            ) {
-                composable(Route.Welcome.path) { WelcomeScreen(navController) }
-                composable(Route.Chat.path) { ChatScreen() }
-                composable(Route.Agents.path) { AgentsScreen() }
-                composable(Route.Workflow.path) { WorkflowScreen() }
-                composable(Route.More.path) { MoreScreen(navController) }
-                composable(Route.Terminal.path) { TerminalScreen() }
-                composable(Route.Files.path) { FileManagerScreen() }
-                composable(Route.Market.path) { MarketplaceScreen() }
-                composable(Route.Settings.path) { SettingsScreen() }
-                composable(Route.Profile.path) { ProfileScreen() }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Route.Welcome.path,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(Route.Welcome.path) {
+                WelcomeScreen(navController)
+            }
+
+            composable(Route.Chat.path) {
+                ChatScreen()
+            }
+
+            composable(Route.Agents.path) {
+                AgentsScreen()
+            }
+
+            composable(Route.Workflow.path) {
+                WorkflowScreen()
+            }
+
+            composable(Route.More.path) {
+                MoreScreen(navController)
+            }
+
+            composable(Route.Terminal.path) {
+                TerminalScreen()
+            }
+
+            composable(Route.Files.path) {
+                FileManagerScreen()
+            }
+
+            composable(Route.Market.path) {
+                MarketplaceScreen()
+            }
+
+            composable(Route.Settings.path) {
+                SettingsScreen()
+            }
+
+            composable(Route.Profile.path) {
+                ProfileScreen()
             }
         }
     }
