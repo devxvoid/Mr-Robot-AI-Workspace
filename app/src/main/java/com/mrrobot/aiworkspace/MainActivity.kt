@@ -99,8 +99,10 @@ class MainActivity : ComponentActivity() {
         val barColor = when {
             splashMode && darkUi -> Color.BLACK
             splashMode && !darkUi -> Color.WHITE
-            darkUi -> Color.rgb(3, 7, 18)
-            else -> Color.rgb(248, 250, 252)
+            // Mr. Robot Store dark palette background (#101417) and
+            // the matching Ocean Blue light surface (#F7F9FF).
+            darkUi -> Color.rgb(16, 20, 23)
+            else -> Color.rgb(247, 249, 255)
         }
 
         window.statusBarColor = barColor
