@@ -1,0 +1,118 @@
+name: Fix SettingsScreen Dropdown Build Error
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-dropdown-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Create fix script
+        run: |
+          mkdir -p .github/scripts
+
+          cat > .github/scripts/fix_settings_dropdown.py << 'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          root = Path(".")
+
+          files = list(root.rglob("SettingsScreen.kt"))
+
+          if not files:
+              print("SettingsScreen.kt not found")
+              sys.exit(1)
+
+          target = files[0]
+
+          text = target.read_text(encoding="utf-8")
+
+          original = text
+
+          # Remove broken imports
+          text = re.sub(
+              r'import androidx\.compose\.material3\.ExposedDropdownMenu\s*\n',
+              '',
+              text
+          )
+
+          text = re.sub(
+              r'import androidx\.compose\.material3\.menuAnchor\s*\n',
+              '',
+              text
+          )
+
+          text = re.sub(
+              r'import androidx\.compose\.material3\.ExposedDropdownMenuBox\s*\n',
+              '',
+              text
+          )
+
+          # Add safe DropdownMenu import if missing
+          if 'import androidx.compose.material3.DropdownMenu' not in text:
+              imports = 'import androidx.compose.material3.DropdownMenu\n'
+
+              package_match = re.search(r'(package .*?\n)', text)
+
+              if package_match:
+                  pos = package_match.end()
+                  text = text[:pos] + imports + text[pos:]
+
+          # Replace unsupported component
+          text = text.replace(
+              'ExposedDropdownMenu(',
+              'DropdownMenu('
+          )
+
+          # Remove menuAnchor modifier
+          text = text.replace(
+              '.menuAnchor()',
+              ''
+          )
+
+          # Replace ExposedDropdownMenuBox with Box
+          text = text.replace(
+              'ExposedDropdownMenuBox(',
+              'Box('
+          )
+
+          if text == original:
+              print("No changes were needed")
+          else:
+              target.write_text(text, encoding="utf-8")
+              print(f"Patched: {target}")
+
+          print("SettingsScreen dropdown build fix applied successfully")
+          PY
+
+      - name: Run dropdown fix
+        run: |
+          python3 .github/scripts/fix_settings_dropdown.py
+
+      - name: Verify fix
+        run: |
+          grep -R "DropdownMenu(" app/src/main/java || true
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          git diff --cached --quiet || git commit -m "Fix SettingsScreen dropdown build error"
+
+          git push
