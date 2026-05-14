@@ -19,100 +19,107 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Create fix script
+      - name: Write fix script
         run: |
-          mkdir -p .github/scripts
+          cat > fix_settings_dropdown.py << 'ENDOFSCRIPT'
+import re
+import sys
+from pathlib import Path
 
-          cat > .github/scripts/fix_settings_dropdown.py << 'PY'
-          from pathlib import Path
-          import re
-          import sys
+TARGET = Path(
+    "app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt"
+)
 
-          root = Path(".")
+if not TARGET.exists():
+    # Fallback: search the whole tree
+    hits = list(Path(".").rglob("SettingsScreen.kt"))
+    if not hits:
+        print("ERROR: SettingsScreen.kt not found", file=sys.stderr)
+        sys.exit(1)
+    TARGET = hits[0]
+    print(f"Found at: {TARGET}")
 
-          files = list(root.rglob("SettingsScreen.kt"))
+text = TARGET.read_text(encoding="utf-8")
+original = text
 
-          if not files:
-              print("SettingsScreen.kt not found")
-              sys.exit(1)
+# ── 1. Strip every offending import ─────────────────────────────────────────
+BAD_IMPORTS = [
+    r"import\s+androidx\.compose\.material3\.ExposedDropdownMenu\b[^\n]*\n",
+    r"import\s+androidx\.compose\.material3\.ExposedDropdownMenuBox\b[^\n]*\n",
+    r"import\s+androidx\.compose\.material3\.ExposedDropdownMenuDefaults\b[^\n]*\n",
+    r"import\s+androidx\.compose\.material3\.menuAnchor\b[^\n]*\n",
+]
+for pattern in BAD_IMPORTS:
+    text = re.sub(pattern, "", text)
 
-          target = files[0]
+# ── 2. Ensure required imports are present ───────────────────────────────────
+NEEDED = [
+    "import androidx.compose.material3.DropdownMenu",
+    "import androidx.compose.material3.DropdownMenuItem",
+    "import androidx.compose.foundation.layout.Box",
+]
+last_import = None
+for m in re.finditer(r"^import .+", text, re.MULTILINE):
+    last_import = m
+if last_import:
+    insert_pos = last_import.end()
+    for imp in NEEDED:
+        if imp not in text:
+            text = text[:insert_pos] + "\n" + imp + text[insert_pos:]
+            insert_pos += len("\n" + imp)
 
-          text = target.read_text(encoding="utf-8")
+# ── 3. Replace call sites ────────────────────────────────────────────────────
+text = text.replace("ExposedDropdownMenuBox(", "Box(")
+text = text.replace("ExposedDropdownMenu(", "DropdownMenu(")
 
-          original = text
+# ── 4. Remove .menuAnchor() — handle optional type-arg and whitespace ────────
+text = re.sub(r"\.menuAnchor\s*(\([^)]*\))?", "", text)
 
-          # Remove broken imports
-          text = re.sub(
-              r'import androidx\.compose\.material3\.ExposedDropdownMenu\s*\n',
-              '',
-              text
-          )
+# ── 5. Report ────────────────────────────────────────────────────────────────
+if text == original:
+    print("WARNING: No changes made — file may already be correct or "
+          "pattern did not match. Inspect SettingsScreen.kt manually.")
+else:
+    TARGET.write_text(text, encoding="utf-8")
+    print(f"Patched: {TARGET}")
 
-          text = re.sub(
-              r'import androidx\.compose\.material3\.menuAnchor\s*\n',
-              '',
-              text
-          )
+# Always exit 0 so the workflow can report; CI will catch any remaining errors
+ENDOFSCRIPT
 
-          text = re.sub(
-              r'import androidx\.compose\.material3\.ExposedDropdownMenuBox\s*\n',
-              '',
-              text
-          )
+      - name: Run fix script
+        run: python3 fix_settings_dropdown.py
 
-          # Add safe DropdownMenu import if missing
-          if 'import androidx.compose.material3.DropdownMenu' not in text:
-              imports = 'import androidx.compose.material3.DropdownMenu\n'
-
-              package_match = re.search(r'(package .*?\n)', text)
-
-              if package_match:
-                  pos = package_match.end()
-                  text = text[:pos] + imports + text[pos:]
-
-          # Replace unsupported component
-          text = text.replace(
-              'ExposedDropdownMenu(',
-              'DropdownMenu('
-          )
-
-          # Remove menuAnchor modifier
-          text = text.replace(
-              '.menuAnchor()',
-              ''
-          )
-
-          # Replace ExposedDropdownMenuBox with Box
-          text = text.replace(
-              'ExposedDropdownMenuBox(',
-              'Box('
-          )
-
-          if text == original:
-              print("No changes were needed")
-          else:
-              target.write_text(text, encoding="utf-8")
-              print(f"Patched: {target}")
-
-          print("SettingsScreen dropdown build fix applied successfully")
-          PY
-
-      - name: Run dropdown fix
+      - name: Verify — no bad symbols remain
         run: |
-          python3 .github/scripts/fix_settings_dropdown.py
+          echo "=== Checking for residual bad references ==="
+          FOUND=0
 
-      - name: Verify fix
-        run: |
-          grep -R "DropdownMenu(" app/src/main/java || true
+          if grep -rn "ExposedDropdownMenu\b" app/src/main/java; then
+            echo "FAIL: ExposedDropdownMenu still present"
+            FOUND=1
+          fi
 
-      - name: Commit changes
+          if grep -rn "\.menuAnchor()" app/src/main/java; then
+            echo "FAIL: .menuAnchor() still present"
+            FOUND=1
+          fi
+
+          if [ "$FOUND" -eq 1 ]; then
+            exit 1
+          fi
+
+          echo "=== Good imports present ==="
+          grep -n "DropdownMenu\|import.*Box" \
+            app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt || true
+
+          echo "OK: All checks passed"
+
+      - name: Commit and push
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add .
-
-          git diff --cached --quiet || git commit -m "Fix SettingsScreen dropdown build error"
-
+          git add app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt
+          git diff --cached --quiet \
+            && echo "Nothing to commit — file was already clean" \
+            || git commit -m "fix: resolve ExposedDropdownMenu unresolved reference in SettingsScreen"
           git push
