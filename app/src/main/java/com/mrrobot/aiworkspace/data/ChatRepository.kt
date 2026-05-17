@@ -6,13 +6,28 @@ data class ChatMessage(
 )
 
 /**
+ * The result of a chat send: the cleaned reply (after stripping any memory
+ * directives the AI emitted) plus the list of memory keys that were saved or
+ * forgotten as a side-effect.
+ */
+data class ChatReply(
+    val text: String,
+    val savedMemoryKeys: List<String> = emptyList(),
+    val forgottenMemoryKeys: List<String> = emptyList()
+) {
+    val didMutateMemory: Boolean
+        get() = savedMemoryKeys.isNotEmpty() || forgottenMemoryKeys.isNotEmpty()
+}
+
+/**
  * Repository for sending chat messages. Composes the system prompt from:
  *   1. Active agent (from [AgentStore])
  *   2. User's "soul" (from [AgentConfigStore])
- *   3. Persistent memories (from [MemoryStore])
+ *   3. Memory tool instructions + persistent memories (from [MemoryStore])
  *
- * Pass [agentConfigStore], [memoryStore], and [agentStore] to enable the full
- * brain. Without them, the call falls back to a built-in default system prompt.
+ * After the model replies, [MemoryDirectiveParser] silently extracts any
+ * `[REMEMBER key = value]` or `[FORGET key]` directives the AI emitted and
+ * persists them to [MemoryStore], returning the cleaned text in [ChatReply].
  */
 class ChatRepository(
     private val agentConfigStore: AgentConfigStore? = null,
@@ -20,17 +35,32 @@ class ChatRepository(
     private val agentStore: AgentStore? = null
 ) {
 
+    private val directiveParser: MemoryDirectiveParser? =
+        memoryStore?.let { MemoryDirectiveParser(it) }
+
     suspend fun sendMessage(
         settings: AppSettings,
         messages: List<ChatMessage>
-    ): Result<String> {
+    ): Result<ChatReply> {
         val systemPrompt = buildSystemPrompt()
         return runCatching {
-            ProviderChatClient.generateReply(
+            val raw = ProviderChatClient.generateReply(
                 settings = settings,
                 messages = messages,
                 systemPrompt = systemPrompt
             )
+
+            val parser = directiveParser
+            if (parser != null) {
+                val parsed = parser.applyDirectives(raw)
+                ChatReply(
+                    text = parsed.cleaned,
+                    savedMemoryKeys = parsed.saved,
+                    forgottenMemoryKeys = parsed.forgotten
+                )
+            } else {
+                ChatReply(text = raw)
+            }
         }
     }
 
@@ -38,7 +68,7 @@ class ChatRepository(
         apiKey: String,
         model: String,
         messages: List<ChatMessage>
-    ): Result<String> {
+    ): Result<ChatReply> {
         val settings = AppSettings(
             apiKey = apiKey,
             model = model,
