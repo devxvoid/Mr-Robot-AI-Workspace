@@ -8,12 +8,16 @@ import com.mrrobot.aiworkspace.data.Agent
 import com.mrrobot.aiworkspace.data.AgentConfigStore
 import com.mrrobot.aiworkspace.data.AgentStore
 import com.mrrobot.aiworkspace.data.AppSettings
+import com.mrrobot.aiworkspace.data.ChatHistoryStore
 import com.mrrobot.aiworkspace.data.ChatMessage
 import com.mrrobot.aiworkspace.data.ChatRepository
+import com.mrrobot.aiworkspace.data.ChatSession
 import com.mrrobot.aiworkspace.data.HeartbeatManager
 import com.mrrobot.aiworkspace.data.MemoryCategory
 import com.mrrobot.aiworkspace.data.MemoryStore
 import com.mrrobot.aiworkspace.data.SettingsStore
+import com.mrrobot.aiworkspace.data.StoredChatMessage
+import com.mrrobot.aiworkspace.data.deriveSessionTitle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -119,6 +123,10 @@ data class ChatUiState(
     val readableFiles: Int = 0,
     val visionImages: Int = 0,
 
+    // Session / history
+    val activeSessionId: String? = null,
+    val sessions: List<ChatSession> = emptyList(),
+
     // ─── Brain state (agent / memory / soul / heartbeat) ───
     val activeAgent: Agent? = null,
     val memoryCount: Int = 0,
@@ -136,6 +144,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val memoryStore = MemoryStore(application.applicationContext)
     private val agentConfigStore = AgentConfigStore(application.applicationContext)
     private val agentStore = AgentStore(application.applicationContext)
+    private val chatHistoryStore = ChatHistoryStore(application.applicationContext)
 
     private val repository = ChatRepository(
         agentConfigStore = agentConfigStore,
@@ -151,6 +160,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private var activeJob: Job? = null
     private var activeSettings: AppSettings = AppSettings()
+
+    // Session tracking — null until the user sends their first prompt in this thread.
+    private var currentSessionId: String? = null
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -216,6 +228,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(
                     heartbeatEnabled = config.enabled
                 )
+            }
+        }
+
+        // Chat history sessions
+        viewModelScope.launch {
+            chatHistoryStore.sessionsFlow.collect { sessions ->
+                _uiState.value = _uiState.value.copy(sessions = sessions)
             }
         }
 
@@ -683,6 +702,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         isLoading = false,
                         error = ""
                     )
+
+                    // Persist this turn into chat history so it shows up in the drawer.
+                    persistCurrentSession()
                 }
                 .onFailure { throwable ->
                     if (throwable is CancellationException) return@onFailure
@@ -743,6 +765,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         activeJob?.cancel()
         activeJob = null
 
+        currentSessionId = null
+
         _uiState.value = _uiState.value.copy(
             messages = listOf(
                 ChatUiMessage(
@@ -757,7 +781,158 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             readableFiles = 0,
             visionImages = 0,
             isLoading = false,
-            lastUserPrompt = ""
+            lastUserPrompt = "",
+            activeSessionId = null
         )
+    }
+
+    /* ============================================================
+     *  Chat history (sessions)
+     * ============================================================ */
+
+    /**
+     * Start a fresh conversation. Persists the current session first if it
+     * has any user messages, then resets to the default greeting.
+     */
+    fun newChat() {
+        // Persist whatever was on screen before resetting.
+        persistCurrentSession()
+
+        activeJob?.cancel()
+        activeJob = null
+        currentSessionId = null
+
+        _uiState.value = _uiState.value.copy(
+            messages = listOf(
+                ChatUiMessage(
+                    role = "assistant",
+                    content = "Mr. Robot online. Add and activate any supported AI provider in Settings, then send a message."
+                )
+            ),
+            error = "",
+            input = "",
+            selectedAttachments = emptyList(),
+            queuedFiles = 0,
+            readableFiles = 0,
+            visionImages = 0,
+            isLoading = false,
+            lastUserPrompt = "",
+            activeSessionId = null
+        )
+    }
+
+    /**
+     * Resume a stored session. Saves any unsaved changes from the current
+     * thread first, then replaces the visible messages with the session's
+     * stored messages.
+     */
+    fun loadSession(sessionId: String) {
+        if (sessionId == currentSessionId) return
+
+        // Save the current thread (if any) before switching away.
+        persistCurrentSession()
+
+        viewModelScope.launch {
+            val session = chatHistoryStore.getSession(sessionId) ?: return@launch
+
+            activeJob?.cancel()
+            activeJob = null
+            currentSessionId = session.id
+
+            val uiMessages = session.messages.map { stored ->
+                ChatUiMessage(
+                    role = stored.role,
+                    content = stored.content
+                )
+            }.ifEmpty {
+                listOf(
+                    ChatUiMessage(
+                        role = "assistant",
+                        content = "Resumed an empty chat. Send a message to continue."
+                    )
+                )
+            }
+
+            _uiState.value = _uiState.value.copy(
+                messages = uiMessages,
+                error = "",
+                input = "",
+                selectedAttachments = emptyList(),
+                queuedFiles = 0,
+                readableFiles = 0,
+                visionImages = 0,
+                isLoading = false,
+                lastUserPrompt = uiMessages.lastOrNull { it.role == "user" }?.content.orEmpty(),
+                activeSessionId = session.id
+            )
+        }
+    }
+
+    fun deleteSession(sessionId: String) {
+        viewModelScope.launch {
+            chatHistoryStore.deleteSession(sessionId)
+            // If the deleted session was the active one, reset to a fresh chat.
+            if (currentSessionId == sessionId) {
+                currentSessionId = null
+                _uiState.value = _uiState.value.copy(activeSessionId = null)
+            }
+        }
+    }
+
+    fun deleteAllSessions() {
+        viewModelScope.launch {
+            chatHistoryStore.deleteAll()
+            currentSessionId = null
+            _uiState.value = _uiState.value.copy(activeSessionId = null)
+        }
+    }
+
+    fun renameSession(sessionId: String, newTitle: String) {
+        if (newTitle.isBlank()) return
+        viewModelScope.launch {
+            chatHistoryStore.renameSession(sessionId, newTitle.trim())
+        }
+    }
+
+    /**
+     * Persist the current visible thread to the chat history store. No-op if
+     * there are no user messages yet (i.e. the user hasn't said anything).
+     */
+    private fun persistCurrentSession() {
+        val current = _uiState.value
+        val storedMessages = current.messages
+            .filter { it.role == "user" || it.role == "assistant" || it.role == "system" }
+            .map { ui ->
+                StoredChatMessage(
+                    role = ui.role,
+                    content = ui.content
+                )
+            }
+
+        // Don't bother persisting empty / greeting-only sessions.
+        if (storedMessages.none { it.role == "user" }) return
+
+        val sessionId = currentSessionId ?: UUID.randomUUID().toString()
+        currentSessionId = sessionId
+
+        val title = deriveSessionTitle(storedMessages)
+
+        viewModelScope.launch {
+            val existing = chatHistoryStore.getSession(sessionId)
+            val session = ChatSession(
+                id = sessionId,
+                title = existing?.title?.takeIf { it.isNotBlank() && it != "New chat" } ?: title,
+                createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+                messages = storedMessages,
+                provider = current.provider,
+                model = current.model
+            )
+            chatHistoryStore.saveSession(session)
+            // Reflect the active session id on the UI state once we know it.
+            if (_uiState.value.activeSessionId != sessionId) {
+                _uiState.value = _uiState.value.copy(activeSessionId = sessionId)
+            }
+        }
     }
 }
