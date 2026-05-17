@@ -1,7 +1,13 @@
 package com.mrrobot.aiworkspace.data
 
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+
 /**
- * Composes the full chat system prompt: active agent + soul + memories.
+ * Composes the full chat system prompt: active agent + soul + real-time
+ * context + memory tools + web search tool + memories.
  *
  * Layered prompt order:
  *   1. Active agent persona (if any agent is activated)
@@ -59,6 +65,15 @@ object SystemPromptBuilder {
 
         append(soul.effectivePrompt())
 
+        // Always-on real-time context (date/time/timezone) — eliminates
+        // "I don't have access to the current time" responses.
+        append(buildRealTimeContext())
+
+        // Web search tool — teaches the model to emit [SEARCH ...]
+        // directives for anything time-sensitive (news, prices, weather,
+        // sports scores, latest releases, etc.).
+        append(SEARCH_TOOL_INSTRUCTIONS)
+
         // Memory tools — taught to every model so natural-language
         // "remember my name is Alex" gets persisted automatically.
         append(MEMORY_TOOL_INSTRUCTIONS)
@@ -103,6 +118,59 @@ object SystemPromptBuilder {
             append(": ").append(entry.content).append('\n')
         }
     }
+
+    private fun buildRealTimeContext(): String {
+        val tz = TimeZone.getDefault()
+        val now = Date()
+        val dateFmt = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
+            .apply { timeZone = tz }
+        val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+            .apply { timeZone = tz }
+        val tzLabel = tz.getDisplayName(false, TimeZone.SHORT, Locale.getDefault())
+
+        return buildString {
+            append("\n\n## Current Real-Time Context\n")
+            append("- Current date: ").append(dateFmt.format(now)).append('\n')
+            append("- Current local time: ").append(timeFmt.format(now))
+                .append(' ').append(tzLabel).append('\n')
+            append("- Timezone: ").append(tz.id).append('\n')
+            append("Use this for any time/date question. Do not say you don't know the date.\n")
+        }
+    }
+
+    private val SEARCH_TOOL_INSTRUCTIONS = """
+
+
+## Web Search Tool
+
+You can search the live web. When the user asks anything time-sensitive
+that you cannot answer from your training data — current weather, today's
+news, stock or crypto prices, sports scores, latest software/product
+releases, "what is X right now", recently published facts — you MUST
+emit a search directive on its own line:
+
+[SEARCH your concise query here]
+
+Rules:
+  - Emit the directive on its own line, with no surrounding code fences.
+  - Use a focused query (no quotes, no boolean operators).
+  - You may emit up to 3 search directives per reply.
+  - After your directives, stop. Do not invent search results. The app
+    will run the search and feed the results back so you can compose a
+    final, grounded answer in a follow-up turn.
+  - In the follow-up turn, you will see a "Search results" block in the
+    user message. Cite the sources by URL when you use them.
+  - Do NOT search for static knowledge you already know (geography,
+    historical facts, established science, definitions, code syntax).
+
+Examples that should trigger a search:
+  - "What's the weather in Tokyo right now?"
+  - "Who won last night's Lakers game?"
+  - "What's the latest iPhone model?"
+  - "Bitcoin price today"
+  - "Has Kotlin 2.2 been released?"
+
+""".trimIndent()
 
     private val MEMORY_TOOL_INSTRUCTIONS = """
 
