@@ -656,17 +656,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 content = reply.text
                             )
                         )
-                        // Surface the auto-save inline so the user sees the AI
-                        // actually remembered something.
-                        if (reply.didMutateMemory) {
-                            val saved = reply.savedMemoryKeys
-                            val forgotten = reply.forgottenMemoryKeys
+                        // Surface the auto-save / search inline so the user
+                        // sees the AI actually did something.
+                        if (reply.didMutateMemory || reply.didSearch) {
                             val parts = buildList {
-                                if (saved.isNotEmpty()) {
-                                    add("💾 Saved: " + saved.joinToString(", "))
+                                if (reply.searchedQueries.isNotEmpty()) {
+                                    add("🔍 Searched: " + reply.searchedQueries.joinToString(", "))
                                 }
-                                if (forgotten.isNotEmpty()) {
-                                    add("🗑️ Forgot: " + forgotten.joinToString(", "))
+                                if (reply.savedMemoryKeys.isNotEmpty()) {
+                                    add("💾 Saved: " + reply.savedMemoryKeys.joinToString(", "))
+                                }
+                                if (reply.forgottenMemoryKeys.isNotEmpty()) {
+                                    add("🗑️ Forgot: " + reply.forgottenMemoryKeys.joinToString(", "))
                                 }
                             }
                             add(

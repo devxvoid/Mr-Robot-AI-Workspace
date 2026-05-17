@@ -6,28 +6,39 @@ data class ChatMessage(
 )
 
 /**
- * The result of a chat send: the cleaned reply (after stripping any memory
- * directives the AI emitted) plus the list of memory keys that were saved or
- * forgotten as a side-effect.
+ * The result of a chat send: the cleaned reply (after stripping directives
+ * the AI emitted) plus the side-effects:
+ *  - memories saved/forgotten
+ *  - web searches performed (so the UI can show "🔍 Searched: ...")
  */
 data class ChatReply(
     val text: String,
     val savedMemoryKeys: List<String> = emptyList(),
-    val forgottenMemoryKeys: List<String> = emptyList()
+    val forgottenMemoryKeys: List<String> = emptyList(),
+    val searchedQueries: List<String> = emptyList()
 ) {
     val didMutateMemory: Boolean
         get() = savedMemoryKeys.isNotEmpty() || forgottenMemoryKeys.isNotEmpty()
+
+    val didSearch: Boolean
+        get() = searchedQueries.isNotEmpty()
 }
 
 /**
- * Repository for sending chat messages. Composes the system prompt from:
+ * Repository for sending chat messages.
+ *
+ * Composes the system prompt from:
  *   1. Active agent (from [AgentStore])
  *   2. User's "soul" (from [AgentConfigStore])
- *   3. Memory tool instructions + persistent memories (from [MemoryStore])
+ *   3. Real-time context + memory tools + search tool
+ *   4. Persistent memories (from [MemoryStore])
  *
- * After the model replies, [MemoryDirectiveParser] silently extracts any
- * `[REMEMBER key = value]` or `[FORGET key]` directives the AI emitted and
- * persists them to [MemoryStore], returning the cleaned text in [ChatReply].
+ * After the model replies, this class:
+ *   - Runs any `[SEARCH ...]` directives via [WebSearchTool] and re-prompts
+ *     the model with the results so it can answer with live data.
+ *   - Persists any `[REMEMBER ...]` / `[FORGET ...]` directives via
+ *     [MemoryDirectiveParser].
+ *   - Returns the final user-visible reply in [ChatReply].
  */
 class ChatRepository(
     private val agentConfigStore: AgentConfigStore? = null,
@@ -44,22 +55,75 @@ class ChatRepository(
     ): Result<ChatReply> {
         val systemPrompt = buildSystemPrompt()
         return runCatching {
-            val raw = ProviderChatClient.generateReply(
+            val workingMessages = messages.toMutableList()
+            val performedSearches = mutableListOf<String>()
+
+            var attempts = 0
+            var raw = ProviderChatClient.generateReply(
                 settings = settings,
-                messages = messages,
+                messages = workingMessages,
                 systemPrompt = systemPrompt
             )
 
+            // Tool loop: if the model asked for searches, run them and feed
+            // the results back in a follow-up turn. Cap at 2 rounds to avoid
+            // infinite loops with confused models.
+            while (attempts < 2) {
+                val queries = SearchDirectiveParser.extractQueries(raw)
+                if (queries.isEmpty()) break
+
+                val toolBlock = StringBuilder()
+                queries.take(3).forEach { query ->
+                    val results = WebSearchTool.search(query)
+                    performedSearches.add(query)
+                    toolBlock.append(WebSearchTool.formatForPrompt(query, results))
+                    toolBlock.append("\n\n")
+                }
+
+                workingMessages.add(
+                    ChatMessage(
+                        role = "assistant",
+                        content = SearchDirectiveParser.stripDirectives(raw)
+                    )
+                )
+                workingMessages.add(
+                    ChatMessage(
+                        role = "user",
+                        content =
+                            "Tool results from your search request " +
+                                "(you should now compose your final answer " +
+                                "using these and cite source URLs):\n\n" +
+                                toolBlock.toString().trim()
+                    )
+                )
+
+                raw = ProviderChatClient.generateReply(
+                    settings = settings,
+                    messages = workingMessages,
+                    systemPrompt = systemPrompt
+                )
+                attempts++
+            }
+
+            // Strip any leftover [SEARCH ...] directives that didn't trigger
+            // (e.g. the model emitted one on the final turn).
+            val cleanedOfSearch = SearchDirectiveParser.stripDirectives(raw)
+
+            // Apply memory directives.
             val parser = directiveParser
             if (parser != null) {
-                val parsed = parser.applyDirectives(raw)
+                val parsed = parser.applyDirectives(cleanedOfSearch)
                 ChatReply(
                     text = parsed.cleaned,
                     savedMemoryKeys = parsed.saved,
-                    forgottenMemoryKeys = parsed.forgotten
+                    forgottenMemoryKeys = parsed.forgotten,
+                    searchedQueries = performedSearches
                 )
             } else {
-                ChatReply(text = raw)
+                ChatReply(
+                    text = cleanedOfSearch,
+                    searchedQueries = performedSearches
+                )
             }
         }
     }
