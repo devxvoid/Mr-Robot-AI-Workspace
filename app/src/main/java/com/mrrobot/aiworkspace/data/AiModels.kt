@@ -185,6 +185,139 @@ object AiModels {
         AiModel("inflection/inflection-3-pi", "Inflection Pi", "OpenRouter", "Inflection Pi via OpenRouter.", ApiProvider.OpenRouter),
         AiModel("01-ai/yi-large", "01.AI Yi Large", "OpenRouter", "01.AI Yi Large via OpenRouter.", ApiProvider.OpenRouter),
 
+        // ── Newest 2026 frontier additions via OpenRouter ────────────
+        AiModel("openrouter/auto", "Auto Router", "OpenRouter", "Auto-selects the best model for your prompt.", ApiProvider.OpenRouter),
+        AiModel("openrouter/free", "Free Auto Router", "OpenRouter", "Auto-selects from free OpenRouter models.", ApiProvider.OpenRouter),
+
+        // OpenAI 5.x family via OpenRouter
+        AiModel("openai/gpt-5.5", "GPT-5.5", "OpenRouter", "OpenAI GPT-5.5 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("openai/gpt-5.4", "GPT-5.4", "OpenRouter", "OpenAI GPT-5.4 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("openai/gpt-5.4-mini", "GPT-5.4 Mini", "OpenRouter", "OpenAI GPT-5.4 Mini via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("openai/gpt-5.2", "GPT-5.2", "OpenRouter", "OpenAI GPT-5.2 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("openai/gpt-5.1", "GPT-5.1", "OpenRouter", "OpenAI GPT-5.1 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("openai/gpt-oss-120b", "GPT-OSS 120B", "OpenRouter", "OpenAI open-weight 120B MoE via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("openai/gpt-oss-20b", "GPT-OSS 20B", "OpenRouter", "OpenAI open-weight 20B via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Anthropic 4.6 / 4.7 family via OpenRouter
+        AiModel("anthropic/claude-opus-4.7", "Claude Opus 4.7", "OpenRouter", "Anthropic Opus 4.7 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("anthropic/claude-opus-4.6", "Claude Opus 4.6", "OpenRouter", "Anthropic Opus 4.6 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("anthropic/claude-opus-4.6-fast", "Claude Opus 4.6 (Fast)", "OpenRouter", "Fast-mode Opus 4.6 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("anthropic/claude-sonnet-4.6", "Claude Sonnet 4.6", "OpenRouter", "Anthropic Sonnet 4.6 via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Google Gemini 3.x via OpenRouter
+        AiModel("google/gemini-3-pro-preview", "Gemini 3 Pro (Preview)", "OpenRouter", "Google Gemini 3 Pro via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("google/gemini-3-flash-preview", "Gemini 3 Flash (Preview)", "OpenRouter", "Google Gemini 3 Flash via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("google/gemini-3.1-flash-lite-preview", "Gemini 3.1 Flash Lite", "OpenRouter", "Lightweight Gemini 3.1 Flash via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("google/gemini-embedding-2-preview", "Gemini Embedding 2 (Preview)", "OpenRouter", "Google multimodal embeddings via OpenRouter.", ApiProvider.OpenRouter),
+
+        // DeepSeek V3.x / V4 via OpenRouter
+        AiModel("deepseek/deepseek-v4-pro", "DeepSeek V4 Pro", "OpenRouter", "DeepSeek V4 Pro via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("deepseek/deepseek-v4-flash", "DeepSeek V4 Flash", "OpenRouter", "DeepSeek V4 Flash via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("deepseek/deepseek-v3.2", "DeepSeek V3.2", "OpenRouter", "DeepSeek V3.2 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("deepseek/deepseek-v3", "DeepSeek V3", "OpenRouter", "DeepSeek V3 via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Qwen3 family via OpenRouter
+        AiModel("qwen/qwen3-max-thinking", "Qwen3 Max Thinking", "OpenRouter", "Qwen3 flagship reasoning via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("qwen/qwen3-max", "Qwen3 Max", "OpenRouter", "Qwen3 max via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("qwen/qwen3-235b-a22b-2507", "Qwen3 235B (2507)", "OpenRouter", "Qwen3 235B July build via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("qwen/qwen3-235b-a22b-thinking-2507", "Qwen3 235B Thinking", "OpenRouter", "Qwen3 235B reasoning via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("qwen/qwen3-32b", "Qwen3 32B", "OpenRouter", "Qwen3 32B via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("qwen/qwen3-30b-a3b", "Qwen3 30B A3B", "OpenRouter", "Qwen3 sparse 30B via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("qwen/qwen3-coder-480b-a35b", "Qwen3 Coder 480B", "OpenRouter", "Qwen3 coder MoE via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("qwen/qwen3-coder-next", "Qwen3 Coder Next", "OpenRouter", "Sparse Qwen3 coder via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("qwen/qwen3-vl-plus", "Qwen3 VL Plus", "OpenRouter", "Qwen3 vision via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("qwen/qwen3.6-plus", "Qwen3.6 Plus", "OpenRouter", "Qwen3.6 Plus via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Z.ai GLM via OpenRouter
+        AiModel("z-ai/glm-4.6", "Z.ai GLM 4.6", "OpenRouter", "Z.ai GLM 4.6 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("z-ai/glm-4.6v", "Z.ai GLM 4.6V", "OpenRouter", "Z.ai GLM 4.6 vision via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("z-ai/glm-4.5", "Z.ai GLM 4.5", "OpenRouter", "Z.ai GLM 4.5 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("z-ai/glm-4-32b", "Z.ai GLM 4 32B", "OpenRouter", "Z.ai GLM 4 32B via OpenRouter.", ApiProvider.OpenRouter),
+
+        // MiniMax via OpenRouter
+        AiModel("minimax/minimax-m2.1", "MiniMax M2.1", "OpenRouter", "MiniMax M2.1 coding/agent via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("minimax/minimax-m2", "MiniMax M2", "OpenRouter", "MiniMax M2 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("minimax/minimax-m1", "MiniMax M1", "OpenRouter", "MiniMax M1 via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Moonshot Kimi via OpenRouter
+        AiModel("moonshotai/kimi-k2.6", "Kimi K2.6", "OpenRouter", "Moonshot Kimi K2.6 multimodal via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("moonshotai/kimi-k2-thinking", "Kimi K2 Thinking", "OpenRouter", "Kimi K2 reasoning via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("moonshotai/kimi-vl-a3b-thinking", "Kimi VL A3B Thinking", "OpenRouter", "Kimi vision reasoner via OpenRouter.", ApiProvider.OpenRouter),
+
+        // inclusionAI Ling/Ring via OpenRouter
+        AiModel("inclusionai/ling-2.6-1t", "Ling 2.6 1T", "OpenRouter", "inclusionAI Ling 2.6 1T via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("inclusionai/ling-2.6-1t:free", "Ling 2.6 1T (Free)", "OpenRouter", "Free Ling 2.6 1T via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("inclusionai/ling-2.6-flash", "Ling 2.6 Flash", "OpenRouter", "inclusionAI Ling Flash via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("inclusionai/ling-2.6-flash:free", "Ling 2.6 Flash (Free)", "OpenRouter", "Free Ling 2.6 Flash via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("inclusionai/ring-2.6-1t", "Ring 2.6 1T", "OpenRouter", "inclusionAI Ring 1T thinking via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("inclusionai/ring-2.6-1t:free", "Ring 2.6 1T (Free)", "OpenRouter", "Free Ring 2.6 1T via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Inception diffusion LMs via OpenRouter
+        AiModel("inception/mercury-2", "Inception Mercury 2", "OpenRouter", "Diffusion LM Mercury 2 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("inception/mercury", "Inception Mercury", "OpenRouter", "Diffusion LM Mercury via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("inception/mercury-coder", "Inception Mercury Coder", "OpenRouter", "Diffusion code LM via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Mistral updates via OpenRouter
+        AiModel("mistralai/mistral-large-2512", "Mistral Large 3 2512", "OpenRouter", "Mistral Large 3 (Dec 2025) via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/mistral-medium-3.5", "Mistral Medium 3.5", "OpenRouter", "Mistral Medium 3.5 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/mistral-medium-3.1", "Mistral Medium 3.1", "OpenRouter", "Mistral Medium 3.1 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/codestral-2508", "Codestral 25.08", "OpenRouter", "Mistral Codestral August 2025 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/devstral-medium", "Devstral Medium", "OpenRouter", "Mistral Devstral Medium via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/devstral-small", "Devstral Small", "OpenRouter", "Mistral Devstral Small via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/devstral-small:free", "Devstral Small (Free)", "OpenRouter", "Free Devstral Small via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/magistral-medium-2509", "Magistral Medium 2509", "OpenRouter", "Mistral Magistral Sep 2025 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/magistral-small", "Magistral Small", "OpenRouter", "Mistral Magistral Small via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/mistral-saba", "Mistral Saba", "OpenRouter", "Mistral Saba (Arabic-tuned) via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("mistralai/mistral-nemo", "Mistral Nemo 12B", "OpenRouter", "Open Mistral Nemo via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Meta Llama 4 / 3.x extras via OpenRouter
+        AiModel("meta-llama/llama-4-behemoth", "Llama 4 Behemoth", "OpenRouter", "Meta Llama 4 Behemoth via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("meta-llama/llama-3.2-3b-instruct", "Llama 3.2 3B", "OpenRouter", "Llama 3.2 3B via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("meta-llama/llama-3.2-1b-instruct", "Llama 3.2 1B", "OpenRouter", "Llama 3.2 1B via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("meta-llama/llama-guard-4-12b", "Llama Guard 4 12B", "OpenRouter", "Meta moderation Llama via OpenRouter.", ApiProvider.OpenRouter),
+
+        // NVIDIA Nemotron via OpenRouter
+        AiModel("nvidia/nemotron-3-super-120b-a12b", "Nemotron 3 Super 120B", "OpenRouter", "NVIDIA Nemotron 3 Super via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("nvidia/nemotron-3-super-120b-a12b:free", "Nemotron 3 Super (Free)", "OpenRouter", "Free Nemotron 3 Super via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("nvidia/nemotron-3-nano-omni", "Nemotron 3 Nano Omni", "OpenRouter", "NVIDIA multimodal Nemotron via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("nvidia/llama-3.3-nemotron-super-49b-v1.5", "Llama 3.3 Nemotron Super 49B", "OpenRouter", "NVIDIA Nemotron Super 49B via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("nvidia/llama-3.1-nemotron-ultra-253b-v1", "Llama 3.1 Nemotron Ultra 253B", "OpenRouter", "NVIDIA Nemotron Ultra via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("nvidia/llama-3.1-nemotron-70b-instruct", "Llama 3.1 Nemotron 70B", "OpenRouter", "NVIDIA Nemotron 70B via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Tencent Hunyuan via OpenRouter
+        AiModel("tencent/hunyuan-a13b-instruct", "Hunyuan A13B", "OpenRouter", "Tencent Hunyuan MoE via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("tencent/hunyuan-a13b-instruct:free", "Hunyuan A13B (Free)", "OpenRouter", "Free Tencent Hunyuan via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("tencent/hunyuan-large", "Hunyuan Large", "OpenRouter", "Tencent Hunyuan Large via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Reka via OpenRouter
+        AiModel("rekaai/reka-flash-3", "Reka Flash 3", "OpenRouter", "Reka Flash 3 21B via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("rekaai/reka-core", "Reka Core", "OpenRouter", "Reka Core flagship via OpenRouter.", ApiProvider.OpenRouter),
+
+        // AI21 Jamba via OpenRouter
+        AiModel("ai21/jamba-1.7-large", "AI21 Jamba 1.7 Large", "OpenRouter", "AI21 Jamba 1.7 Large via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("ai21/jamba-1.7-mini", "AI21 Jamba 1.7 Mini", "OpenRouter", "AI21 Jamba 1.7 Mini via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Sao10K roleplay tunes via OpenRouter
+        AiModel("sao10k/l3.3-euryale-70b", "Llama 3.3 Euryale 70B", "OpenRouter", "Sao10K Euryale 70B via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("sao10k/l3.1-euryale-70b", "Llama 3.1 Euryale 70B v2", "OpenRouter", "Sao10K Euryale 70B v2 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("sao10k/l3.1-70b-hanami-x1", "Llama 3.1 70B Hanami x1", "OpenRouter", "Sao10K Hanami x1 via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Cohere updates via OpenRouter
+        AiModel("cohere/command-a", "Cohere Command A", "OpenRouter", "Cohere Command A flagship via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("cohere/command-r-08-2024", "Cohere Command R (08-2024)", "OpenRouter", "Cohere Command R Aug 2024 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("cohere/command-r-plus-08-2024", "Cohere Command R+ (08-2024)", "OpenRouter", "Cohere Command R+ Aug 2024 via OpenRouter.", ApiProvider.OpenRouter),
+
+        // Perplexity reasoning/sonar via OpenRouter
+        AiModel("perplexity/sonar-reasoning-pro", "Perplexity Sonar Reasoning Pro", "OpenRouter", "Perplexity reasoning Pro via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("perplexity/sonar-reasoning", "Perplexity Sonar Reasoning", "OpenRouter", "Perplexity reasoning via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("perplexity/sonar-deep-research", "Perplexity Sonar Deep Research", "OpenRouter", "Perplexity deep research via OpenRouter.", ApiProvider.OpenRouter),
+
+        // xAI Grok 4.x via OpenRouter
+        AiModel("x-ai/grok-4.1", "Grok 4.1", "OpenRouter", "xAI Grok 4.1 via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("x-ai/grok-4.1-fast", "Grok 4.1 Fast", "OpenRouter", "xAI Grok 4.1 Fast via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("x-ai/grok-4-heavy", "Grok 4 Heavy", "OpenRouter", "xAI Grok 4 Heavy via OpenRouter.", ApiProvider.OpenRouter),
+        AiModel("x-ai/grok-2-vision-1212", "Grok 2 Vision", "OpenRouter", "xAI Grok 2 vision via OpenRouter.", ApiProvider.OpenRouter),
+
         // Free tier OpenRouter models
         AiModel("meta-llama/llama-3.3-70b-instruct:free", "Llama 3.3 70B (Free)", "OpenRouter", "Free Llama 3.3 via OpenRouter.", ApiProvider.OpenRouter),
         AiModel("deepseek/deepseek-r1:free", "DeepSeek R1 (Free)", "OpenRouter", "Free R1 via OpenRouter.", ApiProvider.OpenRouter),
