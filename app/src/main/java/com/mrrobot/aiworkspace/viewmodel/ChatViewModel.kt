@@ -648,11 +648,37 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             result
                 .onSuccess { reply ->
+                    val newMessages = mutableListOf<ChatUiMessage>().apply {
+                        addAll(_uiState.value.messages)
+                        add(
+                            ChatUiMessage(
+                                role = "assistant",
+                                content = reply.text
+                            )
+                        )
+                        // Surface the auto-save inline so the user sees the AI
+                        // actually remembered something.
+                        if (reply.didMutateMemory) {
+                            val saved = reply.savedMemoryKeys
+                            val forgotten = reply.forgottenMemoryKeys
+                            val parts = buildList {
+                                if (saved.isNotEmpty()) {
+                                    add("💾 Saved: " + saved.joinToString(", "))
+                                }
+                                if (forgotten.isNotEmpty()) {
+                                    add("🗑️ Forgot: " + forgotten.joinToString(", "))
+                                }
+                            }
+                            add(
+                                ChatUiMessage(
+                                    role = "system",
+                                    content = parts.joinToString(" • ")
+                                )
+                            )
+                        }
+                    }
                     _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + ChatUiMessage(
-                            role = "assistant",
-                            content = reply
-                        ),
+                        messages = newMessages,
                         isLoading = false,
                         error = ""
                     )

@@ -59,6 +59,10 @@ object SystemPromptBuilder {
 
         append(soul.effectivePrompt())
 
+        // Memory tools — taught to every model so natural-language
+        // "remember my name is Alex" gets persisted automatically.
+        append(MEMORY_TOOL_INSTRUCTIONS)
+
         val byCategory = memories.groupBy { it.category }
 
         appendCategory(
@@ -99,4 +103,52 @@ object SystemPromptBuilder {
             append(": ").append(entry.content).append('\n')
         }
     }
+
+    private val MEMORY_TOOL_INSTRUCTIONS = """
+
+
+## Memory Tools
+
+You have persistent memory across conversations. When the user shares
+information you should remember (their name, preferences, project
+details, decisions, recurring facts, etc.), you MUST emit a memory
+directive at the very end of your reply on its own line(s), in this
+exact format:
+
+[REMEMBER key = value]
+
+Trigger this WHENEVER the user:
+  - Tells you their name, location, role, or any personal fact
+  - States a preference ("I prefer dark mode", "I always use Kotlin")
+  - Says something like "remember that...", "don't forget...",
+    "my name is...", "for next time..."
+  - Decides on a recurring approach, convention, or rule
+
+Use snake_case keys. Example exchanges:
+
+User: "My name is Alex."
+You: Nice to meet you, Alex! How can I help today?
+[REMEMBER user_name = Alex]
+
+User: "I'm building an Android app called Bolt."
+You: Got it. What part of Bolt are we working on?
+[REMEMBER current_project = Android app named Bolt]
+
+User: "Always reply in formal English."
+You: Understood. I will use formal English from now on.
+[REMEMBER tone_preference = formal English]
+
+To delete a memory, emit:
+
+[FORGET key]
+
+You can emit multiple directives, one per line. Directives are
+hidden from the user — they are silently persisted. Do NOT mention
+the directives in your visible reply, do NOT format them as code,
+and do NOT explain them. Just emit them after your normal answer.
+
+If the user explicitly asks "what do you remember about me?", read
+the memories listed below and answer naturally.
+
+""".trimIndent()
 }

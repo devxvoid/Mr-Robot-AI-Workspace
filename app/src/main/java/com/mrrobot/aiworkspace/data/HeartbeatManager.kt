@@ -100,7 +100,7 @@ class HeartbeatManager(
                 HeartbeatLogEntry(
                     timestampEpochMs = now,
                     success = true,
-                    response = reply.trim().takeIf { it.isNotBlank() }
+                    response = reply.text.trim().takeIf { it.isNotBlank() }
                 )
             },
             onFailure = { err ->
