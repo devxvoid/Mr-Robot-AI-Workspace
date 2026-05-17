@@ -11,8 +11,8 @@ android {
         applicationId = "com.mrrobot.aiworkspace"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.5"
+        versionCode = 25
+        versionName = "2.5"
     }
 
     buildFeatures {
@@ -52,6 +52,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     implementation("org.json:json:20240303")
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

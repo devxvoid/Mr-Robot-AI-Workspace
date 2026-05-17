@@ -1,0 +1,145 @@
+name: Step 29 Fix Light Splash Corners
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    name: Remove Black Corner Artifacts From Light Splash
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Fix light splash PNG black corners
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LIGHT_ROOT="light_splash_logo.png"
+          LIGHT_RES="app/src/main/res/drawable-nodpi/splash_logo_light.png"
+
+          if [ ! -f "$LIGHT_ROOT" ] && [ ! -f "$LIGHT_RES" ]; then
+            echo "No light splash image found."
+            echo "Expected one of:"
+            echo "- light_splash_logo.png"
+            echo "- app/src/main/res/drawable-nodpi/splash_logo_light.png"
+            exit 1
+          fi
+
+          python3 -m pip install --user pillow
+
+          python3 - <<'PY'
+          from pathlib import Path
+          from collections import deque
+          from PIL import Image
+
+          candidates = [
+              Path("light_splash_logo.png"),
+              Path("app/src/main/res/drawable-nodpi/splash_logo_light.png"),
+          ]
+
+          paths = [p for p in candidates if p.exists()]
+
+          if not paths:
+              raise SystemExit("No light splash PNG found.")
+
+          def is_black_artifact(pixel):
+              r, g, b, a = pixel
+              return a > 0 and r < 45 and g < 45 and b < 45
+
+          def fix_corner_artifacts(path: Path):
+              image = Image.open(path).convert("RGBA")
+              width, height = image.size
+              pixels = image.load()
+
+              visited = set()
+              queue = deque()
+
+              # Start flood-fill from all four edges and corners.
+              # This removes only black areas connected to the outside border.
+              # It preserves the real black robot lines because those are not connected to the image edge.
+              for x in range(width):
+                  queue.append((x, 0))
+                  queue.append((x, height - 1))
+
+              for y in range(height):
+                  queue.append((0, y))
+                  queue.append((width - 1, y))
+
+              changed = 0
+
+              while queue:
+                  x, y = queue.popleft()
+
+                  if x < 0 or y < 0 or x >= width or y >= height:
+                      continue
+
+                  key = (x, y)
+                  if key in visited:
+                      continue
+
+                  visited.add(key)
+
+                  if not is_black_artifact(pixels[x, y]):
+                      continue
+
+                  # Replace black corner/background artifacts with pure white.
+                  pixels[x, y] = (255, 255, 255, 255)
+                  changed += 1
+
+                  queue.append((x + 1, y))
+                  queue.append((x - 1, y))
+                  queue.append((x, y + 1))
+                  queue.append((x, y - 1))
+
+              image.save(path)
+              print(f"Fixed {path} | replaced {changed} border-connected black pixels")
+
+          for path in paths:
+              fix_corner_artifacts(path)
+
+          # Always sync fixed root image into Android resource if root exists.
+          root = Path("light_splash_logo.png")
+          res = Path("app/src/main/res/drawable-nodpi/splash_logo_light.png")
+          if root.exists():
+              res.parent.mkdir(parents=True, exist_ok=True)
+              Image.open(root).convert("RGBA").save(res)
+              print(f"Synced fixed root image to {res}")
+          PY
+
+      - name: Verify splash assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Splash assets:"
+          ls -lh app/src/main/res/drawable-nodpi/splash_logo_light.png || true
+          ls -lh app/src/main/res/drawable-nodpi/splash_logo_dark.png || true
+
+      - name: Commit fixed light splash
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add light_splash_logo.png app/src/main/res/drawable-nodpi/splash_logo_light.png
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 29 fix light splash corner artifacts"
+
+          git pull --rebase origin main
+          git push origin main

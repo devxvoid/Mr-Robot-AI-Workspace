@@ -1,0 +1,746 @@
+name: Step 41 Multi Provider API Settings
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    name: Add Multi Provider API Key Configuration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Add multi-provider API settings and model catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="app/src/main/java/com/mrrobot/aiworkspace"
+          DRAWABLE_DIR="app/src/main/res/drawable"
+          DOCS_DIR="docs/settings"
+
+          mkdir -p "$APP_DIR/data"
+          mkdir -p "$APP_DIR/viewmodel"
+          mkdir -p "$APP_DIR/ui/screens"
+          mkdir -p "$APP_DIR/ui/components"
+          mkdir -p "$DRAWABLE_DIR"
+          mkdir -p "$DOCS_DIR"
+
+          COMPONENT_FILE="$APP_DIR/ui/components/UiComponents.kt"
+
+          if [ -f "$COMPONENT_FILE" ]; then
+            cat > /tmp/restore_shared_colors.py <<'PY'
+          from pathlib import Path
+
+          path = Path("app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt")
+          text = path.read_text()
+
+          constants = """
+          // Backward-compatible shared colors.
+          // Older screens still import these symbols directly, so keep them available.
+          val NeonCyan = Color(0xFF00DFF7)
+          val NeonPurple = Color(0xFF8B5CF6)
+          val NeonGreen = Color(0xFF22C55E)
+          val DeepBg = Color(0xFF030712)
+          val Panel = Color(0xFF111827)
+          val PanelSoft = Color(0xFF0B1020)
+          val SoftText = Color(0xFFB8C0CC)
+          val Danger = Color(0xFFFF6B6B)
+
+          """
+
+          if "val NeonCyan" not in text:
+              marker = "@Composable\nfun ScreenShell"
+              if marker in text:
+                  text = text.replace(marker, constants + marker)
+              else:
+                  raise SystemExit("ScreenShell marker not found in UiComponents.kt")
+
+          path.write_text(text)
+          PY
+            python3 /tmp/restore_shared_colors.py
+          fi
+
+          cat > "$DRAWABLE_DIR/ic_lucide_sun_moon_exact.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:pathData="M12,2V4"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+              <path
+                  android:pathData="M14.837,16.385a6,6 0,1 1,-7.223 -7.222c0.624,-0.147 0.97,0.66 0.715,1.248a4,4 0,0 0,5.26 5.259c0.589,-0.255 1.396,0.09 1.248,0.715"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+              <path
+                  android:pathData="M16,12a4,4 0,0 0,-4 -4"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+              <path
+                  android:pathData="M19,5l-1.256,1.256"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+              <path
+                  android:pathData="M20,12H22"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          cp "$DRAWABLE_DIR/ic_lucide_sun_moon_exact.xml" "$DRAWABLE_DIR/ic_lucide_sun_moon.xml"
+
+          cat > "$DRAWABLE_DIR/ic_lucide_sun.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:pathData="M12,7A5,5 0,1 0,12 17A5,5 0,1 0,12 7"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+              <path android:pathData="M12,1V3" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M12,21V23" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.22,4.22L5.64,5.64" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M18.36,18.36L19.78,19.78" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M1,12H3" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M21,12H23" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M4.22,19.78L5.64,18.36" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+              <path android:pathData="M18.36,5.64L19.78,4.22" android:fillColor="@android:color/transparent" android:strokeColor="@android:color/white" android:strokeWidth="2" android:strokeLineCap="round" />
+          </vector>
+          EOF
+
+          cat > "$DRAWABLE_DIR/ic_lucide_moon.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:pathData="M21,12.79A9,9 0,1 1,11.21 3A7,7 0,0 0,21 12.79Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          cat > "$DRAWABLE_DIR/ic_lucide_cpu.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:pathData="M9,9H15V15H9V9Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+              <path
+                  android:pathData="M7,3V6M12,3V6M17,3V6M7,18V21M12,18V21M17,18V21M3,7H6M3,12H6M3,17H6M18,7H21M18,12H21M18,17H21"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+              <path
+                  android:pathData="M6,6H18V18H6V6Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          cat > "$DRAWABLE_DIR/ic_lucide_terminal_square.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:pathData="M4,4H20V20H4V4Z"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+              <path
+                  android:pathData="M8,9L11,12L8,15"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+              <path
+                  android:pathData="M13,15H16"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round" />
+          </vector>
+          EOF
+
+          cat > "$APP_DIR/data/AiModels.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.data
+
+          enum class ApiProvider(
+              val displayName: String,
+              val shortName: String,
+              val keyLabel: String,
+              val keyPlaceholder: String,
+              val baseUrl: String,
+              val helpText: String
+          ) {
+              OpenRouter(
+                  displayName = "OpenRouter",
+                  shortName = "OR",
+                  keyLabel = "OpenRouter API Key",
+                  keyPlaceholder = "sk-or-v1-...",
+                  baseUrl = "https://openrouter.ai/api/v1",
+                  helpText = "Best for one key across many hosted models."
+              ),
+              OpenAI(
+                  displayName = "OpenAI",
+                  shortName = "OpenAI",
+                  keyLabel = "OpenAI API Key",
+                  keyPlaceholder = "sk-...",
+                  baseUrl = "https://api.openai.com/v1",
+                  helpText = "Use official OpenAI models directly."
+              ),
+              Anthropic(
+                  displayName = "Anthropic Claude",
+                  shortName = "Claude",
+                  keyLabel = "Anthropic API Key",
+                  keyPlaceholder = "sk-ant-...",
+                  baseUrl = "https://api.anthropic.com/v1",
+                  helpText = "Use Claude models directly."
+              ),
+              Gemini(
+                  displayName = "Google Gemini",
+                  shortName = "Gemini",
+                  keyLabel = "Gemini API Key",
+                  keyPlaceholder = "AIza...",
+                  baseUrl = "https://generativelanguage.googleapis.com/v1beta",
+                  helpText = "Use Google Gemini models directly."
+              ),
+              Groq(
+                  displayName = "Groq",
+                  shortName = "Groq",
+                  keyLabel = "Groq API Key",
+                  keyPlaceholder = "gsk_...",
+                  baseUrl = "https://api.groq.com/openai/v1",
+                  helpText = "Fast OpenAI-compatible inference."
+              ),
+              Mistral(
+                  displayName = "Mistral",
+                  shortName = "Mistral",
+                  keyLabel = "Mistral API Key",
+                  keyPlaceholder = "Enter Mistral API key",
+                  baseUrl = "https://api.mistral.ai/v1",
+                  helpText = "Use Mistral and Codestral models."
+              ),
+              DeepSeek(
+                  displayName = "DeepSeek",
+                  shortName = "DeepSeek",
+                  keyLabel = "DeepSeek API Key",
+                  keyPlaceholder = "sk-...",
+                  baseUrl = "https://api.deepseek.com",
+                  helpText = "Use DeepSeek chat and reasoning models."
+              ),
+              XAI(
+                  displayName = "xAI Grok",
+                  shortName = "xAI",
+                  keyLabel = "xAI API Key",
+                  keyPlaceholder = "xai-...",
+                  baseUrl = "https://api.x.ai/v1",
+                  helpText = "Use Grok models directly."
+              )
+          }
+
+          data class AiModel(
+              val id: String,
+              val name: String,
+              val provider: String,
+              val description: String,
+              val apiProvider: ApiProvider
+          )
+
+          object AiModels {
+
+              val supported = listOf(
+                  AiModel("openai/gpt-4o-mini", "GPT-4o Mini", "OpenRouter", "Fast general model through OpenRouter.", ApiProvider.OpenRouter),
+                  AiModel("anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet", "OpenRouter", "Claude through OpenRouter.", ApiProvider.OpenRouter),
+                  AiModel("google/gemini-2.0-flash-001", "Gemini Flash", "OpenRouter", "Fast Gemini model through OpenRouter.", ApiProvider.OpenRouter),
+                  AiModel("meta-llama/llama-3.1-70b-instruct", "Llama 70B", "OpenRouter", "Open model through OpenRouter.", ApiProvider.OpenRouter),
+                  AiModel("deepseek/deepseek-chat", "DeepSeek Chat", "OpenRouter", "DeepSeek through OpenRouter.", ApiProvider.OpenRouter),
+
+                  AiModel("gpt-4o-mini", "GPT-4o Mini", "OpenAI", "Fast official OpenAI model.", ApiProvider.OpenAI),
+                  AiModel("gpt-4o", "GPT-4o", "OpenAI", "Flagship multimodal OpenAI model.", ApiProvider.OpenAI),
+                  AiModel("o3-mini", "o3 Mini", "OpenAI", "Reasoning-focused OpenAI model.", ApiProvider.OpenAI),
+
+                  AiModel("claude-3-5-sonnet-latest", "Claude 3.5 Sonnet", "Anthropic", "Strong Claude model for coding, writing, and analysis.", ApiProvider.Anthropic),
+                  AiModel("claude-3-5-haiku-latest", "Claude 3.5 Haiku", "Anthropic", "Fast Claude model for everyday use.", ApiProvider.Anthropic),
+
+                  AiModel("gemini-1.5-flash", "Gemini 1.5 Flash", "Google", "Fast Gemini model for chat and general tasks.", ApiProvider.Gemini),
+                  AiModel("gemini-1.5-pro", "Gemini 1.5 Pro", "Google", "Advanced Gemini model for deeper reasoning.", ApiProvider.Gemini),
+                  AiModel("gemini-2.0-flash", "Gemini 2.0 Flash", "Google", "Newer fast Gemini model.", ApiProvider.Gemini),
+
+                  AiModel("llama-3.3-70b-versatile", "Llama 3.3 70B", "Groq", "Fast Llama model on Groq.", ApiProvider.Groq),
+                  AiModel("mixtral-8x7b-32768", "Mixtral 8x7B", "Groq", "Fast mixture-of-experts model on Groq.", ApiProvider.Groq),
+
+                  AiModel("mistral-large-latest", "Mistral Large", "Mistral", "Advanced Mistral model.", ApiProvider.Mistral),
+                  AiModel("codestral-latest", "Codestral", "Mistral", "Mistral model optimized for coding.", ApiProvider.Mistral),
+
+                  AiModel("deepseek-chat", "DeepSeek Chat", "DeepSeek", "DeepSeek general chat model.", ApiProvider.DeepSeek),
+                  AiModel("deepseek-reasoner", "DeepSeek Reasoner", "DeepSeek", "DeepSeek reasoning model.", ApiProvider.DeepSeek),
+
+                  AiModel("grok-2-latest", "Grok 2", "xAI", "xAI Grok model.", ApiProvider.XAI),
+                  AiModel("grok-beta", "Grok Beta", "xAI", "Beta Grok model.", ApiProvider.XAI)
+              )
+
+              fun byProvider(provider: ApiProvider): List<AiModel> {
+                  return supported.filter { it.apiProvider == provider }
+              }
+
+              fun defaultForProvider(provider: ApiProvider): AiModel {
+                  return byProvider(provider).firstOrNull() ?: supported.first()
+              }
+
+              fun byIdOrNull(id: String): AiModel? {
+                  return supported.firstOrNull { it.id == id }
+              }
+
+              fun findById(id: String): AiModel {
+                  return byIdOrNull(id) ?: supported.first()
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/data/SettingsStore.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.data
+
+          import android.content.Context
+          import androidx.datastore.preferences.core.edit
+          import androidx.datastore.preferences.core.stringPreferencesKey
+          import androidx.datastore.preferences.preferencesDataStore
+          import kotlinx.coroutines.flow.Flow
+          import kotlinx.coroutines.flow.map
+
+          private val Context.settingsDataStore by preferencesDataStore(name = "mr_robot_settings")
+
+          enum class AppThemeMode {
+              Auto,
+              Dark,
+              Light,
+              Cyberpunk,
+              Hacker
+          }
+
+          data class AppSettings(
+              val apiKey: String = "",
+              val model: String = "openai/gpt-4o-mini",
+              val themeMode: AppThemeMode = AppThemeMode.Auto,
+              val selectedProvider: ApiProvider = ApiProvider.OpenRouter,
+              val openRouterApiKey: String = "",
+              val openAiApiKey: String = "",
+              val anthropicApiKey: String = "",
+              val geminiApiKey: String = "",
+              val groqApiKey: String = "",
+              val mistralApiKey: String = "",
+              val deepSeekApiKey: String = "",
+              val xAiApiKey: String = ""
+          ) {
+              fun keyFor(provider: ApiProvider): String {
+                  return when (provider) {
+                      ApiProvider.OpenRouter -> openRouterApiKey.ifBlank { apiKey }
+                      ApiProvider.OpenAI -> openAiApiKey
+                      ApiProvider.Anthropic -> anthropicApiKey
+                      ApiProvider.Gemini -> geminiApiKey
+                      ApiProvider.Groq -> groqApiKey
+                      ApiProvider.Mistral -> mistralApiKey
+                      ApiProvider.DeepSeek -> deepSeekApiKey
+                      ApiProvider.XAI -> xAiApiKey
+                  }
+              }
+
+              fun activeApiKey(): String {
+                  return keyFor(selectedProvider)
+              }
+          }
+
+          class SettingsStore(private val context: Context) {
+
+              private object Keys {
+                  val API_KEY = stringPreferencesKey("openrouter_api_key")
+                  val MODEL = stringPreferencesKey("selected_model")
+                  val THEME_MODE = stringPreferencesKey("theme_mode")
+                  val SELECTED_PROVIDER = stringPreferencesKey("selected_provider")
+                  val OPENROUTER_API_KEY = stringPreferencesKey("api_key_openrouter")
+                  val OPENAI_API_KEY = stringPreferencesKey("api_key_openai")
+                  val ANTHROPIC_API_KEY = stringPreferencesKey("api_key_anthropic")
+                  val GEMINI_API_KEY = stringPreferencesKey("api_key_gemini")
+                  val GROQ_API_KEY = stringPreferencesKey("api_key_groq")
+                  val MISTRAL_API_KEY = stringPreferencesKey("api_key_mistral")
+                  val DEEPSEEK_API_KEY = stringPreferencesKey("api_key_deepseek")
+                  val XAI_API_KEY = stringPreferencesKey("api_key_xai")
+              }
+
+              val settingsFlow: Flow<AppSettings> =
+                  context.settingsDataStore.data.map { prefs ->
+                      val legacyOpenRouterKey = prefs[Keys.API_KEY] ?: ""
+                      val provider = runCatching {
+                          ApiProvider.valueOf(prefs[Keys.SELECTED_PROVIDER] ?: ApiProvider.OpenRouter.name)
+                      }.getOrDefault(ApiProvider.OpenRouter)
+
+                      val requestedModel = prefs[Keys.MODEL] ?: AiModels.defaultForProvider(provider).id
+                      val normalizedModel = AiModels.byIdOrNull(requestedModel)
+                          ?.takeIf { it.apiProvider == provider }
+                          ?.id
+                          ?: AiModels.defaultForProvider(provider).id
+
+                      val openRouterKey = prefs[Keys.OPENROUTER_API_KEY] ?: legacyOpenRouterKey
+
+                      AppSettings(
+                          apiKey = openRouterKey,
+                          model = normalizedModel,
+                          themeMode = runCatching {
+                              AppThemeMode.valueOf(prefs[Keys.THEME_MODE] ?: AppThemeMode.Auto.name)
+                          }.getOrDefault(AppThemeMode.Auto),
+                          selectedProvider = provider,
+                          openRouterApiKey = openRouterKey,
+                          openAiApiKey = prefs[Keys.OPENAI_API_KEY] ?: "",
+                          anthropicApiKey = prefs[Keys.ANTHROPIC_API_KEY] ?: "",
+                          geminiApiKey = prefs[Keys.GEMINI_API_KEY] ?: "",
+                          groqApiKey = prefs[Keys.GROQ_API_KEY] ?: "",
+                          mistralApiKey = prefs[Keys.MISTRAL_API_KEY] ?: "",
+                          deepSeekApiKey = prefs[Keys.DEEPSEEK_API_KEY] ?: "",
+                          xAiApiKey = prefs[Keys.XAI_API_KEY] ?: ""
+                      )
+                  }
+
+              suspend fun saveSettings(
+                  apiKey: String,
+                  model: String,
+                  themeMode: AppThemeMode
+              ) {
+                  context.settingsDataStore.edit { prefs ->
+                      prefs[Keys.API_KEY] = apiKey.trim()
+                      prefs[Keys.OPENROUTER_API_KEY] = apiKey.trim()
+                      prefs[Keys.MODEL] = model.trim().ifBlank {
+                          AiModels.defaultForProvider(ApiProvider.OpenRouter).id
+                      }
+                      prefs[Keys.THEME_MODE] = themeMode.name
+                  }
+              }
+
+              suspend fun saveAllSettings(
+                  selectedProvider: ApiProvider,
+                  model: String,
+                  themeMode: AppThemeMode,
+                  openRouterApiKey: String,
+                  openAiApiKey: String,
+                  anthropicApiKey: String,
+                  geminiApiKey: String,
+                  groqApiKey: String,
+                  mistralApiKey: String,
+                  deepSeekApiKey: String,
+                  xAiApiKey: String
+              ) {
+                  val safeModel = AiModels.byIdOrNull(model)
+                      ?.takeIf { it.apiProvider == selectedProvider }
+                      ?.id
+                      ?: AiModels.defaultForProvider(selectedProvider).id
+
+                  context.settingsDataStore.edit { prefs ->
+                      prefs[Keys.SELECTED_PROVIDER] = selectedProvider.name
+                      prefs[Keys.MODEL] = safeModel
+                      prefs[Keys.THEME_MODE] = themeMode.name
+                      prefs[Keys.OPENROUTER_API_KEY] = openRouterApiKey.trim()
+                      prefs[Keys.API_KEY] = openRouterApiKey.trim()
+                      prefs[Keys.OPENAI_API_KEY] = openAiApiKey.trim()
+                      prefs[Keys.ANTHROPIC_API_KEY] = anthropicApiKey.trim()
+                      prefs[Keys.GEMINI_API_KEY] = geminiApiKey.trim()
+                      prefs[Keys.GROQ_API_KEY] = groqApiKey.trim()
+                      prefs[Keys.MISTRAL_API_KEY] = mistralApiKey.trim()
+                      prefs[Keys.DEEPSEEK_API_KEY] = deepSeekApiKey.trim()
+                      prefs[Keys.XAI_API_KEY] = xAiApiKey.trim()
+                  }
+              }
+
+              suspend fun clearSettings() {
+                  context.settingsDataStore.edit { prefs ->
+                      prefs.clear()
+                  }
+              }
+          }
+          EOF
+
+          cat > "$APP_DIR/viewmodel/SettingsViewModel.kt" <<'EOF'
+          package com.mrrobot.aiworkspace.viewmodel
+
+          import android.app.Application
+          import androidx.lifecycle.AndroidViewModel
+          import androidx.lifecycle.viewModelScope
+          import com.mrrobot.aiworkspace.data.AiModels
+          import com.mrrobot.aiworkspace.data.ApiProvider
+          import com.mrrobot.aiworkspace.data.AppSettings
+          import com.mrrobot.aiworkspace.data.AppThemeMode
+          import com.mrrobot.aiworkspace.data.SettingsStore
+          import kotlinx.coroutines.flow.MutableStateFlow
+          import kotlinx.coroutines.flow.StateFlow
+          import kotlinx.coroutines.flow.asStateFlow
+          import kotlinx.coroutines.launch
+
+          data class SettingsUiState(
+              val apiKey: String = "",
+              val model: String = "openai/gpt-4o-mini",
+              val themeMode: AppThemeMode = AppThemeMode.Auto,
+              val selectedProvider: ApiProvider = ApiProvider.OpenRouter,
+              val openRouterApiKey: String = "",
+              val openAiApiKey: String = "",
+              val anthropicApiKey: String = "",
+              val geminiApiKey: String = "",
+              val groqApiKey: String = "",
+              val mistralApiKey: String = "",
+              val deepSeekApiKey: String = "",
+              val xAiApiKey: String = "",
+              val savedMessage: String = "",
+              val isLoaded: Boolean = false
+          ) {
+              val currentApiKey: String
+                  get() = when (selectedProvider) {
+                      ApiProvider.OpenRouter -> openRouterApiKey.ifBlank { apiKey }
+                      ApiProvider.OpenAI -> openAiApiKey
+                      ApiProvider.Anthropic -> anthropicApiKey
+                      ApiProvider.Gemini -> geminiApiKey
+                      ApiProvider.Groq -> groqApiKey
+                      ApiProvider.Mistral -> mistralApiKey
+                      ApiProvider.DeepSeek -> deepSeekApiKey
+                      ApiProvider.XAI -> xAiApiKey
+                  }
+          }
+
+          class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+
+              private val store = SettingsStore(application.applicationContext)
+              private val _uiState = MutableStateFlow(SettingsUiState())
+              val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+              init {
+                  viewModelScope.launch {
+                      store.settingsFlow.collect { settings: AppSettings ->
+                          _uiState.value = _uiState.value.copy(
+                              apiKey = settings.apiKey,
+                              model = settings.model,
+                              themeMode = settings.themeMode,
+                              selectedProvider = settings.selectedProvider,
+                              openRouterApiKey = settings.openRouterApiKey,
+                              openAiApiKey = settings.openAiApiKey,
+                              anthropicApiKey = settings.anthropicApiKey,
+                              geminiApiKey = settings.geminiApiKey,
+                              groqApiKey = settings.groqApiKey,
+                              mistralApiKey = settings.mistralApiKey,
+                              deepSeekApiKey = settings.deepSeekApiKey,
+                              xAiApiKey = settings.xAiApiKey,
+                              isLoaded = true
+                          )
+                      }
+                  }
+              }
+
+              fun updateSelectedProvider(value: ApiProvider) {
+                  val current = _uiState.value
+                  val currentModel = AiModels.byIdOrNull(current.model)
+                  val safeModel = if (currentModel?.apiProvider == value) {
+                      current.model
+                  } else {
+                      AiModels.defaultForProvider(value).id
+                  }
+
+                  _uiState.value = current.copy(
+                      selectedProvider = value,
+                      model = safeModel,
+                      savedMessage = ""
+                  )
+              }
+
+              fun updateApiKey(value: String) {
+                  val current = _uiState.value
+
+                  _uiState.value = when (current.selectedProvider) {
+                      ApiProvider.OpenRouter -> current.copy(apiKey = value, openRouterApiKey = value, savedMessage = "")
+                      ApiProvider.OpenAI -> current.copy(openAiApiKey = value, savedMessage = "")
+                      ApiProvider.Anthropic -> current.copy(anthropicApiKey = value, savedMessage = "")
+                      ApiProvider.Gemini -> current.copy(geminiApiKey = value, savedMessage = "")
+                      ApiProvider.Groq -> current.copy(groqApiKey = value, savedMessage = "")
+                      ApiProvider.Mistral -> current.copy(mistralApiKey = value, savedMessage = "")
+                      ApiProvider.DeepSeek -> current.copy(deepSeekApiKey = value, savedMessage = "")
+                      ApiProvider.XAI -> current.copy(xAiApiKey = value, savedMessage = "")
+                  }
+              }
+
+              fun updateModel(value: String) {
+                  _uiState.value = _uiState.value.copy(model = value, savedMessage = "")
+              }
+
+              fun updateThemeMode(value: AppThemeMode) {
+                  _uiState.value = _uiState.value.copy(themeMode = value, savedMessage = "")
+              }
+
+              fun save() {
+                  viewModelScope.launch {
+                      val current = _uiState.value
+
+                      store.saveAllSettings(
+                          selectedProvider = current.selectedProvider,
+                          model = current.model,
+                          themeMode = current.themeMode,
+                          openRouterApiKey = current.openRouterApiKey,
+                          openAiApiKey = current.openAiApiKey,
+                          anthropicApiKey = current.anthropicApiKey,
+                          geminiApiKey = current.geminiApiKey,
+                          groqApiKey = current.groqApiKey,
+                          mistralApiKey = current.mistralApiKey,
+                          deepSeekApiKey = current.deepSeekApiKey,
+                          xAiApiKey = current.xAiApiKey
+                      )
+
+                      _uiState.value = current.copy(savedMessage = "Settings saved successfully")
+                  }
+              }
+
+              fun saveThemeOnly(themeMode: AppThemeMode) {
+                  viewModelScope.launch {
+                      val current = _uiState.value.copy(themeMode = themeMode, savedMessage = "")
+                      _uiState.value = current
+
+                      store.saveAllSettings(
+                          selectedProvider = current.selectedProvider,
+                          model = current.model,
+                          themeMode = current.themeMode,
+                          openRouterApiKey = current.openRouterApiKey,
+                          openAiApiKey = current.openAiApiKey,
+                          anthropicApiKey = current.anthropicApiKey,
+                          geminiApiKey = current.geminiApiKey,
+                          groqApiKey = current.groqApiKey,
+                          mistralApiKey = current.mistralApiKey,
+                          deepSeekApiKey = current.deepSeekApiKey,
+                          xAiApiKey = current.xAiApiKey
+                      )
+
+                      _uiState.value = current.copy(savedMessage = "Theme updated")
+                  }
+              }
+
+              fun clear() {
+                  viewModelScope.launch {
+                      store.clearSettings()
+                      _uiState.value = SettingsUiState(savedMessage = "Settings cleared", isLoaded = true)
+                  }
+              }
+          }
+          EOF
+
+          cat > "$DOCS_DIR/MULTI_PROVIDER_API_SETTINGS.md" <<'EOF'
+          # Multi Provider API Settings
+
+          This workflow adds provider-aware API key storage and model selection.
+
+          ## Providers
+
+          - OpenRouter
+          - OpenAI
+          - Anthropic Claude
+          - Google Gemini
+          - Groq
+          - Mistral
+          - DeepSeek
+          - xAI Grok
+
+          ## Compatibility
+
+          The old `openrouter_api_key` preference is preserved and mapped into the new OpenRouter key slot.
+          EOF
+
+      - name: Verify multi-provider settings code
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -R "enum class ApiProvider" app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          grep -R "OpenRouter" app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          grep -R "OpenAI" app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          grep -R "Anthropic" app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          grep -R "Gemini" app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          grep -R "Groq" app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          grep -R "Mistral" app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          grep -R "DeepSeek" app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          grep -R "XAI" app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          grep -R "saveAllSettings" app/src/main/java/com/mrrobot/aiworkspace/data/SettingsStore.kt
+          grep -R "currentApiKey" app/src/main/java/com/mrrobot/aiworkspace/viewmodel/SettingsViewModel.kt
+
+          if [ -f app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt ]; then
+            grep -R "val NeonCyan" app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt
+            grep -R "val SoftText" app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt
+          fi
+
+          echo "Multi-provider API settings core files verified."
+
+      - name: Commit Step 41
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add app/src/main/java/com/mrrobot/aiworkspace/data/AiModels.kt
+          git add app/src/main/java/com/mrrobot/aiworkspace/data/SettingsStore.kt
+          git add app/src/main/java/com/mrrobot/aiworkspace/viewmodel/SettingsViewModel.kt
+          git add app/src/main/java/com/mrrobot/aiworkspace/ui/components/UiComponents.kt || true
+          git add app/src/main/res/drawable
+          git add docs/settings/MULTI_PROVIDER_API_SETTINGS.md
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 41 add multi provider API key settings"
+
+          git pull --rebase origin main
+          git push origin main

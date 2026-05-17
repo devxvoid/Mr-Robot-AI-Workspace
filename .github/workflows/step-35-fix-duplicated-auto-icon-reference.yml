@@ -1,0 +1,162 @@
+name: Step 35 Fix Duplicated Auto Icon Reference
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    name: Fix ic_lucide_sun_moon_exact_exact Build Error
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Fix duplicated Auto icon reference
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SETTINGS_FILE="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt"
+          DRAWABLE_DIR="app/src/main/res/drawable"
+
+          mkdir -p "$DRAWABLE_DIR"
+
+          if [ ! -f "$SETTINGS_FILE" ]; then
+            echo "SettingsScreen.kt not found:"
+            echo "$SETTINGS_FILE"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt")
+          text = path.read_text()
+
+          # Fix any accidental repeated suffix:
+          # ic_lucide_sun_moon_exact_exact
+          # ic_lucide_sun_moon_exact_exact_exact
+          # etc.
+          text = re.sub(
+              r"ic_lucide_sun_moon(?:_exact)+",
+              "ic_lucide_sun_moon_exact",
+              text
+          )
+
+          # Also upgrade any old Auto icon reference to the exact drawable.
+          text = text.replace(
+              "R.drawable.ic_lucide_sun_moon",
+              "R.drawable.ic_lucide_sun_moon_exact"
+          )
+
+          # The replacement above can create exact_exact if run after normalization.
+          # Normalize again for safety.
+          text = re.sub(
+              r"ic_lucide_sun_moon(?:_exact)+",
+              "ic_lucide_sun_moon_exact",
+              text
+          )
+
+          path.write_text(text)
+          PY
+
+          cat > "$DRAWABLE_DIR/ic_lucide_sun_moon_exact.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M12,2V4"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M14.837,16.385a6,6 0,1 1,-7.223 -7.222c0.624,-0.147 0.97,0.66 0.715,1.248a4,4 0,0 0,5.26 5.259c0.589,-0.255 1.396,0.09 1.248,0.715"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M16,12a4,4 0,0 0,-4 -4"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M19,5l-1.256,1.256"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M20,12H22"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          # Keep the old resource name available too, in case another file references it.
+          cp "$DRAWABLE_DIR/ic_lucide_sun_moon_exact.xml" "$DRAWABLE_DIR/ic_lucide_sun_moon.xml"
+
+      - name: Verify icon references
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Checking SettingsScreen icon references..."
+
+          if grep -R "ic_lucide_sun_moon_exact_exact" app/src/main/java/com/mrrobot/aiworkspace; then
+            echo "Duplicate exact_exact reference still exists."
+            exit 1
+          fi
+
+          grep -R "ic_lucide_sun_moon_exact" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt
+
+          test -f app/src/main/res/drawable/ic_lucide_sun_moon_exact.xml
+          test -f app/src/main/res/drawable/ic_lucide_sun_moon.xml
+
+          echo "Auto icon reference is fixed."
+
+      - name: Commit Step 35
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt
+          git add app/src/main/res/drawable/ic_lucide_sun_moon_exact.xml
+          git add app/src/main/res/drawable/ic_lucide_sun_moon.xml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 35 fix duplicated Auto theme icon reference"
+
+          git pull --rebase origin main
+          git push origin main

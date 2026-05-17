@@ -1,0 +1,272 @@
+name: Theme Sync Premium UI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  theme-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Create theme sync patch script
+        run: |
+          mkdir -p .github/scripts
+
+          cat > .github/scripts/theme_sync_premium_ui.py << 'PY'
+          from pathlib import Path
+          import re
+
+          ROOT = Path('.')
+
+          def write_file(path_str, content):
+              path = ROOT / path_str
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(content, encoding='utf-8')
+              print(f'Created: {path}')
+
+          # =========================
+          # APP COLORS
+          # =========================
+
+          app_colors = '''package com.mrrobot.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+object AlphaColors {
+
+    val DarkBackground = Color(0xFF0B0B0B)
+    val DarkCard = Color(0xFF121212)
+    val DarkBorder = Color(0xFF2A2A2A)
+    val DarkText = Color(0xFFF5F1EB)
+    val DarkSecondary = Color(0xFFB8AEA3)
+    val DarkAccent = Color(0xFFE8AE8B)
+    val DarkAccentSoft = Color(0x33E8AE8B)
+
+    val LightBackground = Color(0xFFF3EEE8)
+    val LightCard = Color(0xFFF8F4EF)
+    val LightBorder = Color(0xFFD4C3B5)
+    val LightText = Color(0xFF1A1715)
+    val LightSecondary = Color(0xFF6B625B)
+    val LightAccent = Color(0xFFA46A49)
+    val LightAccentSoft = Color(0x1AA46A49)
+}
+'''
+
+          write_file(
+              'app/src/main/java/com/mrrobot/ui/theme/AppColors.kt',
+              app_colors
+          )
+
+          # =========================
+          # THEME STATE
+          # =========================
+
+          theme_state = '''package com.mrrobot.ui.theme
+
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+
+@Immutable
+class AlphaThemeColors(
+    val background: Color,
+    val card: Color,
+    val border: Color,
+    val text: Color,
+    val secondary: Color,
+    val accent: Color,
+    val accentSoft: Color
+)
+
+val LocalAlphaColors = staticCompositionLocalOf {
+    AlphaThemeColors(
+        background = AlphaColors.DarkBackground,
+        card = AlphaColors.DarkCard,
+        border = AlphaColors.DarkBorder,
+        text = AlphaColors.DarkText,
+        secondary = AlphaColors.DarkSecondary,
+        accent = AlphaColors.DarkAccent,
+        accentSoft = AlphaColors.DarkAccentSoft
+    )
+}
+'''
+
+          write_file(
+              'app/src/main/java/com/mrrobot/ui/theme/ThemeState.kt',
+              theme_state
+          )
+
+          # =========================
+          # MAIN THEME
+          # =========================
+
+          alpha_theme = '''package com.mrrobot.ui.theme
+
+import android.app.Activity
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+
+@Composable
+fun AlphaTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+
+    val colors = if (darkTheme) {
+        AlphaThemeColors(
+            background = AlphaColors.DarkBackground,
+            card = AlphaColors.DarkCard,
+            border = AlphaColors.DarkBorder,
+            text = AlphaColors.DarkText,
+            secondary = AlphaColors.DarkSecondary,
+            accent = AlphaColors.DarkAccent,
+            accentSoft = AlphaColors.DarkAccentSoft
+        )
+    } else {
+        AlphaThemeColors(
+            background = AlphaColors.LightBackground,
+            card = AlphaColors.LightCard,
+            border = AlphaColors.LightBorder,
+            text = AlphaColors.LightText,
+            secondary = AlphaColors.LightSecondary,
+            accent = AlphaColors.LightAccent,
+            accentSoft = AlphaColors.LightAccentSoft
+        )
+    }
+
+    val view = LocalView.current
+
+    SideEffect {
+        val window = (view.context as Activity).window
+
+        window.statusBarColor = colors.background.toArgb()
+        window.navigationBarColor = colors.background.toArgb()
+
+        WindowCompat
+            .getInsetsController(window, view)
+            .isAppearanceLightStatusBars = !darkTheme
+
+        WindowCompat
+            .getInsetsController(window, view)
+            .isAppearanceLightNavigationBars = !darkTheme
+    }
+
+    CompositionLocalProvider(
+        LocalAlphaColors provides colors
+    ) {
+        content()
+    }
+}
+'''
+
+          write_file(
+              'app/src/main/java/com/mrrobot/ui/theme/AlphaTheme.kt',
+              alpha_theme
+          )
+
+          # =========================
+          # PATCH CHAT SCREEN
+          # =========================
+
+          chat_files = list(ROOT.rglob('ChatScreen.kt'))
+
+          if not chat_files:
+              raise SystemExit('ChatScreen.kt not found')
+
+          chat_file = chat_files[0]
+          text = chat_file.read_text(encoding='utf-8')
+
+          # Fix thin title
+          text = re.sub(
+              r'fontWeight\s*=\s*FontWeight\.Normal',
+              'fontWeight = FontWeight.ExtraBold',
+              text
+          )
+
+          text = re.sub(
+              r'fontWeight\s*=\s*FontWeight\.Light',
+              'fontWeight = FontWeight.ExtraBold',
+              text
+          )
+
+          # Restore clear button alignment
+          text = re.sub(
+              r'verticalAlignment\s*=\s*Alignment\.CenterVertically',
+              'verticalAlignment = Alignment.Top',
+              text
+          )
+
+          # AI Chat font size
+          text = re.sub(
+              r'fontSize\s*=\s*28\.sp',
+              'fontSize = 34.sp',
+              text
+          )
+
+          # Replace hardcoded black colors
+          text = text.replace('Color.Black', 'LocalAlphaColors.current.background')
+          text = text.replace('Color.White', 'LocalAlphaColors.current.text')
+          text = text.replace('Color.Gray', 'LocalAlphaColors.current.secondary')
+
+          # Add theme import if missing
+          if 'LocalAlphaColors' not in text:
+              imports = 'import com.mrrobot.ui.theme.LocalAlphaColors\n'
+
+              package_match = re.search(r'(package .*?\n)', text)
+              if package_match:
+                  pos = package_match.end()
+                  text = text[:pos] + imports + text[pos:]
+
+          # Add colors state
+          if 'val colors = LocalAlphaColors.current' not in text:
+              text = re.sub(
+                  r'(@Composable\s+fun\s+ChatScreen\s*\([^)]*\)\s*\{)',
+                  r'\1\n\n    val colors = LocalAlphaColors.current',
+                  text,
+                  count=1,
+                  flags=re.DOTALL
+              )
+
+          chat_file.write_text(text, encoding='utf-8')
+          print(f'Patched: {chat_file}')
+
+          print('Theme sync premium UI patch completed.')
+          PY
+
+      - name: Run premium UI sync patch
+        run: |
+          python3 .github/scripts/theme_sync_premium_ui.py
+
+      - name: Verify generated files
+        run: |
+          test -f app/src/main/java/com/mrrobot/ui/theme/AppColors.kt
+          test -f app/src/main/java/com/mrrobot/ui/theme/ThemeState.kt
+          test -f app/src/main/java/com/mrrobot/ui/theme/AlphaTheme.kt
+          echo "Verification complete"
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          git diff --cached --quiet || git commit -m "Fix theme sync and premium AI chat UI"
+
+          git push

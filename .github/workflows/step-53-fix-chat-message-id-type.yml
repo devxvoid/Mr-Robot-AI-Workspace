@@ -1,0 +1,56 @@
+name: Step 53 Fix Chat Message ID Type
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-chat-id:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fix ChatUiMessage ID type
+        run: |
+          FILE="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt"
+
+          if [ ! -f "$FILE" ]; then
+            echo "ChatScreen.kt not found"
+            exit 1
+          fi
+
+          sed -i 's/id = "welcome"/id = 0L/g' "$FILE"
+          sed -i 's/id = "assistant-welcome"/id = 0L/g' "$FILE"
+          sed -i 's/id = "mr-robot-welcome"/id = 0L/g' "$FILE"
+
+          echo "Patch applied"
+
+      - name: Verify patch
+        run: |
+          FILE="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt"
+
+          if grep -q 'id = "welcome"' "$FILE"; then
+            echo "welcome id still exists"
+            exit 1
+          fi
+
+          echo "Verification passed"
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes detected"
+            exit 0
+          fi
+
+          git commit -m "Fix ChatUiMessage ID type"
+          git push

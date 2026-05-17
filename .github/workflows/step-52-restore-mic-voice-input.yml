@@ -1,0 +1,72 @@
+name: Step 52 Restore Mic Voice Input
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore-mic:
+    name: Restore Mic Voice Input
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run mic restore patch
+        run: python3 .github/scripts/restore_mic_voice_input.py
+
+      - name: Verify mic restore patch
+        run: |
+          set -e
+
+          CHAT_SCREEN="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt"
+          MANIFEST="app/src/main/AndroidManifest.xml"
+
+          grep -q "import android.app.Activity" "$CHAT_SCREEN"
+          grep -q "import android.content.Intent" "$CHAT_SCREEN"
+          grep -q "import android.speech.RecognizerIntent" "$CHAT_SCREEN"
+          grep -q "import android.widget.Toast" "$CHAT_SCREEN"
+          grep -q "import androidx.compose.ui.platform.LocalContext" "$CHAT_SCREEN"
+          grep -q "import androidx.compose.ui.res.painterResource" "$CHAT_SCREEN"
+          grep -q "import java.util.Locale" "$CHAT_SCREEN"
+
+          grep -q "ActivityResultContracts.StartActivityForResult" "$CHAT_SCREEN"
+          grep -q "RecognizerIntent.ACTION_RECOGNIZE_SPEECH" "$CHAT_SCREEN"
+          grep -q "RecognizerIntent.EXTRA_RESULTS" "$CHAT_SCREEN"
+          grep -q "val speechLauncher" "$CHAT_SCREEN"
+          grep -q "onMicClick" "$CHAT_SCREEN"
+          grep -q "launchSpeechInput" "$CHAT_SCREEN"
+          grep -q "Speak to Mr. Robot" "$CHAT_SCREEN"
+          grep -q "R.drawable.ic_lucide_mic" "$CHAT_SCREEN"
+          grep -q "contentDescription = \"Voice input\"" "$CHAT_SCREEN"
+
+          grep -q "android.permission.RECORD_AUDIO" "$MANIFEST"
+
+          test -f app/src/main/res/drawable/ic_lucide_plus.xml
+          test -f app/src/main/res/drawable/ic_lucide_mic.xml
+
+      - name: Commit mic restore patch
+        run: |
+          set -e
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add app/src/main/java/com/mrrobot/aiworkspace/ui/screens/ChatScreen.kt
+          git add app/src/main/AndroidManifest.xml
+          git add app/src/main/res/drawable/ic_lucide_plus.xml
+          git add app/src/main/res/drawable/ic_lucide_mic.xml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit. Mic restore patch is already applied."
+            exit 0
+          fi
+
+          git commit -m "Step 52 restore mic voice input"
+          git pull --rebase origin main
+          git push origin main

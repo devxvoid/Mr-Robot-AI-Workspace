@@ -1,14 +1,32 @@
 package com.mrrobot.aiworkspace.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.mrrobot.aiworkspace.navigation.Route
-import com.mrrobot.aiworkspace.ui.components.*
+import com.mrrobot.aiworkspace.ui.components.CyberButton
+import com.mrrobot.aiworkspace.ui.components.GlassCard
+import com.mrrobot.aiworkspace.ui.components.PremiumMetric
+import com.mrrobot.aiworkspace.ui.components.ScreenShell
+import com.mrrobot.aiworkspace.ui.components.StatusPill
+import com.mrrobot.aiworkspace.ui.components.Subtitle
+import com.mrrobot.aiworkspace.ui.components.Title
 
 @Composable
 fun WelcomeScreen(nav: NavController) {
@@ -18,20 +36,33 @@ fun WelcomeScreen(nav: NavController) {
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             item {
-                PremiumHeader(
-                    title = "Mr. Robot AI Workspace",
-                    subtitle = "Android command center for AI chat, agents, workflows, terminal logs, files, marketplace modules, and OpenRouter models.",
-                    badge = "MVP"
-                )
+                HomeHeader()
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(18.dp))
 
                 GlassCard {
-                    Title("Command Center")
-                    Subtitle("Your Stitch design has evolved into a real Kotlin + Jetpack Compose MVP foundation.")
-                    Spacer(Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StatusPill("Chat")
+                        StatusPill("Agents")
+                        StatusPill("Workflows")
+                    }
 
-                    CyberButton("Launch AI Chat") {
+                    Spacer(Modifier.height(18.dp))
+
+                    Title("What can I help you with today?")
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Subtitle(
+                        "Start a conversation, launch an agent, or build an automation from a calmer AI workspace."
+                    )
+
+                    Spacer(Modifier.height(18.dp))
+
+                    CyberButton("Start New Chat") {
                         nav.navigate(Route.Chat.path)
                     }
 
@@ -41,9 +72,10 @@ fun WelcomeScreen(nav: NavController) {
                         onClick = { nav.navigate(Route.Agents.path) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
+                            .height(54.dp),
+                        shape = MaterialTheme.shapes.large
                     ) {
-                        Text("Open Agent System")
+                        Text("Open Agents")
                     }
 
                     Spacer(Modifier.height(10.dp))
@@ -52,7 +84,8 @@ fun WelcomeScreen(nav: NavController) {
                         onClick = { nav.navigate(Route.Workflow.path) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
+                            .height(54.dp),
+                        shape = MaterialTheme.shapes.large
                     ) {
                         Text("Build Workflow")
                     }
@@ -65,11 +98,19 @@ fun WelcomeScreen(nav: NavController) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric("Screens", "10", "Full MVP navigation")
+                        PremiumMetric(
+                            label = "Workspace",
+                            value = "20+",
+                            description = "Screens and tools"
+                        )
                     }
 
                     Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric("AI", "OR", "OpenRouter ready")
+                        PremiumMetric(
+                            label = "Themes",
+                            value = "5",
+                            description = "Set in Settings"
+                        )
                     }
                 }
 
@@ -80,23 +121,47 @@ fun WelcomeScreen(nav: NavController) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric("Agents", "5", "Role prompts")
+                        PremiumMetric(
+                            label = "Model",
+                            value = "OR",
+                            description = "OpenRouter ready"
+                        )
                     }
 
                     Box(modifier = Modifier.weight(1f)) {
-                        PremiumMetric("CI/CD", "APK", "GitHub builds")
+                        PremiumMetric(
+                            label = "Agents",
+                            value = "5",
+                            description = "Role-based system"
+                        )
                     }
-                }
-
-                Spacer(Modifier.height(14.dp))
-
-                GlassCard {
-                    Title("Design Source")
-                    Subtitle("Keep stitch_mr._robot_ai_workspace.zip in the repo root as your official Google Stitch reference asset.")
                 }
 
                 Spacer(Modifier.height(18.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun HomeHeader() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Mr. Robot AI\nWorkspace",
+            color = MaterialTheme.colorScheme.onBackground,
+            fontSize = 34.sp,
+            fontWeight = FontWeight.ExtraBold,
+            lineHeight = 38.sp,
+            letterSpacing = (-0.8).sp
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            text = "A calm, powerful Android workspace for chat, agents, workflows, terminal logs, marketplace tools, and OpenRouter models.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 16.sp,
+            lineHeight = 25.sp
+        )
     }
 }

@@ -1,0 +1,139 @@
+name: Step 34 Exact Lucide Sun Moon Icon
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    name: Replace Auto Theme Icon With Exact Lucide SVG
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Add exact Lucide sun-moon vector and update SettingsScreen
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DRAWABLE_DIR="app/src/main/res/drawable"
+          SETTINGS_FILE="app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt"
+
+          mkdir -p "$DRAWABLE_DIR"
+
+          cat > "$DRAWABLE_DIR/ic_lucide_sun_moon_exact.xml" <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+
+              <path
+                  android:pathData="M12,2V4"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M14.837,16.385a6,6 0,1 1,-7.223 -7.222c0.624,-0.147 0.97,0.66 0.715,1.248a4,4 0,0 0,5.26 5.259c0.589,-0.255 1.396,0.09 1.248,0.715"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M16,12a4,4 0,0 0,-4 -4"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M19,5l-1.256,1.256"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+
+              <path
+                  android:pathData="M20,12H22"
+                  android:fillColor="@android:color/transparent"
+                  android:strokeColor="@android:color/white"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round" />
+          </vector>
+          EOF
+
+          # Also overwrite the old drawable so both resource names are clean.
+          cp "$DRAWABLE_DIR/ic_lucide_sun_moon_exact.xml" "$DRAWABLE_DIR/ic_lucide_sun_moon.xml"
+
+          if [ ! -f "$SETTINGS_FILE" ]; then
+            echo "SettingsScreen.kt not found at $SETTINGS_FILE"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt")
+          text = path.read_text()
+
+          text = text.replace(
+              "R.drawable.ic_lucide_sun_moon,",
+              "R.drawable.ic_lucide_sun_moon_exact,"
+          )
+
+          text = text.replace(
+              "iconRes = R.drawable.ic_lucide_sun_moon",
+              "iconRes = R.drawable.ic_lucide_sun_moon_exact"
+          )
+
+          path.write_text(text)
+          PY
+
+      - name: Verify exact Auto icon is used
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -R "ic_lucide_sun_moon_exact" app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt
+          grep -R "M14.837,16.385" app/src/main/res/drawable/ic_lucide_sun_moon_exact.xml
+          grep -R "M16,12a4,4" app/src/main/res/drawable/ic_lucide_sun_moon_exact.xml
+          grep -R "M20,12H22" app/src/main/res/drawable/ic_lucide_sun_moon_exact.xml
+
+          echo "Exact Lucide sun-moon icon is installed and referenced."
+
+      - name: Commit Step 34
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add app/src/main/res/drawable/ic_lucide_sun_moon_exact.xml
+          git add app/src/main/res/drawable/ic_lucide_sun_moon.xml
+          git add app/src/main/java/com/mrrobot/aiworkspace/ui/screens/SettingsScreen.kt
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Step 34 use exact Lucide sun moon icon for Auto theme"
+
+          git pull --rebase origin main
+          git push origin main
