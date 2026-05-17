@@ -31,6 +31,14 @@ data class AppSettings(
     val mistralApiKey: String = "",
     val deepSeekApiKey: String = "",
     val xAiApiKey: String = "",
+    val cohereApiKey: String = "",
+    val perplexityApiKey: String = "",
+    val togetherApiKey: String = "",
+    val fireworksApiKey: String = "",
+    val moonshotApiKey: String = "",
+    val zaiApiKey: String = "",
+    val nvidiaNimApiKey: String = "",
+    val huggingFaceApiKey: String = "",
 
     val openRouterModel: String = "openai/gpt-4o-mini",
     val openAiModel: String = "gpt-4o-mini",
@@ -39,7 +47,15 @@ data class AppSettings(
     val groqModel: String = "llama-3.3-70b-versatile",
     val mistralModel: String = "mistral-large-latest",
     val deepSeekModel: String = "deepseek-chat",
-    val xAiModel: String = "grok-2-latest"
+    val xAiModel: String = "grok-2-latest",
+    val cohereModel: String = "command-a-03-2025",
+    val perplexityModel: String = "sonar-pro",
+    val togetherModel: String = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    val fireworksModel: String = "accounts/fireworks/models/llama-v3p3-70b-instruct",
+    val moonshotModel: String = "kimi-latest",
+    val zaiModel: String = "glm-4.6",
+    val nvidiaNimModel: String = "meta/llama-3.3-70b-instruct",
+    val huggingFaceModel: String = "meta-llama/Llama-3.3-70B-Instruct"
 ) {
     fun keyFor(provider: ApiProvider): String {
         return when (provider) {
@@ -51,6 +67,14 @@ data class AppSettings(
             ApiProvider.Mistral -> mistralApiKey
             ApiProvider.DeepSeek -> deepSeekApiKey
             ApiProvider.XAI -> xAiApiKey
+            ApiProvider.Cohere -> cohereApiKey
+            ApiProvider.Perplexity -> perplexityApiKey
+            ApiProvider.Together -> togetherApiKey
+            ApiProvider.Fireworks -> fireworksApiKey
+            ApiProvider.Moonshot -> moonshotApiKey
+            ApiProvider.ZAI -> zaiApiKey
+            ApiProvider.NvidiaNim -> nvidiaNimApiKey
+            ApiProvider.HuggingFace -> huggingFaceApiKey
         }
     }
 
@@ -64,6 +88,14 @@ data class AppSettings(
             ApiProvider.Mistral -> mistralModel
             ApiProvider.DeepSeek -> deepSeekModel
             ApiProvider.XAI -> xAiModel
+            ApiProvider.Cohere -> cohereModel
+            ApiProvider.Perplexity -> perplexityModel
+            ApiProvider.Together -> togetherModel
+            ApiProvider.Fireworks -> fireworksModel
+            ApiProvider.Moonshot -> moonshotModel
+            ApiProvider.ZAI -> zaiModel
+            ApiProvider.NvidiaNim -> nvidiaNimModel
+            ApiProvider.HuggingFace -> huggingFaceModel
         }
 
         return AiModels.byIdOrNull(stored)
@@ -113,6 +145,14 @@ class SettingsStore(private val context: Context) {
         val MISTRAL_API_KEY = stringPreferencesKey("api_key_mistral")
         val DEEPSEEK_API_KEY = stringPreferencesKey("api_key_deepseek")
         val XAI_API_KEY = stringPreferencesKey("api_key_xai")
+        val COHERE_API_KEY = stringPreferencesKey("api_key_cohere")
+        val PERPLEXITY_API_KEY = stringPreferencesKey("api_key_perplexity")
+        val TOGETHER_API_KEY = stringPreferencesKey("api_key_together")
+        val FIREWORKS_API_KEY = stringPreferencesKey("api_key_fireworks")
+        val MOONSHOT_API_KEY = stringPreferencesKey("api_key_moonshot")
+        val ZAI_API_KEY = stringPreferencesKey("api_key_zai")
+        val NVIDIANIM_API_KEY = stringPreferencesKey("api_key_nvidianim")
+        val HUGGINGFACE_API_KEY = stringPreferencesKey("api_key_huggingface")
 
         val OPENROUTER_MODEL = stringPreferencesKey("model_openrouter")
         val OPENAI_MODEL = stringPreferencesKey("model_openai")
@@ -122,6 +162,14 @@ class SettingsStore(private val context: Context) {
         val MISTRAL_MODEL = stringPreferencesKey("model_mistral")
         val DEEPSEEK_MODEL = stringPreferencesKey("model_deepseek")
         val XAI_MODEL = stringPreferencesKey("model_xai")
+        val COHERE_MODEL = stringPreferencesKey("model_cohere")
+        val PERPLEXITY_MODEL = stringPreferencesKey("model_perplexity")
+        val TOGETHER_MODEL = stringPreferencesKey("model_together")
+        val FIREWORKS_MODEL = stringPreferencesKey("model_fireworks")
+        val MOONSHOT_MODEL = stringPreferencesKey("model_moonshot")
+        val ZAI_MODEL = stringPreferencesKey("model_zai")
+        val NVIDIANIM_MODEL = stringPreferencesKey("model_nvidianim")
+        val HUGGINGFACE_MODEL = stringPreferencesKey("model_huggingface")
     }
 
     val settingsFlow: Flow<AppSettings> =
@@ -143,6 +191,14 @@ class SettingsStore(private val context: Context) {
             val mistralModel = normalizeModel(ApiProvider.Mistral, prefs[Keys.MISTRAL_MODEL])
             val deepSeekModel = normalizeModel(ApiProvider.DeepSeek, prefs[Keys.DEEPSEEK_MODEL])
             val xAiModel = normalizeModel(ApiProvider.XAI, prefs[Keys.XAI_MODEL])
+            val cohereModel = normalizeModel(ApiProvider.Cohere, prefs[Keys.COHERE_MODEL])
+            val perplexityModel = normalizeModel(ApiProvider.Perplexity, prefs[Keys.PERPLEXITY_MODEL])
+            val togetherModel = normalizeModel(ApiProvider.Together, prefs[Keys.TOGETHER_MODEL])
+            val fireworksModel = normalizeModel(ApiProvider.Fireworks, prefs[Keys.FIREWORKS_MODEL])
+            val moonshotModel = normalizeModel(ApiProvider.Moonshot, prefs[Keys.MOONSHOT_MODEL])
+            val zaiModel = normalizeModel(ApiProvider.ZAI, prefs[Keys.ZAI_MODEL])
+            val nvidiaNimModel = normalizeModel(ApiProvider.NvidiaNim, prefs[Keys.NVIDIANIM_MODEL])
+            val huggingFaceModel = normalizeModel(ApiProvider.HuggingFace, prefs[Keys.HUGGINGFACE_MODEL])
 
             val activeModel = when (selectedProvider) {
                 ApiProvider.OpenRouter -> openRouterModel
@@ -153,6 +209,14 @@ class SettingsStore(private val context: Context) {
                 ApiProvider.Mistral -> mistralModel
                 ApiProvider.DeepSeek -> deepSeekModel
                 ApiProvider.XAI -> xAiModel
+                ApiProvider.Cohere -> cohereModel
+                ApiProvider.Perplexity -> perplexityModel
+                ApiProvider.Together -> togetherModel
+                ApiProvider.Fireworks -> fireworksModel
+                ApiProvider.Moonshot -> moonshotModel
+                ApiProvider.ZAI -> zaiModel
+                ApiProvider.NvidiaNim -> nvidiaNimModel
+                ApiProvider.HuggingFace -> huggingFaceModel
             }
 
             AppSettings(
@@ -169,6 +233,14 @@ class SettingsStore(private val context: Context) {
                 mistralApiKey = prefs[Keys.MISTRAL_API_KEY] ?: "",
                 deepSeekApiKey = prefs[Keys.DEEPSEEK_API_KEY] ?: "",
                 xAiApiKey = prefs[Keys.XAI_API_KEY] ?: "",
+                cohereApiKey = prefs[Keys.COHERE_API_KEY] ?: "",
+                perplexityApiKey = prefs[Keys.PERPLEXITY_API_KEY] ?: "",
+                togetherApiKey = prefs[Keys.TOGETHER_API_KEY] ?: "",
+                fireworksApiKey = prefs[Keys.FIREWORKS_API_KEY] ?: "",
+                moonshotApiKey = prefs[Keys.MOONSHOT_API_KEY] ?: "",
+                zaiApiKey = prefs[Keys.ZAI_API_KEY] ?: "",
+                nvidiaNimApiKey = prefs[Keys.NVIDIANIM_API_KEY] ?: "",
+                huggingFaceApiKey = prefs[Keys.HUGGINGFACE_API_KEY] ?: "",
 
                 openRouterModel = openRouterModel,
                 openAiModel = openAiModel,
@@ -177,7 +249,15 @@ class SettingsStore(private val context: Context) {
                 groqModel = groqModel,
                 mistralModel = mistralModel,
                 deepSeekModel = deepSeekModel,
-                xAiModel = xAiModel
+                xAiModel = xAiModel,
+                cohereModel = cohereModel,
+                perplexityModel = perplexityModel,
+                togetherModel = togetherModel,
+                fireworksModel = fireworksModel,
+                moonshotModel = moonshotModel,
+                zaiModel = zaiModel,
+                nvidiaNimModel = nvidiaNimModel,
+                huggingFaceModel = huggingFaceModel
             )
         }
 
@@ -197,6 +277,14 @@ class SettingsStore(private val context: Context) {
             mistralApiKey = "",
             deepSeekApiKey = "",
             xAiApiKey = "",
+            cohereApiKey = "",
+            perplexityApiKey = "",
+            togetherApiKey = "",
+            fireworksApiKey = "",
+            moonshotApiKey = "",
+            zaiApiKey = "",
+            nvidiaNimApiKey = "",
+            huggingFaceApiKey = "",
             openRouterModel = model,
             openAiModel = AiModels.defaultForProvider(ApiProvider.OpenAI).id,
             anthropicModel = AiModels.defaultForProvider(ApiProvider.Anthropic).id,
@@ -204,7 +292,15 @@ class SettingsStore(private val context: Context) {
             groqModel = AiModels.defaultForProvider(ApiProvider.Groq).id,
             mistralModel = AiModels.defaultForProvider(ApiProvider.Mistral).id,
             deepSeekModel = AiModels.defaultForProvider(ApiProvider.DeepSeek).id,
-            xAiModel = AiModels.defaultForProvider(ApiProvider.XAI).id
+            xAiModel = AiModels.defaultForProvider(ApiProvider.XAI).id,
+            cohereModel = AiModels.defaultForProvider(ApiProvider.Cohere).id,
+            perplexityModel = AiModels.defaultForProvider(ApiProvider.Perplexity).id,
+            togetherModel = AiModels.defaultForProvider(ApiProvider.Together).id,
+            fireworksModel = AiModels.defaultForProvider(ApiProvider.Fireworks).id,
+            moonshotModel = AiModels.defaultForProvider(ApiProvider.Moonshot).id,
+            zaiModel = AiModels.defaultForProvider(ApiProvider.ZAI).id,
+            nvidiaNimModel = AiModels.defaultForProvider(ApiProvider.NvidiaNim).id,
+            huggingFaceModel = AiModels.defaultForProvider(ApiProvider.HuggingFace).id
         )
     }
 
@@ -220,6 +316,14 @@ class SettingsStore(private val context: Context) {
         mistralApiKey: String,
         deepSeekApiKey: String,
         xAiApiKey: String,
+        cohereApiKey: String,
+        perplexityApiKey: String,
+        togetherApiKey: String,
+        fireworksApiKey: String,
+        moonshotApiKey: String,
+        zaiApiKey: String,
+        nvidiaNimApiKey: String,
+        huggingFaceApiKey: String,
 
         openRouterModel: String,
         openAiModel: String,
@@ -228,7 +332,15 @@ class SettingsStore(private val context: Context) {
         groqModel: String,
         mistralModel: String,
         deepSeekModel: String,
-        xAiModel: String
+        xAiModel: String,
+        cohereModel: String,
+        perplexityModel: String,
+        togetherModel: String,
+        fireworksModel: String,
+        moonshotModel: String,
+        zaiModel: String,
+        nvidiaNimModel: String,
+        huggingFaceModel: String
     ) {
         val safeOpenRouterModel = normalizeModel(ApiProvider.OpenRouter, openRouterModel)
         val safeOpenAiModel = normalizeModel(ApiProvider.OpenAI, openAiModel)
@@ -238,6 +350,14 @@ class SettingsStore(private val context: Context) {
         val safeMistralModel = normalizeModel(ApiProvider.Mistral, mistralModel)
         val safeDeepSeekModel = normalizeModel(ApiProvider.DeepSeek, deepSeekModel)
         val safeXAiModel = normalizeModel(ApiProvider.XAI, xAiModel)
+        val safeCohereModel = normalizeModel(ApiProvider.Cohere, cohereModel)
+        val safePerplexityModel = normalizeModel(ApiProvider.Perplexity, perplexityModel)
+        val safeTogetherModel = normalizeModel(ApiProvider.Together, togetherModel)
+        val safeFireworksModel = normalizeModel(ApiProvider.Fireworks, fireworksModel)
+        val safeMoonshotModel = normalizeModel(ApiProvider.Moonshot, moonshotModel)
+        val safeZaiModel = normalizeModel(ApiProvider.ZAI, zaiModel)
+        val safeNvidiaNimModel = normalizeModel(ApiProvider.NvidiaNim, nvidiaNimModel)
+        val safeHuggingFaceModel = normalizeModel(ApiProvider.HuggingFace, huggingFaceModel)
 
         val activeModel = when (selectedProvider) {
             ApiProvider.OpenRouter -> safeOpenRouterModel
@@ -248,6 +368,14 @@ class SettingsStore(private val context: Context) {
             ApiProvider.Mistral -> safeMistralModel
             ApiProvider.DeepSeek -> safeDeepSeekModel
             ApiProvider.XAI -> safeXAiModel
+            ApiProvider.Cohere -> safeCohereModel
+            ApiProvider.Perplexity -> safePerplexityModel
+            ApiProvider.Together -> safeTogetherModel
+            ApiProvider.Fireworks -> safeFireworksModel
+            ApiProvider.Moonshot -> safeMoonshotModel
+            ApiProvider.ZAI -> safeZaiModel
+            ApiProvider.NvidiaNim -> safeNvidiaNimModel
+            ApiProvider.HuggingFace -> safeHuggingFaceModel
         }
 
         context.settingsDataStore.edit { prefs ->
@@ -264,6 +392,14 @@ class SettingsStore(private val context: Context) {
             prefs[Keys.MISTRAL_API_KEY] = mistralApiKey.trim()
             prefs[Keys.DEEPSEEK_API_KEY] = deepSeekApiKey.trim()
             prefs[Keys.XAI_API_KEY] = xAiApiKey.trim()
+            prefs[Keys.COHERE_API_KEY] = cohereApiKey.trim()
+            prefs[Keys.PERPLEXITY_API_KEY] = perplexityApiKey.trim()
+            prefs[Keys.TOGETHER_API_KEY] = togetherApiKey.trim()
+            prefs[Keys.FIREWORKS_API_KEY] = fireworksApiKey.trim()
+            prefs[Keys.MOONSHOT_API_KEY] = moonshotApiKey.trim()
+            prefs[Keys.ZAI_API_KEY] = zaiApiKey.trim()
+            prefs[Keys.NVIDIANIM_API_KEY] = nvidiaNimApiKey.trim()
+            prefs[Keys.HUGGINGFACE_API_KEY] = huggingFaceApiKey.trim()
 
             prefs[Keys.OPENROUTER_MODEL] = safeOpenRouterModel
             prefs[Keys.OPENAI_MODEL] = safeOpenAiModel
@@ -273,6 +409,14 @@ class SettingsStore(private val context: Context) {
             prefs[Keys.MISTRAL_MODEL] = safeMistralModel
             prefs[Keys.DEEPSEEK_MODEL] = safeDeepSeekModel
             prefs[Keys.XAI_MODEL] = safeXAiModel
+            prefs[Keys.COHERE_MODEL] = safeCohereModel
+            prefs[Keys.PERPLEXITY_MODEL] = safePerplexityModel
+            prefs[Keys.TOGETHER_MODEL] = safeTogetherModel
+            prefs[Keys.FIREWORKS_MODEL] = safeFireworksModel
+            prefs[Keys.MOONSHOT_MODEL] = safeMoonshotModel
+            prefs[Keys.ZAI_MODEL] = safeZaiModel
+            prefs[Keys.NVIDIANIM_MODEL] = safeNvidiaNimModel
+            prefs[Keys.HUGGINGFACE_MODEL] = safeHuggingFaceModel
         }
     }
 

@@ -28,6 +28,14 @@ data class SettingsUiState(
     val mistralApiKey: String = "",
     val deepSeekApiKey: String = "",
     val xAiApiKey: String = "",
+    val cohereApiKey: String = "",
+    val perplexityApiKey: String = "",
+    val togetherApiKey: String = "",
+    val fireworksApiKey: String = "",
+    val moonshotApiKey: String = "",
+    val zaiApiKey: String = "",
+    val nvidiaNimApiKey: String = "",
+    val huggingFaceApiKey: String = "",
 
     val openRouterModel: String = "openai/gpt-4o-mini",
     val openAiModel: String = "gpt-4o-mini",
@@ -37,6 +45,14 @@ data class SettingsUiState(
     val mistralModel: String = "mistral-large-latest",
     val deepSeekModel: String = "deepseek-chat",
     val xAiModel: String = "grok-2-latest",
+    val cohereModel: String = "command-a-03-2025",
+    val perplexityModel: String = "sonar-pro",
+    val togetherModel: String = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    val fireworksModel: String = "accounts/fireworks/models/llama-v3p3-70b-instruct",
+    val moonshotModel: String = "kimi-latest",
+    val zaiModel: String = "glm-4.6",
+    val nvidiaNimModel: String = "meta/llama-3.3-70b-instruct",
+    val huggingFaceModel: String = "meta-llama/Llama-3.3-70B-Instruct",
 
     val savedMessage: String = "",
     val isLoaded: Boolean = false
@@ -51,6 +67,14 @@ data class SettingsUiState(
             ApiProvider.Mistral -> mistralApiKey
             ApiProvider.DeepSeek -> deepSeekApiKey
             ApiProvider.XAI -> xAiApiKey
+            ApiProvider.Cohere -> cohereApiKey
+            ApiProvider.Perplexity -> perplexityApiKey
+            ApiProvider.Together -> togetherApiKey
+            ApiProvider.Fireworks -> fireworksApiKey
+            ApiProvider.Moonshot -> moonshotApiKey
+            ApiProvider.ZAI -> zaiApiKey
+            ApiProvider.NvidiaNim -> nvidiaNimApiKey
+            ApiProvider.HuggingFace -> huggingFaceApiKey
         }
     }
 
@@ -64,6 +88,14 @@ data class SettingsUiState(
             ApiProvider.Mistral -> mistralModel
             ApiProvider.DeepSeek -> deepSeekModel
             ApiProvider.XAI -> xAiModel
+            ApiProvider.Cohere -> cohereModel
+            ApiProvider.Perplexity -> perplexityModel
+            ApiProvider.Together -> togetherModel
+            ApiProvider.Fireworks -> fireworksModel
+            ApiProvider.Moonshot -> moonshotModel
+            ApiProvider.ZAI -> zaiModel
+            ApiProvider.NvidiaNim -> nvidiaNimModel
+            ApiProvider.HuggingFace -> huggingFaceModel
         }
 
         return AiModels.byIdOrNull(saved)
@@ -113,6 +145,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     mistralApiKey = settings.mistralApiKey,
                     deepSeekApiKey = settings.deepSeekApiKey,
                     xAiApiKey = settings.xAiApiKey,
+                    cohereApiKey = settings.cohereApiKey,
+                    perplexityApiKey = settings.perplexityApiKey,
+                    togetherApiKey = settings.togetherApiKey,
+                    fireworksApiKey = settings.fireworksApiKey,
+                    moonshotApiKey = settings.moonshotApiKey,
+                    zaiApiKey = settings.zaiApiKey,
+                    nvidiaNimApiKey = settings.nvidiaNimApiKey,
+                    huggingFaceApiKey = settings.huggingFaceApiKey,
 
                     openRouterModel = settings.openRouterModel,
                     openAiModel = settings.openAiModel,
@@ -122,6 +162,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     mistralModel = settings.mistralModel,
                     deepSeekModel = settings.deepSeekModel,
                     xAiModel = settings.xAiModel,
+                    cohereModel = settings.cohereModel,
+                    perplexityModel = settings.perplexityModel,
+                    togetherModel = settings.togetherModel,
+                    fireworksModel = settings.fireworksModel,
+                    moonshotModel = settings.moonshotModel,
+                    zaiModel = settings.zaiModel,
+                    nvidiaNimModel = settings.nvidiaNimModel,
+                    huggingFaceModel = settings.huggingFaceModel,
 
                     isLoaded = true
                 )
@@ -248,6 +296,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             mistralApiKey = state.mistralApiKey,
             deepSeekApiKey = state.deepSeekApiKey,
             xAiApiKey = state.xAiApiKey,
+            cohereApiKey = state.cohereApiKey,
+            perplexityApiKey = state.perplexityApiKey,
+            togetherApiKey = state.togetherApiKey,
+            fireworksApiKey = state.fireworksApiKey,
+            moonshotApiKey = state.moonshotApiKey,
+            zaiApiKey = state.zaiApiKey,
+            nvidiaNimApiKey = state.nvidiaNimApiKey,
+            huggingFaceApiKey = state.huggingFaceApiKey,
 
             openRouterModel = state.openRouterModel,
             openAiModel = state.openAiModel,
@@ -256,7 +312,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             groqModel = state.groqModel,
             mistralModel = state.mistralModel,
             deepSeekModel = state.deepSeekModel,
-            xAiModel = state.xAiModel
+            xAiModel = state.xAiModel,
+            cohereModel = state.cohereModel,
+            perplexityModel = state.perplexityModel,
+            togetherModel = state.togetherModel,
+            fireworksModel = state.fireworksModel,
+            moonshotModel = state.moonshotModel,
+            zaiModel = state.zaiModel,
+            nvidiaNimModel = state.nvidiaNimModel,
+            huggingFaceModel = state.huggingFaceModel
         )
     }
 
@@ -311,6 +375,46 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             ApiProvider.XAI -> state.copy(
                 xAiApiKey = apiKey,
                 xAiModel = safeModel
+            )
+
+            ApiProvider.Cohere -> state.copy(
+                cohereApiKey = apiKey,
+                cohereModel = safeModel
+            )
+
+            ApiProvider.Perplexity -> state.copy(
+                perplexityApiKey = apiKey,
+                perplexityModel = safeModel
+            )
+
+            ApiProvider.Together -> state.copy(
+                togetherApiKey = apiKey,
+                togetherModel = safeModel
+            )
+
+            ApiProvider.Fireworks -> state.copy(
+                fireworksApiKey = apiKey,
+                fireworksModel = safeModel
+            )
+
+            ApiProvider.Moonshot -> state.copy(
+                moonshotApiKey = apiKey,
+                moonshotModel = safeModel
+            )
+
+            ApiProvider.ZAI -> state.copy(
+                zaiApiKey = apiKey,
+                zaiModel = safeModel
+            )
+
+            ApiProvider.NvidiaNim -> state.copy(
+                nvidiaNimApiKey = apiKey,
+                nvidiaNimModel = safeModel
+            )
+
+            ApiProvider.HuggingFace -> state.copy(
+                huggingFaceApiKey = apiKey,
+                huggingFaceModel = safeModel
             )
         }
     }

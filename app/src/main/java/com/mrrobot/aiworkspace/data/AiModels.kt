@@ -62,6 +62,62 @@ enum class ApiProvider(
         keyLabel = "xAI API Key",
         keyPlaceholder = "xai-...",
         helpText = "Use Grok models directly."
+    ),
+    Cohere(
+        displayName = "Cohere",
+        shortName = "Cohere",
+        keyLabel = "Cohere API Key",
+        keyPlaceholder = "Enter Cohere API key",
+        helpText = "Use Cohere Command models via OpenAI-compatible API."
+    ),
+    Perplexity(
+        displayName = "Perplexity",
+        shortName = "PPLX",
+        keyLabel = "Perplexity API Key",
+        keyPlaceholder = "pplx-...",
+        helpText = "Use Perplexity Sonar search-grounded models."
+    ),
+    Together(
+        displayName = "Together AI",
+        shortName = "Together",
+        keyLabel = "Together API Key",
+        keyPlaceholder = "Enter Together API key",
+        helpText = "Run hundreds of open models on Together AI."
+    ),
+    Fireworks(
+        displayName = "Fireworks AI",
+        shortName = "Fireworks",
+        keyLabel = "Fireworks API Key",
+        keyPlaceholder = "fw_...",
+        helpText = "Fast open model inference on Fireworks AI."
+    ),
+    Moonshot(
+        displayName = "Moonshot Kimi",
+        shortName = "Kimi",
+        keyLabel = "Moonshot API Key",
+        keyPlaceholder = "sk-...",
+        helpText = "Use Moonshot AI Kimi models directly."
+    ),
+    ZAI(
+        displayName = "Z.ai GLM",
+        shortName = "GLM",
+        keyLabel = "Z.ai API Key",
+        keyPlaceholder = "Enter Z.ai API key",
+        helpText = "Use Z.ai GLM models directly."
+    ),
+    NvidiaNim(
+        displayName = "NVIDIA NIM",
+        shortName = "NIM",
+        keyLabel = "NVIDIA API Key",
+        keyPlaceholder = "nvapi-...",
+        helpText = "Use NVIDIA NIM hosted models (build.nvidia.com)."
+    ),
+    HuggingFace(
+        displayName = "Hugging Face",
+        shortName = "HF",
+        keyLabel = "Hugging Face Token",
+        keyPlaceholder = "hf_...",
+        helpText = "Use Hugging Face Inference Providers (router.huggingface.co)."
     )
 }
 
@@ -431,7 +487,137 @@ object AiModels {
         AiModel("grok-3-mini-fast", "Grok 3 Mini Fast", "xAI", "Fastest small Grok.", ApiProvider.XAI),
         AiModel("grok-2-latest", "Grok 2", "xAI", "Legacy Grok 2.", ApiProvider.XAI),
         AiModel("grok-2-vision-1212", "Grok 2 Vision", "xAI", "Grok 2 with vision.", ApiProvider.XAI),
-        AiModel("grok-beta", "Grok Beta", "xAI", "Beta Grok endpoint.", ApiProvider.XAI)
+        AiModel("grok-beta", "Grok Beta", "xAI", "Beta Grok endpoint.", ApiProvider.XAI),
+
+        // ──────────────────────────────────────────────────────────────
+        //  Cohere (direct, OpenAI-compatible at api.cohere.com/compatibility/v1)
+        // ──────────────────────────────────────────────────────────────
+        AiModel("command-a-03-2025", "Command A", "Cohere", "Cohere Command A flagship.", ApiProvider.Cohere),
+        AiModel("command-r-plus-08-2024", "Command R+ (08-2024)", "Cohere", "Cohere Command R+ Aug 2024.", ApiProvider.Cohere),
+        AiModel("command-r-plus", "Command R+", "Cohere", "Cohere Command R+ flagship.", ApiProvider.Cohere),
+        AiModel("command-r-08-2024", "Command R (08-2024)", "Cohere", "Cohere Command R Aug 2024.", ApiProvider.Cohere),
+        AiModel("command-r", "Command R", "Cohere", "Cohere Command R baseline.", ApiProvider.Cohere),
+        AiModel("command-r7b-12-2024", "Command R7B", "Cohere", "Compact Cohere Command R7B.", ApiProvider.Cohere),
+        AiModel("command", "Command", "Cohere", "Legacy Cohere Command model.", ApiProvider.Cohere),
+        AiModel("command-light", "Command Light", "Cohere", "Lightweight Cohere Command.", ApiProvider.Cohere),
+
+        // ──────────────────────────────────────────────────────────────
+        //  Perplexity (direct, api.perplexity.ai/chat/completions)
+        // ──────────────────────────────────────────────────────────────
+        AiModel("sonar-pro", "Sonar Pro", "Perplexity", "Perplexity Sonar Pro web-grounded model.", ApiProvider.Perplexity),
+        AiModel("sonar", "Sonar", "Perplexity", "Perplexity Sonar fast web-grounded model.", ApiProvider.Perplexity),
+        AiModel("sonar-reasoning-pro", "Sonar Reasoning Pro", "Perplexity", "Perplexity reasoning Pro with web search.", ApiProvider.Perplexity),
+        AiModel("sonar-reasoning", "Sonar Reasoning", "Perplexity", "Perplexity reasoning with web search.", ApiProvider.Perplexity),
+        AiModel("sonar-deep-research", "Sonar Deep Research", "Perplexity", "Perplexity multi-step deep research.", ApiProvider.Perplexity),
+
+        // ──────────────────────────────────────────────────────────────
+        //  Together AI (direct, api.together.xyz/v1/chat/completions)
+        // ──────────────────────────────────────────────────────────────
+        AiModel("meta-llama/Llama-3.3-70B-Instruct-Turbo", "Llama 3.3 70B Turbo", "Together", "Llama 3.3 70B on Together.", ApiProvider.Together),
+        AiModel("meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", "Llama 3.1 405B Turbo", "Together", "Llama 3.1 405B on Together.", ApiProvider.Together),
+        AiModel("meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", "Llama 3.1 70B Turbo", "Together", "Llama 3.1 70B on Together.", ApiProvider.Together),
+        AiModel("meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", "Llama 3.1 8B Turbo", "Together", "Llama 3.1 8B on Together.", ApiProvider.Together),
+        AiModel("meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", "Llama 4 Maverick", "Together", "Llama 4 Maverick on Together.", ApiProvider.Together),
+        AiModel("meta-llama/Llama-4-Scout-17B-16E-Instruct", "Llama 4 Scout", "Together", "Llama 4 Scout on Together.", ApiProvider.Together),
+        AiModel("deepseek-ai/DeepSeek-V3", "DeepSeek V3", "Together", "DeepSeek V3 on Together.", ApiProvider.Together),
+        AiModel("deepseek-ai/DeepSeek-R1", "DeepSeek R1", "Together", "DeepSeek R1 on Together.", ApiProvider.Together),
+        AiModel("Qwen/Qwen2.5-72B-Instruct-Turbo", "Qwen 2.5 72B Turbo", "Together", "Qwen 2.5 72B on Together.", ApiProvider.Together),
+        AiModel("Qwen/Qwen2.5-Coder-32B-Instruct", "Qwen 2.5 Coder 32B", "Together", "Qwen 2.5 Coder on Together.", ApiProvider.Together),
+        AiModel("Qwen/QwQ-32B", "Qwen QwQ 32B", "Together", "Qwen reasoning on Together.", ApiProvider.Together),
+        AiModel("mistralai/Mixtral-8x7B-Instruct-v0.1", "Mixtral 8x7B", "Together", "Mixtral 8x7B on Together.", ApiProvider.Together),
+        AiModel("mistralai/Mixtral-8x22B-Instruct-v0.1", "Mixtral 8x22B", "Together", "Mixtral 8x22B on Together.", ApiProvider.Together),
+        AiModel("google/gemma-2-27b-it", "Gemma 2 27B", "Together", "Google Gemma 2 27B on Together.", ApiProvider.Together),
+        AiModel("nvidia/Llama-3.1-Nemotron-70B-Instruct-HF", "Llama 3.1 Nemotron 70B", "Together", "NVIDIA Nemotron on Together.", ApiProvider.Together),
+
+        // ──────────────────────────────────────────────────────────────
+        //  Fireworks AI (direct, api.fireworks.ai/inference/v1/chat/completions)
+        // ──────────────────────────────────────────────────────────────
+        AiModel("accounts/fireworks/models/llama-v3p3-70b-instruct", "Llama 3.3 70B", "Fireworks", "Llama 3.3 70B on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/llama-v3p1-405b-instruct", "Llama 3.1 405B", "Fireworks", "Llama 3.1 405B on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/llama-v3p1-70b-instruct", "Llama 3.1 70B", "Fireworks", "Llama 3.1 70B on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/llama-v3p1-8b-instruct", "Llama 3.1 8B", "Fireworks", "Llama 3.1 8B on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/llama4-maverick-instruct-basic", "Llama 4 Maverick", "Fireworks", "Llama 4 Maverick on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/llama4-scout-instruct-basic", "Llama 4 Scout", "Fireworks", "Llama 4 Scout on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/deepseek-v3", "DeepSeek V3", "Fireworks", "DeepSeek V3 on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/deepseek-r1", "DeepSeek R1", "Fireworks", "DeepSeek R1 on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/qwen2p5-72b-instruct", "Qwen 2.5 72B", "Fireworks", "Qwen 2.5 72B on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/qwen2p5-coder-32b-instruct", "Qwen 2.5 Coder 32B", "Fireworks", "Qwen Coder on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/qwq-32b", "Qwen QwQ 32B", "Fireworks", "Qwen reasoning on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/mixtral-8x22b-instruct", "Mixtral 8x22B", "Fireworks", "Mixtral 8x22B on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/mixtral-8x7b-instruct", "Mixtral 8x7B", "Fireworks", "Mixtral 8x7B on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/gpt-oss-120b", "GPT-OSS 120B", "Fireworks", "OpenAI open-weight 120B on Fireworks.", ApiProvider.Fireworks),
+        AiModel("accounts/fireworks/models/gpt-oss-20b", "GPT-OSS 20B", "Fireworks", "OpenAI open-weight 20B on Fireworks.", ApiProvider.Fireworks),
+
+        // ──────────────────────────────────────────────────────────────
+        //  Moonshot Kimi (direct, api.moonshot.ai/v1/chat/completions)
+        // ──────────────────────────────────────────────────────────────
+        AiModel("kimi-k2-0905-preview", "Kimi K2 (0905)", "Moonshot", "Kimi K2 0905 preview.", ApiProvider.Moonshot),
+        AiModel("kimi-k2-0711-preview", "Kimi K2 (0711)", "Moonshot", "Kimi K2 0711 preview.", ApiProvider.Moonshot),
+        AiModel("kimi-latest", "Kimi Latest", "Moonshot", "Latest Kimi default model.", ApiProvider.Moonshot),
+        AiModel("moonshot-v1-128k", "Moonshot v1 128k", "Moonshot", "Moonshot v1 128k context.", ApiProvider.Moonshot),
+        AiModel("moonshot-v1-32k", "Moonshot v1 32k", "Moonshot", "Moonshot v1 32k context.", ApiProvider.Moonshot),
+        AiModel("moonshot-v1-8k", "Moonshot v1 8k", "Moonshot", "Moonshot v1 8k context.", ApiProvider.Moonshot),
+        AiModel("moonshot-v1-128k-vision-preview", "Moonshot v1 Vision", "Moonshot", "Moonshot vision preview.", ApiProvider.Moonshot),
+
+        // ──────────────────────────────────────────────────────────────
+        //  Z.ai GLM (direct, api.z.ai/api/paas/v4/chat/completions)
+        // ──────────────────────────────────────────────────────────────
+        AiModel("glm-4.6", "GLM 4.6", "Z.ai", "Z.ai GLM 4.6 flagship.", ApiProvider.ZAI),
+        AiModel("glm-4.5", "GLM 4.5", "Z.ai", "Z.ai GLM 4.5.", ApiProvider.ZAI),
+        AiModel("glm-4.5-air", "GLM 4.5 Air", "Z.ai", "Lightweight GLM 4.5 Air.", ApiProvider.ZAI),
+        AiModel("glm-4.5-x", "GLM 4.5 X", "Z.ai", "GLM 4.5 X variant.", ApiProvider.ZAI),
+        AiModel("glm-4.5-flash", "GLM 4.5 Flash", "Z.ai", "Fast GLM 4.5 Flash.", ApiProvider.ZAI),
+        AiModel("glm-4-plus", "GLM 4 Plus", "Z.ai", "Z.ai GLM 4 Plus.", ApiProvider.ZAI),
+        AiModel("glm-4-air", "GLM 4 Air", "Z.ai", "Z.ai GLM 4 Air.", ApiProvider.ZAI),
+        AiModel("glm-4-airx", "GLM 4 AirX", "Z.ai", "Z.ai GLM 4 AirX.", ApiProvider.ZAI),
+        AiModel("glm-4-flash", "GLM 4 Flash", "Z.ai", "Fast Z.ai GLM 4 Flash.", ApiProvider.ZAI),
+        AiModel("glm-4v-plus", "GLM 4V Plus", "Z.ai", "Z.ai vision flagship.", ApiProvider.ZAI),
+        AiModel("glm-4v", "GLM 4V", "Z.ai", "Z.ai vision baseline.", ApiProvider.ZAI),
+        AiModel("glm-zero-preview", "GLM Zero (Preview)", "Z.ai", "Z.ai reasoning preview.", ApiProvider.ZAI),
+
+        // ──────────────────────────────────────────────────────────────
+        //  NVIDIA NIM (direct, integrate.api.nvidia.com/v1/chat/completions)
+        // ──────────────────────────────────────────────────────────────
+        AiModel("nvidia/llama-3.1-nemotron-ultra-253b-v1", "Llama 3.1 Nemotron Ultra 253B", "NVIDIA", "NVIDIA Nemotron Ultra reasoner.", ApiProvider.NvidiaNim),
+        AiModel("nvidia/llama-3.3-nemotron-super-49b-v1", "Llama 3.3 Nemotron Super 49B", "NVIDIA", "NVIDIA Nemotron Super 49B.", ApiProvider.NvidiaNim),
+        AiModel("nvidia/llama-3.1-nemotron-70b-instruct", "Llama 3.1 Nemotron 70B", "NVIDIA", "NVIDIA Nemotron 70B.", ApiProvider.NvidiaNim),
+        AiModel("nvidia/llama-3.1-nemotron-nano-8b-v1", "Llama 3.1 Nemotron Nano 8B", "NVIDIA", "NVIDIA Nemotron Nano 8B.", ApiProvider.NvidiaNim),
+        AiModel("nvidia/nemotron-nano-9b-v2", "Nemotron Nano 9B v2", "NVIDIA", "NVIDIA Nemotron Nano 9B v2.", ApiProvider.NvidiaNim),
+        AiModel("meta/llama-3.3-70b-instruct", "Llama 3.3 70B", "NVIDIA", "Meta Llama 3.3 70B on NIM.", ApiProvider.NvidiaNim),
+        AiModel("meta/llama-3.1-405b-instruct", "Llama 3.1 405B", "NVIDIA", "Meta Llama 3.1 405B on NIM.", ApiProvider.NvidiaNim),
+        AiModel("meta/llama-3.1-70b-instruct", "Llama 3.1 70B", "NVIDIA", "Meta Llama 3.1 70B on NIM.", ApiProvider.NvidiaNim),
+        AiModel("meta/llama-3.1-8b-instruct", "Llama 3.1 8B", "NVIDIA", "Meta Llama 3.1 8B on NIM.", ApiProvider.NvidiaNim),
+        AiModel("meta/llama-4-maverick-17b-128e-instruct", "Llama 4 Maverick", "NVIDIA", "Meta Llama 4 Maverick on NIM.", ApiProvider.NvidiaNim),
+        AiModel("meta/llama-4-scout-17b-16e-instruct", "Llama 4 Scout", "NVIDIA", "Meta Llama 4 Scout on NIM.", ApiProvider.NvidiaNim),
+        AiModel("deepseek-ai/deepseek-v3", "DeepSeek V3", "NVIDIA", "DeepSeek V3 on NIM.", ApiProvider.NvidiaNim),
+        AiModel("deepseek-ai/deepseek-r1", "DeepSeek R1", "NVIDIA", "DeepSeek R1 on NIM.", ApiProvider.NvidiaNim),
+        AiModel("qwen/qwen2.5-72b-instruct", "Qwen 2.5 72B", "NVIDIA", "Qwen 2.5 72B on NIM.", ApiProvider.NvidiaNim),
+        AiModel("qwen/qwen2.5-coder-32b-instruct", "Qwen 2.5 Coder 32B", "NVIDIA", "Qwen 2.5 Coder on NIM.", ApiProvider.NvidiaNim),
+        AiModel("mistralai/mixtral-8x22b-instruct-v0.1", "Mixtral 8x22B", "NVIDIA", "Mixtral 8x22B on NIM.", ApiProvider.NvidiaNim),
+        AiModel("mistralai/mistral-large-2-instruct", "Mistral Large 2", "NVIDIA", "Mistral Large 2 on NIM.", ApiProvider.NvidiaNim),
+        AiModel("microsoft/phi-4", "Microsoft Phi-4", "NVIDIA", "Microsoft Phi-4 on NIM.", ApiProvider.NvidiaNim),
+        AiModel("google/gemma-2-27b-it", "Gemma 2 27B", "NVIDIA", "Google Gemma 2 27B on NIM.", ApiProvider.NvidiaNim),
+
+        // ──────────────────────────────────────────────────────────────
+        //  Hugging Face Inference Providers (router.huggingface.co/v1/chat/completions)
+        // ──────────────────────────────────────────────────────────────
+        AiModel("meta-llama/Llama-3.3-70B-Instruct", "Llama 3.3 70B", "HuggingFace", "Llama 3.3 70B on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("meta-llama/Llama-3.1-70B-Instruct", "Llama 3.1 70B", "HuggingFace", "Llama 3.1 70B on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("meta-llama/Llama-3.1-8B-Instruct", "Llama 3.1 8B", "HuggingFace", "Llama 3.1 8B on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("meta-llama/Llama-4-Maverick-17B-128E-Instruct", "Llama 4 Maverick", "HuggingFace", "Llama 4 Maverick on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("meta-llama/Llama-4-Scout-17B-16E-Instruct", "Llama 4 Scout", "HuggingFace", "Llama 4 Scout on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("deepseek-ai/DeepSeek-V3", "DeepSeek V3", "HuggingFace", "DeepSeek V3 on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("deepseek-ai/DeepSeek-R1", "DeepSeek R1", "HuggingFace", "DeepSeek R1 on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("Qwen/Qwen2.5-72B-Instruct", "Qwen 2.5 72B", "HuggingFace", "Qwen 2.5 72B on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("Qwen/Qwen2.5-Coder-32B-Instruct", "Qwen 2.5 Coder 32B", "HuggingFace", "Qwen 2.5 Coder on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("Qwen/QwQ-32B", "Qwen QwQ 32B", "HuggingFace", "Qwen reasoning on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("mistralai/Mistral-Nemo-Instruct-2407", "Mistral Nemo", "HuggingFace", "Mistral Nemo on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("mistralai/Mixtral-8x7B-Instruct-v0.1", "Mixtral 8x7B", "HuggingFace", "Mixtral 8x7B on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("google/gemma-2-27b-it", "Gemma 2 27B", "HuggingFace", "Gemma 2 27B on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("microsoft/phi-4", "Microsoft Phi-4", "HuggingFace", "Microsoft Phi-4 on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("HuggingFaceH4/zephyr-7b-beta", "Zephyr 7B Beta", "HuggingFace", "Hugging Face Zephyr 7B.", ApiProvider.HuggingFace),
+        AiModel("openai/gpt-oss-120b", "GPT-OSS 120B", "HuggingFace", "OpenAI open-weight 120B on HF Inference.", ApiProvider.HuggingFace),
+        AiModel("openai/gpt-oss-20b", "GPT-OSS 20B", "HuggingFace", "OpenAI open-weight 20B on HF Inference.", ApiProvider.HuggingFace)
     )
 
     fun byProvider(provider: ApiProvider): List<AiModel> {
