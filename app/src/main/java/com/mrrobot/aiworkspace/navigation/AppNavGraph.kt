@@ -180,7 +180,7 @@ fun AppNavGraph() {
             }
 
             composable(Route.Chat.path) {
-                ChatScreen()
+                ChatScreen(navController = navController)
             }
 
             composable(Route.Agents.path) {

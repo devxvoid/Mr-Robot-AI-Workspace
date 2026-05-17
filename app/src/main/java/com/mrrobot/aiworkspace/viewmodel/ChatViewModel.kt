@@ -4,10 +4,14 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.mrrobot.aiworkspace.data.Agent
 import com.mrrobot.aiworkspace.data.AgentConfigStore
+import com.mrrobot.aiworkspace.data.AgentStore
 import com.mrrobot.aiworkspace.data.AppSettings
 import com.mrrobot.aiworkspace.data.ChatMessage
 import com.mrrobot.aiworkspace.data.ChatRepository
+import com.mrrobot.aiworkspace.data.HeartbeatManager
+import com.mrrobot.aiworkspace.data.MemoryCategory
 import com.mrrobot.aiworkspace.data.MemoryStore
 import com.mrrobot.aiworkspace.data.SettingsStore
 import kotlinx.coroutines.CancellationException
@@ -113,7 +117,14 @@ data class ChatUiState(
     val selectedAttachments: List<ChatAttachment> = emptyList(),
     val queuedFiles: Int = 0,
     val readableFiles: Int = 0,
-    val visionImages: Int = 0
+    val visionImages: Int = 0,
+
+    // ─── Brain state (agent / memory / soul / heartbeat) ───
+    val activeAgent: Agent? = null,
+    val memoryCount: Int = 0,
+    val hasCustomSoul: Boolean = false,
+    val heartbeatEnabled: Boolean = false,
+    val heartbeatRunning: Boolean = false
 ) {
     val userMessages: Int
         get() = messages.count { it.role == "user" }
@@ -124,9 +135,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsStore = SettingsStore(application.applicationContext)
     private val memoryStore = MemoryStore(application.applicationContext)
     private val agentConfigStore = AgentConfigStore(application.applicationContext)
+    private val agentStore = AgentStore(application.applicationContext)
+
     private val repository = ChatRepository(
         agentConfigStore = agentConfigStore,
-        memoryStore = memoryStore
+        memoryStore = memoryStore,
+        agentStore = agentStore
+    )
+
+    private val heartbeatManager = HeartbeatManager(
+        agentConfigStore = agentConfigStore,
+        memoryStore = memoryStore,
+        chatRepository = repository
     )
 
     private var activeJob: Job? = null
@@ -136,6 +156,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     init {
+        // Settings (provider/model/key)
         viewModelScope.launch {
             settingsStore.settingsFlow.collect { settings ->
                 activeSettings = settings
@@ -158,6 +179,50 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         .takeUnless { it.contains("OpenRouter", ignoreCase = true) }
                         .orEmpty()
                 )
+            }
+        }
+
+        // Active agent
+        viewModelScope.launch {
+            agentStore.activeAgentIdFlow.collect { activeId ->
+                val agent = if (activeId.isNullOrBlank()) {
+                    null
+                } else {
+                    agentStore.getActiveAgent()
+                }
+                _uiState.value = _uiState.value.copy(activeAgent = agent)
+            }
+        }
+
+        // Memory count
+        viewModelScope.launch {
+            memoryStore.memoriesFlow.collect { mems ->
+                _uiState.value = _uiState.value.copy(memoryCount = mems.size)
+            }
+        }
+
+        // Soul
+        viewModelScope.launch {
+            agentConfigStore.soulFlow.collect { soul ->
+                _uiState.value = _uiState.value.copy(
+                    hasCustomSoul = soul.customPrompt.isNotBlank()
+                )
+            }
+        }
+
+        // Heartbeat enabled
+        viewModelScope.launch {
+            agentConfigStore.heartbeatConfigFlow.collect { config ->
+                _uiState.value = _uiState.value.copy(
+                    heartbeatEnabled = config.enabled
+                )
+            }
+        }
+
+        // Auto-fire heartbeat if due whenever the chat opens (one shot)
+        viewModelScope.launch {
+            if (heartbeatManager.isHeartbeatDue() && activeSettings.hasActiveConfiguration()) {
+                runHeartbeatNow(silent = true)
             }
         }
     }
@@ -213,9 +278,208 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (prompt.isBlank() || current.isLoading) return
 
+        // Slash commands run locally — they don't hit the model.
+        if (handleSlashCommand(prompt)) {
+            _uiState.value = _uiState.value.copy(input = "")
+            return
+        }
+
         sendPrompt(
             prompt = prompt,
             appendUserMessage = true
+        )
+    }
+
+    /**
+     * Returns true if the input was a recognized slash command and was handled
+     * locally (i.e. the model should NOT be invoked).
+     *
+     * Supported commands:
+     *  - /remember <key> = <content>   → store a memory
+     *  - /forget <key>                 → delete a memory
+     *  - /memories                     → list stored memories
+     *  - /heartbeat                    → run heartbeat now
+     *  - /agent <name>                 → activate agent by partial name match
+     *  - /agent off                    → deactivate active agent
+     *  - /brain                        → show brain status
+     *  - /help                         → list commands
+     */
+    private fun handleSlashCommand(input: String): Boolean {
+        if (!input.startsWith("/")) return false
+
+        val parts = input.removePrefix("/").trim().split(Regex("\\s+"), limit = 2)
+        val cmd = parts.getOrNull(0)?.lowercase().orEmpty()
+        val arg = parts.getOrNull(1).orEmpty()
+
+        return when (cmd) {
+            "remember" -> {
+                val (key, content) = parseRememberArgs(arg)
+                if (key.isBlank() || content.isBlank()) {
+                    appendSystemReply(
+                        "Usage: `/remember <key> = <content>`\n" +
+                            "Example: `/remember user_timezone = America/Los_Angeles`"
+                    )
+                } else {
+                    viewModelScope.launch {
+                        memoryStore.store(
+                            key = key,
+                            content = content,
+                            category = MemoryCategory.GENERAL,
+                            source = "chat"
+                        )
+                        appendSystemReply("✅ Remembered **$key** → $content")
+                    }
+                }
+                true
+            }
+
+            "forget" -> {
+                val key = arg.trim()
+                if (key.isBlank()) {
+                    appendSystemReply("Usage: `/forget <key>`")
+                } else {
+                    viewModelScope.launch {
+                        val ok = memoryStore.forget(key)
+                        appendSystemReply(
+                            if (ok) "🗑️ Forgot **$key**"
+                            else "No memory with key **$key**"
+                        )
+                    }
+                }
+                true
+            }
+
+            "memories" -> {
+                viewModelScope.launch {
+                    val mems = memoryStore.getAll()
+                    val body = if (mems.isEmpty()) {
+                        "No memories stored yet. Use `/remember key = value` to add one."
+                    } else {
+                        buildString {
+                            append("**${mems.size} memories stored:**\n")
+                            mems.take(20).forEach { m ->
+                                append("• `").append(m.key).append("`")
+                                if (m.hitCount > 1) append(" (×").append(m.hitCount).append(")")
+                                append(": ").append(m.content.take(80))
+                                if (m.content.length > 80) append("…")
+                                append('\n')
+                            }
+                            if (mems.size > 20) {
+                                append("…and ").append(mems.size - 20).append(" more.")
+                            }
+                        }
+                    }
+                    appendSystemReply(body)
+                }
+                true
+            }
+
+            "heartbeat" -> {
+                runHeartbeatNow(silent = false)
+                true
+            }
+
+            "agent" -> {
+                val query = arg.trim()
+                viewModelScope.launch {
+                    when {
+                        query.isBlank() -> {
+                            val active = agentStore.getActiveAgent()
+                            appendSystemReply(
+                                if (active != null) {
+                                    "Active agent: ${active.iconEmoji} **${active.name}** (${active.role})"
+                                } else {
+                                    "No agent is active. Use `/agent <name>` to activate one."
+                                }
+                            )
+                        }
+                        query.equals("off", ignoreCase = true) -> {
+                            agentStore.setActiveAgentId(null)
+                            appendSystemReply("Agent deactivated.")
+                        }
+                        else -> {
+                            val all = com.mrrobot.aiworkspace.data.AgentCatalog.builtInAgents +
+                                agentStore.getCustomAgents()
+                            val match = all.firstOrNull {
+                                it.name.equals(query, ignoreCase = true)
+                            } ?: all.firstOrNull {
+                                it.name.contains(query, ignoreCase = true)
+                            }
+                            if (match != null) {
+                                agentStore.setActiveAgentId(match.id)
+                                appendSystemReply("Activated ${match.iconEmoji} **${match.name}**")
+                            } else {
+                                appendSystemReply("No agent matched \"$query\".")
+                            }
+                        }
+                    }
+                }
+                true
+            }
+
+            "brain" -> {
+                viewModelScope.launch {
+                    val active = agentStore.getActiveAgent()
+                    val mems = memoryStore.getAll()
+                    val soul = agentConfigStore.getSoul()
+                    val hb = agentConfigStore.getHeartbeatConfig()
+
+                    val body = buildString {
+                        append("## Brain status\n")
+                        append("• Agent: ")
+                        append(if (active != null) "${active.iconEmoji} ${active.name}" else "_none_")
+                        append('\n')
+                        append("• Memories: ").append(mems.size).append('\n')
+                        append("• Soul: ").append(if (soul.customPrompt.isBlank()) "default" else "custom").append('\n')
+                        append("• Heartbeat: ")
+                        if (hb.enabled) {
+                            append("on, every ").append(hb.intervalMinutes).append(" min ")
+                            append("(").append(hb.activeHoursStart).append(":00 → ")
+                                .append(hb.activeHoursEnd).append(":00)")
+                        } else {
+                            append("off")
+                        }
+                        append('\n')
+                    }
+                    appendSystemReply(body)
+                }
+                true
+            }
+
+            "help" -> {
+                appendSystemReply(
+                    """
+                    **Slash commands**
+                    • `/remember <key> = <content>` — store a memory
+                    • `/forget <key>` — delete a memory
+                    • `/memories` — list stored memories
+                    • `/agent <name>` — activate an agent (or `off` to deactivate)
+                    • `/heartbeat` — run a self-check now
+                    • `/brain` — show agent / memory / soul / heartbeat status
+                    • `/help` — this list
+                    """.trimIndent()
+                )
+                true
+            }
+
+            else -> false
+        }
+    }
+
+    private fun parseRememberArgs(raw: String): Pair<String, String> {
+        val eq = raw.indexOf('=')
+        if (eq <= 0) return "" to ""
+        val key = raw.substring(0, eq).trim()
+        val content = raw.substring(eq + 1).trim()
+        return key to content
+    }
+
+    private fun appendSystemReply(content: String) {
+        _uiState.value = _uiState.value.copy(
+            messages = _uiState.value.messages + ChatUiMessage(
+                role = "assistant",
+                content = content
+            )
         )
     }
 
@@ -268,6 +532,45 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             isLoading = false,
             error = "Generation stopped."
         )
+    }
+
+    fun deactivateAgent() {
+        viewModelScope.launch {
+            agentStore.setActiveAgentId(null)
+        }
+    }
+
+    fun runHeartbeatNow(silent: Boolean = false) {
+        val current = _uiState.value
+        if (current.heartbeatRunning) return
+        if (!activeSettings.hasActiveConfiguration()) {
+            if (!silent) appendSystemReply("Cannot run heartbeat: no active AI provider.")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(heartbeatRunning = true)
+            val entry = heartbeatManager.runHeartbeat(activeSettings)
+            _uiState.value = _uiState.value.copy(heartbeatRunning = false)
+
+            // Surface non-OK heartbeats in the chat. Suppress HEARTBEAT_OK to stay quiet.
+            val response = entry.response.orEmpty()
+            val isOk = response.contains("HEARTBEAT_OK", ignoreCase = true)
+
+            if (!silent) {
+                if (entry.success && response.isNotBlank() && !isOk) {
+                    appendSystemReply("💓 Heartbeat:\n\n$response")
+                } else if (!entry.success) {
+                    appendSystemReply("⚠️ Heartbeat failed: ${entry.error.orEmpty()}")
+                } else {
+                    appendSystemReply("💓 Heartbeat ran. All good.")
+                }
+            } else {
+                if (entry.success && response.isNotBlank() && !isOk) {
+                    appendSystemReply("💓 Background heartbeat:\n\n$response")
+                }
+            }
+        }
     }
 
     private fun sendPrompt(

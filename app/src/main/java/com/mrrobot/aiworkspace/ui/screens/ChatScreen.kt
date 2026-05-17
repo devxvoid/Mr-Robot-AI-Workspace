@@ -85,7 +85,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.mrrobot.aiworkspace.R
+import com.mrrobot.aiworkspace.navigation.Route
+import com.mrrobot.aiworkspace.ui.components.BrainStatusBanner
 import com.mrrobot.aiworkspace.viewmodel.ChatAttachment
 import com.mrrobot.aiworkspace.viewmodel.ChatUiMessage
 import com.mrrobot.aiworkspace.viewmodel.ChatViewModel
@@ -97,13 +100,16 @@ private val SuggestionPrompts = listOf(
     "Review my latest Android build errors and suggest fixes",
     "Refactor this Kotlin file for readability",
     "Write a Compose screen from a UI description",
-    "Summarize the attached document"
+    "/remember user_name = ",
+    "/agent Android Architect",
+    "/help"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    viewModel: ChatViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel(),
+    navController: NavController? = null
 ) {
     val state by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
@@ -249,6 +255,19 @@ fun ChatScreen(
                 assistantStatus = state.assistantStatus,
                 isReady = state.isProviderReady,
                 onClear = { viewModel.clearChat() }
+            )
+
+            BrainStatusBanner(
+                activeAgentEmoji = state.activeAgent?.iconEmoji,
+                activeAgentName = state.activeAgent?.name,
+                memoryCount = state.memoryCount,
+                hasCustomSoul = state.hasCustomSoul,
+                heartbeatEnabled = state.heartbeatEnabled,
+                heartbeatRunning = state.heartbeatRunning,
+                onAgentClick = { navController?.navigate(Route.Agents.path) },
+                onMemoriesClick = { navController?.navigate(Route.Memories.path) },
+                onSoulClick = { navController?.navigate(Route.SoulHeartbeat.path) },
+                onHeartbeatClick = { viewModel.runHeartbeatNow(silent = false) }
             )
 
             StatusStrip(

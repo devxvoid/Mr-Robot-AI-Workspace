@@ -9,7 +9,8 @@ import java.util.Calendar
  *  - Decide when a heartbeat is due (interval + active hours window).
  *  - Build the heartbeat user-message prompt (config + pending memories + promotion candidates).
  *  - Record results to a rolling log.
- *  - Respond using the currently active provider/model in the user's settings.
+ *  - Respond using the currently active provider/model in the user's settings,
+ *    composing the active agent + soul + memories into the system prompt.
  */
 class HeartbeatManager(
     private val agentConfigStore: AgentConfigStore,

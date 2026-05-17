@@ -1,11 +1,15 @@
 package com.mrrobot.aiworkspace.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.mrrobot.aiworkspace.data.Agent
 import com.mrrobot.aiworkspace.data.AgentCatalog
+import com.mrrobot.aiworkspace.data.AgentStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 data class AgentsUiState(
@@ -38,10 +42,25 @@ data class AgentsUiState(
         get() = allAgents.firstOrNull { it.id == activeAgentId }
 }
 
-class AgentsViewModel : ViewModel() {
+class AgentsViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val agentStore = AgentStore(application.applicationContext)
 
     private val _uiState = MutableStateFlow(AgentsUiState())
     val uiState: StateFlow<AgentsUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            agentStore.customAgentsFlow.collect { custom ->
+                _uiState.value = _uiState.value.copy(customAgents = custom)
+            }
+        }
+        viewModelScope.launch {
+            agentStore.activeAgentIdFlow.collect { activeId ->
+                _uiState.value = _uiState.value.copy(activeAgentId = activeId)
+            }
+        }
+    }
 
     fun selectAgent(agent: Agent) {
         _uiState.value = _uiState.value.copy(
@@ -58,17 +77,21 @@ class AgentsViewModel : ViewModel() {
     }
 
     fun activateAgent(agent: Agent) {
-        _uiState.value = _uiState.value.copy(
-            activeAgentId = agent.id,
-            savedMessage = "${agent.name} activated"
-        )
+        viewModelScope.launch {
+            agentStore.setActiveAgentId(agent.id)
+            _uiState.value = _uiState.value.copy(
+                savedMessage = "${agent.name} activated"
+            )
+        }
     }
 
     fun deactivateAgent() {
-        _uiState.value = _uiState.value.copy(
-            activeAgentId = null,
-            savedMessage = "Agent deactivated"
-        )
+        viewModelScope.launch {
+            agentStore.setActiveAgentId(null)
+            _uiState.value = _uiState.value.copy(
+                savedMessage = "Agent deactivated"
+            )
+        }
     }
 
     // ─── Create / Edit ───────────────────────────────────────────────
@@ -145,47 +168,50 @@ class AgentsViewModel : ViewModel() {
 
         val editing = state.editingAgent
 
-        if (editing != null && !editing.isBuiltIn) {
-            // Update existing custom agent
-            val updated = editing.copy(
-                name = state.editorName.trim(),
-                role = state.editorRole.trim().ifBlank { "Custom Agent" },
-                description = state.editorDescription.trim(),
-                systemPrompt = state.editorSystemPrompt.trim(),
-                skills = skills,
-                iconEmoji = state.editorEmoji.ifBlank { "\uD83E\uDD16" }
-            )
+        viewModelScope.launch {
+            if (editing != null && !editing.isBuiltIn) {
+                // Update existing custom agent
+                val updated = editing.copy(
+                    name = state.editorName.trim(),
+                    role = state.editorRole.trim().ifBlank { "Custom Agent" },
+                    description = state.editorDescription.trim(),
+                    systemPrompt = state.editorSystemPrompt.trim(),
+                    skills = skills,
+                    iconEmoji = state.editorEmoji.ifBlank { "\uD83E\uDD16" }
+                )
 
-            val updatedList = state.customAgents.map {
-                if (it.id == updated.id) updated else it
+                val updatedList = state.customAgents.map {
+                    if (it.id == updated.id) updated else it
+                }
+                agentStore.saveCustomAgents(updatedList)
+
+                _uiState.value = _uiState.value.copy(
+                    showCreateDialog = false,
+                    editingAgent = null,
+                    selectedAgent = updated,
+                    savedMessage = "${updated.name} updated"
+                )
+            } else {
+                // Create new agent
+                val newAgent = Agent(
+                    id = UUID.randomUUID().toString(),
+                    name = state.editorName.trim(),
+                    role = state.editorRole.trim().ifBlank { "Custom Agent" },
+                    description = state.editorDescription.trim(),
+                    systemPrompt = state.editorSystemPrompt.trim(),
+                    skills = skills,
+                    isBuiltIn = false,
+                    iconEmoji = state.editorEmoji.ifBlank { "\uD83E\uDD16" }
+                )
+
+                agentStore.saveCustomAgents(state.customAgents + newAgent)
+
+                _uiState.value = _uiState.value.copy(
+                    showCreateDialog = false,
+                    editingAgent = null,
+                    savedMessage = "${newAgent.name} created"
+                )
             }
-
-            _uiState.value = state.copy(
-                customAgents = updatedList,
-                showCreateDialog = false,
-                editingAgent = null,
-                selectedAgent = updated,
-                savedMessage = "${updated.name} updated"
-            )
-        } else {
-            // Create new agent
-            val newAgent = Agent(
-                id = UUID.randomUUID().toString(),
-                name = state.editorName.trim(),
-                role = state.editorRole.trim().ifBlank { "Custom Agent" },
-                description = state.editorDescription.trim(),
-                systemPrompt = state.editorSystemPrompt.trim(),
-                skills = skills,
-                isBuiltIn = false,
-                iconEmoji = state.editorEmoji.ifBlank { "\uD83E\uDD16" }
-            )
-
-            _uiState.value = state.copy(
-                customAgents = state.customAgents + newAgent,
-                showCreateDialog = false,
-                editingAgent = null,
-                savedMessage = "${newAgent.name} created"
-            )
         }
     }
 
@@ -194,16 +220,19 @@ class AgentsViewModel : ViewModel() {
 
         val state = _uiState.value
         val updatedCustom = state.customAgents.filter { it.id != agent.id }
-        val newActive = if (state.activeAgentId == agent.id) null else state.activeAgentId
-        val newSelected = if (state.selectedAgent?.id == agent.id) null else state.selectedAgent
 
-        _uiState.value = state.copy(
-            customAgents = updatedCustom,
-            activeAgentId = newActive,
-            selectedAgent = newSelected,
-            showDetailSheet = false,
-            savedMessage = "${agent.name} deleted"
-        )
+        viewModelScope.launch {
+            agentStore.saveCustomAgents(updatedCustom)
+            if (state.activeAgentId == agent.id) {
+                agentStore.setActiveAgentId(null)
+            }
+
+            _uiState.value = _uiState.value.copy(
+                selectedAgent = if (state.selectedAgent?.id == agent.id) null else state.selectedAgent,
+                showDetailSheet = false,
+                savedMessage = "${agent.name} deleted"
+            )
+        }
     }
 
     fun duplicateAgent(agent: Agent) {
@@ -216,10 +245,12 @@ class AgentsViewModel : ViewModel() {
             createdAt = System.currentTimeMillis()
         )
 
-        _uiState.value = state.copy(
-            customAgents = state.customAgents + clone,
-            savedMessage = "${clone.name} created"
-        )
+        viewModelScope.launch {
+            agentStore.saveCustomAgents(state.customAgents + clone)
+            _uiState.value = _uiState.value.copy(
+                savedMessage = "${clone.name} created"
+            )
+        }
     }
 
     // ─── Prompt generation ───────────────────────────────────────────
