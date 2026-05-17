@@ -4,9 +4,11 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.mrrobot.aiworkspace.data.AgentConfigStore
 import com.mrrobot.aiworkspace.data.AppSettings
 import com.mrrobot.aiworkspace.data.ChatMessage
 import com.mrrobot.aiworkspace.data.ChatRepository
+import com.mrrobot.aiworkspace.data.MemoryStore
 import com.mrrobot.aiworkspace.data.SettingsStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -120,7 +122,12 @@ data class ChatUiState(
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settingsStore = SettingsStore(application.applicationContext)
-    private val repository = ChatRepository()
+    private val memoryStore = MemoryStore(application.applicationContext)
+    private val agentConfigStore = AgentConfigStore(application.applicationContext)
+    private val repository = ChatRepository(
+        agentConfigStore = agentConfigStore,
+        memoryStore = memoryStore
+    )
 
     private var activeJob: Job? = null
     private var activeSettings: AppSettings = AppSettings()

@@ -15,7 +15,8 @@ object ProviderChatClient {
 
     suspend fun generateReply(
         settings: AppSettings,
-        messages: List<ChatMessage>
+        messages: List<ChatMessage>,
+        systemPrompt: String? = null
     ): String = withContext(Dispatchers.IO) {
         val apiKey = settings.activeApiKey()
         val provider = settings.selectedProvider
@@ -25,12 +26,16 @@ object ProviderChatClient {
             throw IllegalStateException("No active AI model. Open Settings, add an API key, then tap Save & Activate.")
         }
 
+        val effectiveSystemPrompt = systemPrompt?.takeIf { it.isNotBlank() }
+            ?: DEFAULT_SYSTEM_PROMPT
+
         when (provider) {
             ApiProvider.OpenRouter -> openAiCompatible(
                 url = "https://openrouter.ai/api/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
                 messages = messages,
+                systemPrompt = effectiveSystemPrompt,
                 extraHeaders = mapOf(
                     "HTTP-Referer" to "https://github.com/devxvoid/Mr-Robot-AI-Workspace",
                     "X-Title" to "Mr. Robot AI Workspace"
@@ -41,112 +46,131 @@ object ProviderChatClient {
                 url = "https://api.openai.com/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.Groq -> openAiCompatible(
                 url = "https://api.groq.com/openai/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.Mistral -> openAiCompatible(
                 url = "https://api.mistral.ai/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.DeepSeek -> openAiCompatible(
                 url = "https://api.deepseek.com/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.XAI -> openAiCompatible(
                 url = "https://api.x.ai/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.Cohere -> openAiCompatible(
                 url = "https://api.cohere.com/compatibility/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.Perplexity -> openAiCompatible(
                 url = "https://api.perplexity.ai/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.Together -> openAiCompatible(
                 url = "https://api.together.xyz/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.Fireworks -> openAiCompatible(
                 url = "https://api.fireworks.ai/inference/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.Moonshot -> openAiCompatible(
                 url = "https://api.moonshot.ai/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.ZAI -> openAiCompatible(
                 url = "https://api.z.ai/api/paas/v4/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.NvidiaNim -> openAiCompatible(
                 url = "https://integrate.api.nvidia.com/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.HuggingFace -> openAiCompatible(
                 url = "https://router.huggingface.co/v1/chat/completions",
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.Anthropic -> anthropic(
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
 
             ApiProvider.Gemini -> gemini(
                 apiKey = apiKey,
                 model = model,
-                messages = messages
+                messages = messages,
+                systemPrompt = effectiveSystemPrompt
             )
         }
     }
+
+    private const val DEFAULT_SYSTEM_PROMPT =
+        "You are ALPHA inside Mr. Robot AI Workspace. Be precise, practical, and helpful."
 
     private fun openAiCompatible(
         url: String,
         apiKey: String,
         model: String,
         messages: List<ChatMessage>,
+        systemPrompt: String,
         extraHeaders: Map<String, String> = emptyMap()
     ): String {
         val jsonMessages = JSONArray()
@@ -154,7 +178,7 @@ object ProviderChatClient {
         jsonMessages.put(
             JSONObject()
                 .put("role", "system")
-                .put("content", "You are ALPHA inside Mr. Robot AI Workspace. Be precise, practical, and helpful.")
+                .put("content", systemPrompt)
         )
 
         messages.forEach { message ->
@@ -191,7 +215,8 @@ object ProviderChatClient {
     private fun anthropic(
         apiKey: String,
         model: String,
-        messages: List<ChatMessage>
+        messages: List<ChatMessage>,
+        systemPrompt: String
     ): String {
         val anthropicMessages = JSONArray()
 
@@ -208,6 +233,7 @@ object ProviderChatClient {
         val payload = JSONObject()
             .put("model", model)
             .put("max_tokens", 1200)
+            .put("system", systemPrompt)
             .put("messages", anthropicMessages)
 
         val response = postJson(
@@ -230,11 +256,15 @@ object ProviderChatClient {
     private fun gemini(
         apiKey: String,
         model: String,
-        messages: List<ChatMessage>
+        messages: List<ChatMessage>,
+        systemPrompt: String
     ): String {
-        val prompt = messages.joinToString(separator = "\n\n") { message ->
-            "${message.role.uppercase()}: ${message.content}"
-        }
+        val prompt = buildString {
+            append("SYSTEM: ").append(systemPrompt).append("\n\n")
+            messages.forEach { message ->
+                append(message.role.uppercase()).append(": ").append(message.content).append("\n\n")
+            }
+        }.trim()
 
         val endpoint =
             "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=" +

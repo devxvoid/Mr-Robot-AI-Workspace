@@ -22,9 +22,11 @@ import com.mrrobot.aiworkspace.ui.screens.AgentsScreen
 import com.mrrobot.aiworkspace.ui.screens.ChatScreen
 import com.mrrobot.aiworkspace.ui.screens.FileManagerScreen
 import com.mrrobot.aiworkspace.ui.screens.MarketplaceScreen
+import com.mrrobot.aiworkspace.ui.screens.MemoriesScreen
 import com.mrrobot.aiworkspace.ui.screens.MoreScreen
 import com.mrrobot.aiworkspace.ui.screens.ProfileScreen
 import com.mrrobot.aiworkspace.ui.screens.SettingsScreen
+import com.mrrobot.aiworkspace.ui.screens.SoulHeartbeatScreen
 import com.mrrobot.aiworkspace.ui.screens.TerminalScreen
 import com.mrrobot.aiworkspace.ui.screens.WelcomeScreen
 import com.mrrobot.aiworkspace.ui.screens.WorkflowScreen
@@ -92,6 +94,18 @@ sealed class Route(
         path = "profile",
         label = "Profile",
         iconRes = R.drawable.ic_lucide_user
+    )
+
+    object Memories : Route(
+        path = "memories",
+        label = "Memories",
+        iconRes = R.drawable.ic_lucide_sparkles
+    )
+
+    object SoulHeartbeat : Route(
+        path = "soul-heartbeat",
+        label = "Soul",
+        iconRes = R.drawable.ic_lucide_cpu
     )
 }
 
@@ -200,6 +214,14 @@ fun AppNavGraph() {
             composable(Route.Profile.path) {
                 ProfileScreen()
             }
+
+            composable(Route.Memories.path) {
+                MemoriesScreen()
+            }
+
+            composable(Route.SoulHeartbeat.path) {
+                SoulHeartbeatScreen()
+            }
         }
     }
 }
@@ -215,7 +237,9 @@ private fun isBottomItemSelected(
         Route.Files.path,
         Route.Market.path,
         Route.Settings.path,
-        Route.Profile.path
+        Route.Profile.path,
+        Route.Memories.path,
+        Route.SoulHeartbeat.path
     )
 
     return route == Route.More && currentRoute in moreRoutes

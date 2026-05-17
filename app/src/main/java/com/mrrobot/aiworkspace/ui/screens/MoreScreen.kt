@@ -40,6 +40,22 @@ fun MoreScreen(navController: NavController) {
                 Spacer(Modifier.height(14.dp))
 
                 MoreCard(
+                    iconRes = Route.Memories.iconRes,
+                    title = "Memories",
+                    subtitle = "Persistent facts, preferences, and learnings the AI remembers across chats.",
+                    button = "Open Memories",
+                    onClick = { navController.navigate(Route.Memories.path) }
+                )
+
+                MoreCard(
+                    iconRes = Route.SoulHeartbeat.iconRes,
+                    title = "Soul & Heartbeat",
+                    subtitle = "Customize the AI persona and configure autonomous self-checks.",
+                    button = "Open Soul & Heartbeat",
+                    onClick = { navController.navigate(Route.SoulHeartbeat.path) }
+                )
+
+                MoreCard(
                     iconRes = Route.Terminal.iconRes,
                     title = "Live Terminal",
                     subtitle = "View simulated build logs and command output.",
