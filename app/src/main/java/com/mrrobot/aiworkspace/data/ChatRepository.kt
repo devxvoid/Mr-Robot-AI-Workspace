@@ -6,15 +6,18 @@ data class ChatMessage(
 )
 
 /**
- * Repository for sending chat messages. Optionally composes the system prompt from
- * the user's "soul" + persistent memories before dispatching to [ProviderChatClient].
+ * Repository for sending chat messages. Composes the system prompt from:
+ *   1. Active agent (from [AgentStore])
+ *   2. User's "soul" (from [AgentConfigStore])
+ *   3. Persistent memories (from [MemoryStore])
  *
- * Pass an [AgentConfigStore] + [MemoryStore] to enable persona / memory injection.
- * Without them the call falls back to a built-in default system prompt.
+ * Pass [agentConfigStore], [memoryStore], and [agentStore] to enable the full
+ * brain. Without them, the call falls back to a built-in default system prompt.
  */
 class ChatRepository(
     private val agentConfigStore: AgentConfigStore? = null,
-    private val memoryStore: MemoryStore? = null
+    private val memoryStore: MemoryStore? = null,
+    private val agentStore: AgentStore? = null
 ) {
 
     suspend fun sendMessage(
@@ -50,9 +53,18 @@ class ChatRepository(
         )
     }
 
-    private suspend fun buildSystemPrompt(): String? {
+    /**
+     * Build the composed system prompt. Returns null if no stores are wired
+     * (caller falls back to ProviderChatClient's built-in default).
+     */
+    suspend fun buildSystemPrompt(): String? {
         val soul = agentConfigStore?.getSoul() ?: return null
         val memories = memoryStore?.getAll().orEmpty()
-        return SystemPromptBuilder.build(soul = soul, memories = memories)
+        val activeAgent = agentStore?.getActiveAgent()
+        return SystemPromptBuilder.build(
+            soul = soul,
+            memories = memories,
+            activeAgent = activeAgent
+        )
     }
 }
