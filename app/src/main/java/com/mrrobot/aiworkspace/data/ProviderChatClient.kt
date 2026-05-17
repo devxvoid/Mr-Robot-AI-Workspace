@@ -72,6 +72,62 @@ object ProviderChatClient {
                 messages = messages
             )
 
+            ApiProvider.Cohere -> openAiCompatible(
+                url = "https://api.cohere.com/compatibility/v1/chat/completions",
+                apiKey = apiKey,
+                model = model,
+                messages = messages
+            )
+
+            ApiProvider.Perplexity -> openAiCompatible(
+                url = "https://api.perplexity.ai/chat/completions",
+                apiKey = apiKey,
+                model = model,
+                messages = messages
+            )
+
+            ApiProvider.Together -> openAiCompatible(
+                url = "https://api.together.xyz/v1/chat/completions",
+                apiKey = apiKey,
+                model = model,
+                messages = messages
+            )
+
+            ApiProvider.Fireworks -> openAiCompatible(
+                url = "https://api.fireworks.ai/inference/v1/chat/completions",
+                apiKey = apiKey,
+                model = model,
+                messages = messages
+            )
+
+            ApiProvider.Moonshot -> openAiCompatible(
+                url = "https://api.moonshot.ai/v1/chat/completions",
+                apiKey = apiKey,
+                model = model,
+                messages = messages
+            )
+
+            ApiProvider.ZAI -> openAiCompatible(
+                url = "https://api.z.ai/api/paas/v4/chat/completions",
+                apiKey = apiKey,
+                model = model,
+                messages = messages
+            )
+
+            ApiProvider.NvidiaNim -> openAiCompatible(
+                url = "https://integrate.api.nvidia.com/v1/chat/completions",
+                apiKey = apiKey,
+                model = model,
+                messages = messages
+            )
+
+            ApiProvider.HuggingFace -> openAiCompatible(
+                url = "https://router.huggingface.co/v1/chat/completions",
+                apiKey = apiKey,
+                model = model,
+                messages = messages
+            )
+
             ApiProvider.Anthropic -> anthropic(
                 apiKey = apiKey,
                 model = model,
