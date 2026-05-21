@@ -48,11 +48,10 @@ private val WarmDarkScheme = darkColorScheme(
     outline = Color(0xFF4E4540)
 )
 
-private val CyberScheme = lightColorScheme(
-    primary = Color(0xFF007D89),
+private val CyberScheme = lightColorScheme(\n primary = Color(0xFF6200EE),\n secondary = Color(0xFF7257A8),\n tertiary = Color(0xFF0F766E),\n background = Color(0xFF121212),\n surface = Color(0xFF1E1E1E),\n surfaceVariant = Color(0xFF24211F),\n onPrimary = Color.White,\n onSecondary = Color.White,\n onTertiary = Color.White,\n onBackground = Color.White,\n onSurface = Color.White,\n onSurfaceVariant = Color(0xFF475569),\n outline = Color(0xFFCBD5E1)\n)
     secondary = Color(0xFF7257A8),
     tertiary = Color(0xFF0F766E),
-    background = Color(0xFFF8FAFC),
+    background = Color(0xFF121212),
     surface = Color(0xFFFFFFFF),
     surfaceVariant = Color(0xFFEFF6FF),
     onPrimary = Color.White,
